@@ -20,7 +20,8 @@ describe("UsuarioController", () => {
         } as any;
         
         imagenService = {
-            uploadToCloudinary: jest.fn().mockResolvedValue('http://example.com/fake.jpg')
+            uploadToCloudinary: jest.fn().mockResolvedValue('http://example.com/fake.jpg'),
+            uploadFromUrl: jest.fn().mockResolvedValue('http://example.com/fake.jpg')
         };
         controller = new UsuarioController(service, imagenService);
 

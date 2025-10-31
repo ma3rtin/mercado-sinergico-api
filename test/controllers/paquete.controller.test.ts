@@ -44,11 +44,11 @@ describe("PaqueteController", () => {
     };
   });
 
-  // it.skip("deberia crear un paquete y devolver estado 201 con el paquete creado", async () => {
-  //   await controller.create(req, res);
+  it.skip("deberia crear un paquete y devolver estado 201 con el paquete creado", async () => {
+    await controller.create(req, res);
     
-  //   expect(res.status).toHaveBeenCalledWith(201);
-  //   expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ id_paquete: 1 }));
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ id_paquete: 1 }));
 
-  // });
+  });
 });

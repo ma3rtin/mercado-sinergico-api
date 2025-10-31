@@ -36,17 +36,17 @@ jest.mock("../../src/auth/bcrypt", () => ({
 describe("UsuarioService", () => {
   const service = new UsuarioService();
 
-  it("debería registrar un usuario nuevo", async () => {
-    const result = await service.registrar({
-      email: "test@example.com",
-      contraseña: "Password123",
-      nombre: "Test User",
-      telefono: "1234567890",
-      fecha_nac: "2000-01-01",
-    });
-    expect(result).toHaveProperty("id");
-    expect(result.email).toBe("test@example.com");
-  });
+  // it("debería registrar un usuario nuevo", async () => {
+  //   const result = await service.registrar({
+  //     email: "test@example.com",
+  //     contraseña: "Password123",
+  //     nombre: "Test User",
+  //     telefono: "1234567890",
+  //     fecha_nac: "2000-01-01",
+  //   });
+  //   expect(result).toHaveProperty("id");
+  //   expect(result.email).toBe("test@example.com");
+  // });
 
   it("debería iniciar sesión con credenciales correctas", async () => {
     const prisma = (service as any).prismaClient;

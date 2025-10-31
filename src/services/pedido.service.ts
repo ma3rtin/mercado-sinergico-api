@@ -28,7 +28,7 @@ export class PedidoService {
 
         for (const cp of carrito.paquetes) {
           const paquetePublicado = await tx.paquetePublicado.findFirst({
-            where: { paqueteBaseId: cp.paqueteBaseId },
+            where: { paqueteBaseId: cp.paquetePublicadoId },
           });
 
           if (paquetePublicado) {
@@ -41,7 +41,7 @@ export class PedidoService {
           }
         }
         await tx.carritoProducto.deleteMany({ where: { carritoId: carrito.id_carrito } });
-        await tx.carritoPaqueteBase.deleteMany({ where: { carritoId: carrito.id_carrito } });
+        await tx.carritoPaquetePublicado.deleteMany({ where: { carritoId: carrito.id_carrito } });
 
         return pedido;
       });
