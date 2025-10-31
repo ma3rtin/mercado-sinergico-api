@@ -1,13 +1,16 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/app.js",
   "scripts": {
     "test": "jest --detectOpenHandles --forceExit",
     "dev": "tsnd --respawn --clear src/app.ts",
     "build": "rimraf ./dist && prisma generate && tsc",
-    "start": "npm run build && node dist/app.js",
+    "start": "node dist/app.js",
     "lint": "eslint src/**/*.ts --fix"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [],
   "author": "",
