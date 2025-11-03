@@ -8,6 +8,7 @@ export const envs = {
   FIREBASE_PROJECT_ID: get('FIREBASE_PROJECT_ID').required().asString(),
   FIREBASE_PRIVATE_KEY: get('FIREBASE_PRIVATE_KEY').required().asString(),
   FIREBASE_CLIENT_EMAIL: get('FIREBASE_CLIENT_EMAIL').required().asString(),
+  FRONTEND_URL: get('FRONTEND_URL').required().asString(),
 };
 
 cloudinary.config({
