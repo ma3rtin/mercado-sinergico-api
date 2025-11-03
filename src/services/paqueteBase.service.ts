@@ -1,6 +1,6 @@
 import { AgregarProductoPaqueteDTO } from '../dtos/agregarProductoPaquete.dto';
 import { PaqueteBaseDTO } from '../dtos/paqueteBase.dto';
-import { PrismaClient } from '../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 export class PaqueteBaseService {
   private prisma = new PrismaClient();

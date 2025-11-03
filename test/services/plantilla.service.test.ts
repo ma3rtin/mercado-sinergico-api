@@ -13,7 +13,7 @@ const mockOpcionUpdate = jest.fn();
 const mockOpcionCreate = jest.fn();
 const mockPlantillaFindUnique = jest.fn();
 
-jest.mock("../../src/generated/prisma", () => {
+jest.mock("@prisma/client", () => {
     return {
         PrismaClient: jest.fn().mockImplementation(() => ({
             $transaction: mockTransaction,

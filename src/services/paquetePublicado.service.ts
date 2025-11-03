@@ -1,6 +1,6 @@
 import { PaquetePublicadoDTO } from '../dtos/paquetePublicado.dto';
 import { PaquetePublicadoUpdateDTO } from '../dtos/paquetePublicadoUpdate.dto';
-import { PrismaClient } from '../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 export class PaquetePublicadoService {
   private prisma = new PrismaClient();

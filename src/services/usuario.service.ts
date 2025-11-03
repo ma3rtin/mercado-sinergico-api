@@ -3,7 +3,7 @@ import { crearToken } from "../auth/jwt";
 import { DireccionDTO } from "../dtos/direccion.dto";
 import { LoginDTO } from "../dtos/login.dto";
 import { UsuarioDTO } from "../dtos/usuario/usuario.dto";
-import { Direccion, PrismaClient, Usuario } from "../generated/prisma";
+import { Direccion, PrismaClient, Usuario } from "@prisma/client";
 import { CustomError } from "../errors/custom.error";
 import { UsuarioUpdateDTO } from "../dtos/usuario/usuarioUpdate.dto";
 import { FirebaseUser } from "../middlewares/firebaseAuth.middleware";

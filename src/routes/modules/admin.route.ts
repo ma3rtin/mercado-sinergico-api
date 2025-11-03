@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { PrismaClient, Zona } from '../../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { rolMiddleware } from '../../middlewares/auth.middleware';
 import { validarDto } from '../../middlewares/validateDTO.middleware';
 import { PaqueteBaseDTO } from '../../dtos/paqueteBase.dto';

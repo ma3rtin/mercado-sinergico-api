@@ -14,7 +14,7 @@ const mockPaqueteBaseProductoDeleteMany = jest.fn();
 const mockProductoImagenDeleteMany = jest.fn();
 const mockTransaction = jest.fn();
 
-jest.mock("../../src/generated/prisma", () => {
+jest.mock("@prisma/client", () => {
   return {
     PrismaClient: jest.fn().mockImplementation(() => ({
       producto: {

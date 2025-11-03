@@ -1,7 +1,7 @@
 import { UsuarioService } from "../../src/services/usuario.service";
 
 // Mock de Prisma
-jest.mock("../../src/generated/prisma", () => {
+jest.mock("@prisma/client", () => {
   return {
     PrismaClient: jest.fn().mockImplementation(() => ({
       usuario: {

@@ -1,5 +1,5 @@
 import { ZonaDTO } from '../dtos/zona.dto';
-import { PrismaClient } from '../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 export class ZonaService {
   private prisma = new PrismaClient();

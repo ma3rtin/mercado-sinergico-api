@@ -1,7 +1,7 @@
 import { PaqueteBaseService } from "../../src/services/paqueteBase.service";
 import { PaqueteBaseDTO } from "../../src/dtos/paqueteBase.dto";
 
-jest.mock("../../src/generated/prisma", () => {
+jest.mock("@prisma/client", () => {
   return {
     PrismaClient: jest.fn().mockImplementation(() => ({
       $transaction: jest.fn().mockImplementation(async (callback) => {

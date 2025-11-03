@@ -1,5 +1,5 @@
 import { ProductoDTO } from '../dtos/producto.dto';
-import { PrismaClient, Producto } from '../generated/prisma';
+import { PrismaClient, Producto } from '@prisma/client';
 
 export class ProductoService {
   private prisma = new PrismaClient();
