@@ -110,18 +110,19 @@ INSERT INTO opcion (nombre, caracteristicaId) VALUES
 
 
 -- ============================ USUARIO ============================
+-- 👤 Usuario admin
 INSERT INTO usuario 
 (email, nombre, contraseña, telefono, fecha_nac, imagen_url, rolId, createdAt, updatedAt)
 VALUES
 ('admin@admin.com', 'Administrador', 'admin123', '1122334455', '1990-01-01', 
-'https://example.com/admin-avatar.jpg', 1, NOW(), NOW());
+'https://img.freepik.com/free-psd/3d-illustration-bald-person-with-glasses_23-2149436184.jpg?semt=ais_incoming&w=740&q=80', 1, NOW(), NOW());
 
 -- 👤 Usuario cliente
 INSERT INTO usuario 
 (email, nombre, contraseña, telefono, fecha_nac, imagen_url, rolId, createdAt, updatedAt)
 VALUES
 ('juanperez@example.com', 'Juan Pérez', 'clave123', '1199887766', '1995-05-15', 
-'https://example.com/juan-avatar.jpg', 2, NOW(), NOW());
+'https://img.freepik.com/psd-gratuit/illustration-3d-personne-lunettes-soleil_23-2149436188.jpg?semt=ais_hybrid&w=740&q=80', 2, NOW(), NOW());
 
 -- ============================ ROL ============================
 INSERT INTO rol (nombre) 
@@ -191,7 +192,8 @@ VALUES
 ("Deportes y Fitness"),
 ("Alimentos y Bebidas");
 
--- 1️⃣1️⃣ Marca
+
+-- ============================ MARCA ============================
 INSERT INTO marca (nombre, updatedAt)
 VALUES
 ("Apple", NOW()),
@@ -207,54 +209,54 @@ VALUES
 INSERT INTO producto 
 (nombre, descripcion, precio, imagen_url, marca_id, categoria_id, plantillaId, stock, altura, ancho, profundidad, peso, createdAt, updatedAt)
 VALUES
-('iPhone 14', 'Smartphone de Apple con pantalla de 6.1", 128 GB y chip A15 Bionic.', 1200.00, 'https://example.com/iphone14.jpg', 1, 4, 1, 50, 14.7, 7.1, 0.8, 0.17, NOW(), NOW()),
-('Samsung Galaxy S23', 'Smartphone Samsung con 256 GB de almacenamiento y cámara triple.', 1100.00, 'https://example.com/galaxy-s23.jpg', 2, 4, 1, 40, 15.0, 7.2, 0.8, 0.18, NOW(), NOW()),
-('Sony Xperia 10 V', 'Celular Sony con pantalla OLED de 6.1" y batería de 5000 mAh.', 800.00, 'https://example.com/xperia10v.jpg', 3, 4, 1, 35, 15.2, 7.1, 0.8, 0.16, NOW(), NOW());
+('iPhone 14', 'Smartphone de Apple con pantalla de 6.1", 128 GB y chip A15 Bionic.', 1200.00, 'https://i5.walmartimages.com/seo/Pre-Owned-Apple-iPhone-14-Pro-256GB-Deep-Purple-Unlocked-MQ1D3LL-A-Refurbished-Good_36eab993-bd5b-4b25-bb56-08d46551b7b7.516c6b9965ca06d0641ea70de9326a27.jpeg', 1, 4, 1, 50, 14.7, 7.1, 0.8, 0.17, NOW(), NOW()),
+('Samsung Galaxy S23', 'Smartphone Samsung con 256 GB de almacenamiento y cámara triple.', 1100.00, 'https://http2.mlstatic.com/D_848869-CBT90467223350_082025-C.jpg', 2, 4, 1, 40, 15.0, 7.2, 0.8, 0.18, NOW(), NOW()),
+('Sony Xperia 10 V', 'Celular Sony con pantalla OLED de 6.1" y batería de 5000 mAh.', 800.00, 'https://images-cdn.ubuy.co.in/66faadc7e1426368995da054-sony-xperia-10-v-xq-dc72-5g-dual-128gb.jpg', 3, 4, 1, 35, 15.2, 7.1, 0.8, 0.16, NOW(), NOW());
 
 -- Televisores (Plantilla 2, Categoría: Televisores)
 INSERT INTO producto 
 (nombre, descripcion, precio, imagen_url, marca_id, categoria_id, plantillaId, stock, altura, ancho, profundidad, peso, createdAt, updatedAt)
 VALUES
-('LG OLED C3 55"', 'Televisor OLED de 55" con resolución 4K y soporte Dolby Vision.', 1800.00, 'https://example.com/lg-oled-c3.jpg', 4, 3, 2, 25, 70.0, 123.0, 5.0, 18.0, NOW(), NOW()),
-('Samsung QLED Q60C 50"', 'Televisor QLED de 50" con Quantum HDR y SmartThings integrado.', 1500.00, 'https://example.com/samsung-qled-q60c.jpg', 2, 3, 2, 30, 65.0, 112.0, 5.5, 16.5, NOW(), NOW()),
-('Philips 43PUS8008', 'Televisor LED 4K UHD de 43" con Ambilight y Android TV.', 1000.00, 'https://example.com/philips-43pus8008.jpg', 5, 3, 2, 40, 55.0, 96.0, 5.0, 13.0, NOW(), NOW());
+('LG OLED C3 55"', 'Televisor OLED de 55" con resolución 4K y soporte Dolby Vision.', 1800.00, 'https://www.lg.com/content/dam/channel/wcms/mx/images/televisores/oled55c3psa_awm_enms_mx_c/gallery/large06.jpg', 4, 3, 2, 25, 70.0, 123.0, 5.0, 18.0, NOW(), NOW()),
+('Samsung QLED Q60C 50"', 'Televisor QLED de 50" con Quantum HDR y SmartThings integrado.', 1500.00, 'https://http2.mlstatic.com/D_NQ_NP_890431-MLU70332220536_072023-O.webp', 2, 3, 2, 30, 65.0, 112.0, 5.5, 16.5, NOW(), NOW()),
+('Philips 43PUS8008', 'Televisor LED 4K UHD de 43" con Ambilight y Android TV.', 1000.00, 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTaqu-K9cZ2B7O7q_5s0qDuD78PC2l8_323oA&s', 5, 3, 2, 40, 55.0, 96.0, 5.0, 13.0, NOW(), NOW());
 
 -- Notebooks (Plantilla 3, Categoría: Tecnología)
 INSERT INTO producto 
 (nombre, descripcion, precio, imagen_url, marca_id, categoria_id, plantillaId, stock, altura, ancho, profundidad, peso, createdAt, updatedAt)
 VALUES
-('MacBook Air M2', 'Notebook de Apple con chip M2, pantalla Retina y 8 GB de RAM.', 1900.00, 'https://example.com/macbook-air-m2.jpg', 1, 4, 3, 20, 1.1, 30.0, 21.0, 1.24, NOW(), NOW()),
-('HP Pavilion 15', 'Notebook HP con procesador Intel i5 y SSD de 512 GB.', 950.00, 'https://example.com/hp-pavilion15.jpg', 6, 4, 3, 25, 1.9, 36.0, 24.0, 1.80, NOW(), NOW()),
-('Lenovo IdeaPad 3', 'Notebook Lenovo con AMD Ryzen 5, 8 GB de RAM y 256 GB SSD.', 800.00, 'https://example.com/lenovo-ideapad3.jpg', 6, 4, 3, 30, 1.9, 36.0, 24.0, 1.65, NOW(), NOW());
+('MacBook Air M2', 'Notebook de Apple con chip M2, pantalla Retina y 8 GB de RAM.', 1900.00, 'https://http2.mlstatic.com/D_NQ_NP_663606-MLA78669752141_082024-O.webp', 1, 4, 3, 20, 1.1, 30.0, 21.0, 1.24, NOW(), NOW()),
+('HP Pavilion 15', 'Notebook HP con procesador Intel i5 y SSD de 512 GB.', 950.00, 'https://i5.walmartimages.com/seo/HP-Pavilion-13-3-FHD-Intel-Core-i3-8GB-RAM-128GB-SSD-Silver_906cf222-d138-430a-8146-d129b0cca3a2_2.f838f300a6e31f50074faf4091a1da7b.jpeg', 6, 4, 3, 25, 1.9, 36.0, 24.0, 1.80, NOW(), NOW()),
+('Lenovo IdeaPad 3', 'Notebook Lenovo con AMD Ryzen 5, 8 GB de RAM y 256 GB SSD.', 800.00, 'https://i5.walmartimages.com/seo/Lenovo-Ideapad-3-14-FHD-PC-Laptop-Intel-Core-i5-1035G1-8GB-RAM-512GB-SSD-Windows-10-Platinum-Grey-81WD00U9US_9317fa66-4c9e-428b-a5af-3a5fa4bf83e4.671500b5675cb39cf9cd175540acd0d2.jpeg', 6, 4, 3, 30, 1.9, 36.0, 24.0, 1.65, NOW(), NOW());
 
 
 -- ============================ PRODUCTOIMAGEN ============================
 -- 📱 Celulares
 INSERT INTO productoimagen (url, productoId, createdAt) VALUES
-('https://example.com/iphone14-front.jpg', 1, NOW()),
-('https://example.com/iphone14-back.jpg', 1, NOW()),
-('https://example.com/galaxy-s23-front.jpg', 2, NOW()),
-('https://example.com/galaxy-s23-back.jpg', 2, NOW()),
-('https://example.com/xperia10v-front.jpg', 3, NOW()),
-('https://example.com/xperia10v-side.jpg', 3, NOW());
+('https://es.t-mobile.com/sdscene7/is/image/Tmusprod/Apple-iPhone-14-Midnight-leftimage', 1, NOW()),
+('https://www.macstation.com.ar/web/image/product.template/63145/image_1024?unique=458b3d2', 1, NOW()),
+('https://m-cdn.phonearena.com/images/phones/83817-940/Samsung-Galaxy-S23-Ultra.jpg?w=1', 2, NOW()),
+('https://tienda.claro.com.ar/staticContent/Claro/images/catalog/productos/646x1000/70011154_3.webp', 2, NOW()),
+('https://www.stuff.tv/wp-content/uploads/sites/2/2023/08/Sony-Xperia-10-V-front.jpg', 3, NOW()),
+('https://images.expertreviews.co.uk/wp-content/uploads/2023/10/Xperia-10-V-9-scaled.jpeg', 3, NOW());
 
 -- 🖥️ Televisores
 INSERT INTO productoimagen (url, productoId, createdAt) VALUES
-('https://example.com/lg-oled-c3-front.jpg', 4, NOW()),
-('https://example.com/lg-oled-c3-side.jpg', 4, NOW()),
-('https://example.com/samsung-qled-q60c-front.jpg', 5, NOW()),
-('https://example.com/samsung-qled-q60c-ambilight.jpg', 5, NOW()),
-('https://example.com/philips-43pus8008-front.jpg', 6, NOW()),
-('https://example.com/philips-43pus8008-back.jpg', 6, NOW());
+('https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/80abcd8b-a2c1-47e3-b214-fc6fa63c7128/md08003931-DZ-1-jpg?io=transform:fill,width:1536', 4, NOW()),
+('https://www.lg.com/ar/images/televisores/md07581378/gallery/medium11.jpg', 4, NOW()),
+('https://media.flixcar.com/webp/synd-asset/Samsung-123166095-latin-qled-q60c-qn50q60capxpa-536876303--Download-Source--zoom.png', 5, NOW()),
+('https://i0.wp.com/blog.son-video.com/wp-content/uploads/2024/01/TV-x-Phillips-Hue_Lifestyle.jpg?resize=696%2C383&ssl=1', 5, NOW()),
+('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSQpueyRwRAjGYbTqXOv3DM6lzkzWjfIfh4Hw&s', 6, NOW()),
+('https://formulatv.ru/images/catalog/televizory/philips-43pus8008_108869_full.jpg', 6, NOW());
 
 -- 💻 Notebooks
 INSERT INTO productoimagen (url, productoId, createdAt) VALUES
-('https://example.com/macbook-air-m2-open.jpg', 7, NOW()),
-('https://example.com/macbook-air-m2-side.jpg', 7, NOW()),
-('https://example.com/hp-pavilion15-open.jpg', 8, NOW()),
-('https://example.com/hp-pavilion15-keyboard.jpg', 8, NOW()),
-('https://example.com/lenovo-ideapad3-front.jpg', 9, NOW()),
-('https://example.com/lenovo-ideapad3-side.jpg', 9, NOW());
+('https://omnitech.ar/wp-content/uploads/2025/03/macbook-air-m2.jpg.webp', 7, NOW()),
+('https://root-nation.com/wp-content/webp-express/webp-images/doc-root/wp-content/uploads/2023/08/6efd6ab0-e5d1-11ec-be6c-b2fe04160b9a.cf_.jpg.webp', 7, NOW()),
+('https://ar-media.hptiendaenlinea.com/catalog/product/cache/b3b166914d87ce343d4dc5ec5117b502/9/1/91S43LA-1_T1717517862.png', 8, NOW()),
+('https://acdn-us.mitiendanube.com/stores/001/907/418/products/3-144808ada911a9eaf117025781453077-1024-1024.webp', 8, NOW()),
+('https://www.stec.com.ar/cdn/shop/files/D_NQ_NP_939290-MLU77147912887_062024-O.jpg?v=1734448575&width=2048', 9, NOW()),
+('https://http2.mlstatic.com/D_NQ_NP_954700-MLU70878566482_082023-O.webp', 9, NOW());
 
 
 -- ============================ PAQUETEBASE ============================
@@ -263,42 +265,42 @@ INSERT INTO paquetebase
 (nombre, descripcion, imagen_url, categoria_id, marcaId, createdAt, updatedAt)
 VALUES
 ('Pack iPhone Experience', 'Paquete base de productos Apple: iPhone, accesorios y beneficios premium.', 
-'https://example.com/pack-iphone.jpg', 4, 1, NOW(), NOW());
+'https://packmojo.com/blog/images/2022/09/apple-rigid-box-packaging.jpg', 4, 1, NOW(), NOW());
 
 -- 📱 Paquete de celulares Samsung
 INSERT INTO paquetebase 
 (nombre, descripcion, imagen_url, categoria_id, marcaId, createdAt, updatedAt)
 VALUES
 ('Pack Galaxy Performance', 'Paquete Samsung con celular Galaxy y complementos oficiales.', 
-'https://example.com/pack-galaxy.jpg', 4, 2, NOW(), NOW());
+'https://images.samsung.com/is/image/samsung/assets/us/explore/brand/take-charge-of-sustainability-with-galaxy/01042022/Galaxy_S21_packaging.jpg?$720_N_JPG$', 4, 2, NOW(), NOW());
 
 -- 🖥️ Paquete de televisores LG
 INSERT INTO paquetebase 
 (nombre, descripcion, imagen_url, categoria_id, marcaId, createdAt, updatedAt)
 VALUES
 ('Pack Smart TV LG', 'Televisor LG OLED más soporte de pared y extensión de garantía.', 
-'https://example.com/pack-lg-tv.jpg', 3, 4, NOW(), NOW());
+'https://www.lg.com/ar/images/microsite/2023/Sustainability/TV-OLED-Microsite-sustainability-03-ECO-PACKAGING-Mobile.jpg', 3, 4, NOW(), NOW());
 
 -- 🖥️ Paquete de televisores Philips
 INSERT INTO paquetebase 
 (nombre, descripcion, imagen_url, categoria_id, marcaId, createdAt, updatedAt)
 VALUES
 ('Pack Philips Ambilight', 'Televisor Philips Ambilight 4K con barra de sonido y control remoto inteligente.', 
-'https://example.com/pack-philips-tv.jpg', 3, 5, NOW(), NOW());
+'https://images-cdn.ubuy.co.in/64d72bbe4c4a947ff616a3dc-philips-43-class-4k-ultra-hd-2160p.jpg', 3, 5, NOW(), NOW());
 
 -- 💻 Paquete de notebooks HP
 INSERT INTO paquetebase 
 (nombre, descripcion, imagen_url, categoria_id, marcaId, createdAt, updatedAt)
 VALUES
 ('Pack Oficina HP', 'Notebook HP Pavilion más mouse inalámbrico y mochila ejecutiva.', 
-'https://example.com/pack-hp-notebook.jpg', 4, 6, NOW(), NOW());
+'https://www.myhome.co.nz/wp-content/uploads/2022/04/Laptop-3.jpg', 4, 6, NOW(), NOW());
 
 -- 💻 Paquete de notebooks Apple
 INSERT INTO paquetebase 
 (nombre, descripcion, imagen_url, categoria_id, marcaId, createdAt, updatedAt)
 VALUES
 ('Pack Apple Productivity', 'MacBook Air M2 más accesorios esenciales y AppleCare.', 
-'https://example.com/pack-apple-notebook.jpg', 4, 1, NOW(), NOW());
+'https://www.gentlepk.com/wp-content/uploads/2025/05/Apple-boxes-interact-with-a-users-perceptions.jpg', 4, 1, NOW(), NOW());
 
 
 -- ============================ PAQUETEBASEPRODUCTO ============================
@@ -340,37 +342,37 @@ VALUES
 INSERT INTO paquetepublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipoPaquete, createdAt, updatedAt)
 VALUES
-(1, 1, 1, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 50, 1200.00, 'https://example.com/pub-iphone.jpg', 'SINERGICO', NOW(), NOW());
+(1, 1, 1, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 50, 1200.00, 'https://static.rfstat.com/renderforest/images/v2/landing-pics/mockups/iphone/hero_slide_0.jpeg?v=18', 'SINERGICO', NOW(), NOW());
 
 -- 📦 Pack Galaxy Performance publicado en Zona Sur (Activo)
 INSERT INTO paquetepublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipoPaquete, createdAt, updatedAt)
 VALUES
-(2, 1, 2, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 40, 1100.00, 'https://example.com/pub-galaxy.jpg', 'SINERGICO', NOW(), NOW());
+(2, 1, 2, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 40, 1100.00, 'https://img.global.news.samsung.com/global/wp-content/uploads/2023/02/%EA%B8%80%EB%A1%9C%EB%B2%8C-Featured-Stories-Thumbnail-728x410.jpg', 'SINERGICO', NOW(), NOW());
 
 -- 📦 Pack Smart TV LG publicado en CABA (Activo)
 INSERT INTO paquetepublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipoPaquete, createdAt, updatedAt)
 VALUES
-(3, 1, 4, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 25, 1800.00, 'https://example.com/pub-lg.jpg', 'ENERGETICO', NOW(), NOW());
+(3, 1, 4, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 25, 1800.00, 'https://www.lg.com/global/images/business/information-display/commercial-tv/md07574661/gallery/medium01.jpg', 'ENERGETICO', NOW(), NOW());
 
 -- 📦 Pack Philips Ambilight publicado en Zona Sur (Pendiente)
 INSERT INTO paquetepublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipoPaquete, createdAt, updatedAt)
 VALUES
-(4, 3, 2, NOW(), DATE_ADD(NOW(), INTERVAL 15 DAY), 30, 1000.00, 'https://example.com/pub-philips.jpg', 'POR_DEFINIR', NOW(), NOW());
+(4, 3, 2, NOW(), DATE_ADD(NOW(), INTERVAL 15 DAY), 30, 1000.00, 'https://www.philips.es/c-dam/b2c/tv/categorypage/master/oled-2024/oled-2023-thumbnail-l-m.jpg', 'ENERGETICO', NOW(), NOW());
 
 -- 📦 Pack Oficina HP publicado en Zona Oeste (Activo)
 INSERT INTO paquetepublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipoPaquete, createdAt, updatedAt)
 VALUES
-(5, 1, 3, NOW(), DATE_ADD(NOW(), INTERVAL 20 DAY), 45, 950.00, 'https://example.com/pub-hp.jpg', 'SINERGICO', NOW(), NOW());
+(5, 1, 3, NOW(), DATE_ADD(NOW(), INTERVAL 20 DAY), 45, 950.00, 'https://www.muycomputerpro.com/wp-content/uploads/2015/03/HP_Care_Pack-1.jpeg', 'SINERGICO', NOW(), NOW());
 
 -- 📦 Pack Apple Productivity publicado en CABA (Activo)
 INSERT INTO paquetepublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipoPaquete, createdAt, updatedAt)
 VALUES
-(6, 1, 4, NOW(), DATE_ADD(NOW(), INTERVAL 25 DAY), 30, 1900.00, 'https://example.com/pub-apple.jpg', 'ENERGETICO', NOW(), NOW());
+(6, 1, 4, NOW(), DATE_ADD(NOW(), INTERVAL 25 DAY), 30, 1900.00, 'https://i.ytimg.com/vi/P-UifawCilA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBx5Omr-Pgm8jU20l8i0KXkNUKAeQ', 'ENERGETICO', NOW(), NOW());
 
 
 -- ============================ ESTADOPAQUETEPUBLICADO ============================
@@ -435,7 +437,9 @@ INSERT INTO carrito (usuarioId, createdAt, updatedAt) VALUES
 (1, NOW(), NOW()),  -- Admin
 (2, NOW(), NOW());  -- Juan Pérez
 
+
 -- ============================ CARRITOPRODUCTO ============================
+-- 🧑‍💼 Admin → agrega un iPhone y un televisor LG
 INSERT INTO carritoproducto (carritoId, productoId, cantidad)
 VALUES
 (1, 1, 1),  -- iPhone 14
