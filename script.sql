@@ -1,3 +1,131 @@
+-- ============================ ROL ============================
+INSERT INTO rol (nombre) 
+VALUES
+("Administrador"),
+("Usuario");
+
+
+-- ============================ CATEGORIA ============================
+INSERT INTO categoria (nombre) 
+VALUES
+("Automotor"),
+("Electrodomésticos"),
+("Televisores"),
+("Tecnología"),
+("Hogar y Decoración"),
+("Deportes y Fitness"),
+("Alimentos y Bebidas");
+
+
+-- ============================ MARCA ============================
+INSERT INTO marca (nombre, updatedAt)
+VALUES
+("Apple", NOW()),
+("Samsung", NOW()),
+("Sony", NOW()),
+("LG", NOW()),
+("Philips", NOW()),
+("Otras", NOW());
+
+
+-- ============================ ESTADOPAQUETEPUBLICADO ============================
+INSERT INTO estadopaquetepublicado (nombre) 
+VALUES
+("Activo"),
+("Inactivo"),
+("Pendiente"),
+("Cancelado"),
+("Cerrado"),
+("Incompleto"),
+("Eliminado");
+
+
+-- ============================ ESTADOPEDIDO ============================
+INSERT INTO estadopedido (nombre) VALUES
+('Pendiente'),
+('Confirmado'),
+('Pagado'),
+('Enviado'),
+('Entregado'),
+('Cancelado');
+
+
+-- ============================ LOCALIDAD ============================
+INSERT INTO localidad (nombre, codigo_postal) VALUES
+('Palermo', 1425),
+('Recoleta', 1118),
+('San Isidro', 1642),
+('Morón', 1708),
+('La Plata', 1900),
+('Quilmes', 1878);
+
+
+-- ============================ ZONA ============================
+INSERT INTO zona (nombre, createdAt, updatedAt) VALUES
+('Zona Norte', NOW(), NOW()),
+('Zona Sur', NOW(), NOW()),
+('Zona Oeste', NOW(), NOW()),
+('CABA', NOW(), NOW());
+
+
+
+-- ============================ LOCALIDADZONA ============================
+-- Relación entre zonas y localidades
+INSERT INTO localidadzona (zonaId, localidadId) VALUES
+-- Zona Norte
+(1, 3), -- San Isidro
+(1, 6), -- Quilmes (ejemplo mixto)
+
+-- Zona Sur
+(2, 5), -- La Plata
+(2, 6), -- Quilmes
+
+-- Zona Oeste
+(3, 4), -- Morón
+
+-- CABA
+(4, 1), -- Palermo
+(4, 2); -- Recoleta
+
+
+-- ============================ USUARIO ============================
+-- 👤 Usuario admin
+INSERT INTO usuario 
+(email, nombre, contraseña, telefono, fecha_nac, imagen_url, rolId, createdAt, updatedAt)
+VALUES
+('admin@admin.com', 'Administrador', 'admin123', '1122334455', '1990-01-01', 
+'https://img.freepik.com/free-psd/3d-illustration-bald-person-with-glasses_23-2149436184.jpg?semt=ais_incoming&w=740&q=80', 1, NOW(), NOW());
+
+-- 👤 Usuario cliente
+INSERT INTO usuario 
+(email, nombre, contraseña, telefono, fecha_nac, imagen_url, rolId, createdAt, updatedAt)
+VALUES
+('juanperez@example.com', 'Juan Pérez', 'clave123', '1199887766', '1995-05-15', 
+'https://img.freepik.com/psd-gratuit/illustration-3d-personne-lunettes-soleil_23-2149436188.jpg?semt=ais_hybrid&w=740&q=80', 2, NOW(), NOW());
+
+
+-- ============================ DIRECCION ============================
+-- Admin → Palermo (localidadId = 1)
+INSERT INTO direccion 
+(usuarioId, localidadId, codigo_postal, calle, numero, piso, departamento)
+VALUES
+(1, 1, 1425, 'Av. Santa Fe', 1234, 5, 'A');
+
+-- Juan Pérez → Morón (localidadId = 4)
+INSERT INTO direccion 
+(usuarioId, localidadId, codigo_postal, calle, numero, piso, departamento)
+VALUES
+(2, 4, 1708, 'Av. Rivadavia', 9876, NULL, NULL);
+
+
+-- ============================ PLANTILLA ============================
+INSERT INTO plantilla (nombre) 
+VALUES
+('Plantilla Celular'),
+('Plantilla Televisor'),
+('Plantilla Notebook');
+
+
 -- ============================ CARACTERISTICA ============================
 -- Características para Plantilla Celular (id = 1)
 INSERT INTO caracteristica (nombre, plantillaId) VALUES
@@ -19,14 +147,6 @@ INSERT INTO caracteristica (nombre, plantillaId) VALUES
 ('Memoria RAM', 3),
 ('Almacenamiento', 3),
 ('Sistema operativo', 3);
-
-
--- ============================ PLANTILLA ============================
-INSERT INTO plantilla (nombre) 
-VALUES
-('Plantilla Celular'),
-('Plantilla Televisor'),
-('Plantilla Notebook');
 
 
 -- ============================ OPCION ============================
@@ -109,107 +229,12 @@ INSERT INTO opcion (nombre, caracteristicaId) VALUES
 ('macOS', 12);
 
 
--- ============================ USUARIO ============================
--- 👤 Usuario admin
-INSERT INTO usuario 
-(email, nombre, contraseña, telefono, fecha_nac, imagen_url, rolId, createdAt, updatedAt)
-VALUES
-('admin@admin.com', 'Administrador', 'admin123', '1122334455', '1990-01-01', 
-'https://img.freepik.com/free-psd/3d-illustration-bald-person-with-glasses_23-2149436184.jpg?semt=ais_incoming&w=740&q=80', 1, NOW(), NOW());
-
--- 👤 Usuario cliente
-INSERT INTO usuario 
-(email, nombre, contraseña, telefono, fecha_nac, imagen_url, rolId, createdAt, updatedAt)
-VALUES
-('juanperez@example.com', 'Juan Pérez', 'clave123', '1199887766', '1995-05-15', 
-'https://img.freepik.com/psd-gratuit/illustration-3d-personne-lunettes-soleil_23-2149436188.jpg?semt=ais_hybrid&w=740&q=80', 2, NOW(), NOW());
-
--- ============================ ROL ============================
-INSERT INTO rol (nombre) 
-VALUES
-("Administrador"),
-("Usuario");
-
-
--- ============================ DIRECCION ============================
--- Admin → Palermo (localidadId = 1)
-INSERT INTO direccion 
-(usuarioId, localidadId, codigo_postal, calle, numero, piso, departamento)
-VALUES
-(1, 1, 1425, 'Av. Santa Fe', 1234, 5, 'A');
-
--- Juan Pérez → Morón (localidadId = 4)
-INSERT INTO direccion 
-(usuarioId, localidadId, codigo_postal, calle, numero, piso, departamento)
-VALUES
-(2, 4, 1708, 'Av. Rivadavia', 9876, NULL, NULL);
-
-
--- ============================ LOCALIDAD ============================
-INSERT INTO localidad (nombre, codigo_postal) VALUES
-('Palermo', 1425),
-('Recoleta', 1118),
-('San Isidro', 1642),
-('Morón', 1708),
-('La Plata', 1900),
-('Quilmes', 1878);
-
--- 8️⃣ Zona
-INSERT INTO zona (nombre, createdAt, updatedAt) VALUES
-('Zona Norte', NOW(), NOW()),
-('Zona Sur', NOW(), NOW()),
-('Zona Oeste', NOW(), NOW()),
-('CABA', NOW(), NOW());
-
-
--- ============================ LOCALIDADZONA ============================
--- Relación entre zonas y localidades
-INSERT INTO localidadzona (zonaId, localidadId) VALUES
--- Zona Norte
-(1, 3), -- San Isidro
-(1, 6), -- Quilmes (ejemplo mixto)
-
--- Zona Sur
-(2, 5), -- La Plata
-(2, 6), -- Quilmes
-
--- Zona Oeste
-(3, 4), -- Morón
-
--- CABA
-(4, 1), -- Palermo
-(4, 2); -- Recoleta
-
-
--- ============================ CATEGORIA ============================
-INSERT INTO categoria (nombre) 
-VALUES
-("Automotor"),
-("Electrodomésticos"),
-("Televisores"),
-("Tecnología"),
-("Hogar y Decoración"),
-("Deportes y Fitness"),
-("Alimentos y Bebidas");
-
-
--- ============================ MARCA ============================
-INSERT INTO marca (nombre, updatedAt)
-VALUES
-("Apple", NOW()),
-("Samsung", NOW()),
-("Sony", NOW()),
-("LG", NOW()),
-("Philips", NOW()),
-("Otras", NOW());
-
-
 -- ============================ PRODUCTO ============================
 -- Celulares (Plantilla 1, Categoría: Tecnología, Marca: varias)
 INSERT INTO producto 
 (nombre, descripcion, precio, imagen_url, marca_id, categoria_id, plantillaId, stock, altura, ancho, profundidad, peso, createdAt, updatedAt)
 VALUES
-('iPhone 14', 'Smartphone de Apple con pantalla de 6.1", 128 GB y chip A15 Bionic.', 1200.00, 'https://i5.walmartimages.com/seo/Pre-Owned-Apple-iPhone-14-Pro-256GB-Deep-Purple-Unlocked-MQ1D3LL-A-Refurbished-Good_36eab993-bd5b-4b25-bb56-08d46551b7b7.516c6b9965ca06d0641ea70de9326a27.jpeg', 1, 4, 1, 50, 14.7, 7.1, 0.8, 0.17, NOW(), NOW()),
+('iPhone 14', 'Smartphone de Apple con pantalla de 6.1", 128 GB y chip A15 Bionic.', 1200.00, 'https://acdn-us.mitiendanube.com/stores/001/555/911/products/iphone-14-black-d61713d18bdf31d02417016951877100-1024-1024.webp', 1, 4, 1, 50, 14.7, 7.1, 0.8, 0.17, NOW(), NOW()),
 ('Samsung Galaxy S23', 'Smartphone Samsung con 256 GB de almacenamiento y cámara triple.', 1100.00, 'https://http2.mlstatic.com/D_848869-CBT90467223350_082025-C.jpg', 2, 4, 1, 40, 15.0, 7.2, 0.8, 0.18, NOW(), NOW()),
 ('Sony Xperia 10 V', 'Celular Sony con pantalla OLED de 6.1" y batería de 5000 mAh.', 800.00, 'https://images-cdn.ubuy.co.in/66faadc7e1426368995da054-sony-xperia-10-v-xq-dc72-5g-dual-128gb.jpg', 3, 4, 1, 35, 15.2, 7.1, 0.8, 0.16, NOW(), NOW());
 
@@ -226,14 +251,14 @@ INSERT INTO producto
 (nombre, descripcion, precio, imagen_url, marca_id, categoria_id, plantillaId, stock, altura, ancho, profundidad, peso, createdAt, updatedAt)
 VALUES
 ('MacBook Air M2', 'Notebook de Apple con chip M2, pantalla Retina y 8 GB de RAM.', 1900.00, 'https://http2.mlstatic.com/D_NQ_NP_663606-MLA78669752141_082024-O.webp', 1, 4, 3, 20, 1.1, 30.0, 21.0, 1.24, NOW(), NOW()),
-('HP Pavilion 15', 'Notebook HP con procesador Intel i5 y SSD de 512 GB.', 950.00, 'https://i5.walmartimages.com/seo/HP-Pavilion-13-3-FHD-Intel-Core-i3-8GB-RAM-128GB-SSD-Silver_906cf222-d138-430a-8146-d129b0cca3a2_2.f838f300a6e31f50074faf4091a1da7b.jpeg', 6, 4, 3, 25, 1.9, 36.0, 24.0, 1.80, NOW(), NOW()),
-('Lenovo IdeaPad 3', 'Notebook Lenovo con AMD Ryzen 5, 8 GB de RAM y 256 GB SSD.', 800.00, 'https://i5.walmartimages.com/seo/Lenovo-Ideapad-3-14-FHD-PC-Laptop-Intel-Core-i5-1035G1-8GB-RAM-512GB-SSD-Windows-10-Platinum-Grey-81WD00U9US_9317fa66-4c9e-428b-a5af-3a5fa4bf83e4.671500b5675cb39cf9cd175540acd0d2.jpeg', 6, 4, 3, 30, 1.9, 36.0, 24.0, 1.65, NOW(), NOW());
+('HP Pavilion 15', 'Notebook HP con procesador Intel i5 y SSD de 512 GB.', 950.00, 'https://i5.walmartimages.com/asr/762e3ce1-4e52-40fe-abd1-1a1e056d4895_2.f2b9c74ed7d0701637b067a44f89cca6.jpeg', 6, 4, 3, 25, 1.9, 36.0, 24.0, 1.80, NOW(), NOW()),
+('Lenovo IdeaPad 3', 'Notebook Lenovo con AMD Ryzen 5, 8 GB de RAM y 256 GB SSD.', 800.00, 'https://i5.walmartimages.com/asr/812648ff-28b6-4a80-b19e-21a722a3a2ee.79a703c8f6fa9663ca7da697ea9f74d0.jpeg', 6, 4, 3, 30, 1.9, 36.0, 24.0, 1.65, NOW(), NOW());
 
 
 -- ============================ PRODUCTOIMAGEN ============================
 -- 📱 Celulares
 INSERT INTO productoimagen (url, productoId, createdAt) VALUES
-('https://es.t-mobile.com/sdscene7/is/image/Tmusprod/Apple-iPhone-14-Midnight-leftimage', 1, NOW()),
+('https://cdn.accentuate.io/39884851707990/1677610349980/iPhone-14-Pro-Max-Glass---Side-(1).jpg?v=1677610349981', 1, NOW()),
 ('https://www.macstation.com.ar/web/image/product.template/63145/image_1024?unique=458b3d2', 1, NOW()),
 ('https://m-cdn.phonearena.com/images/phones/83817-940/Samsung-Galaxy-S23-Ultra.jpg?w=1', 2, NOW()),
 ('https://tienda.claro.com.ar/staticContent/Claro/images/catalog/productos/646x1000/70011154_3.webp', 2, NOW()),
@@ -242,7 +267,7 @@ INSERT INTO productoimagen (url, productoId, createdAt) VALUES
 
 -- 🖥️ Televisores
 INSERT INTO productoimagen (url, productoId, createdAt) VALUES
-('https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/80abcd8b-a2c1-47e3-b214-fc6fa63c7128/md08003931-DZ-1-jpg?io=transform:fill,width:1536', 4, NOW()),
+('https://www.lg.com/content/dam/channel/wcms/mx/images/tv/features/oled2023/TV-OLED-C3-05-Synergy-Bracket-Mobile.jpg', 4, NOW()),
 ('https://www.lg.com/ar/images/televisores/md07581378/gallery/medium11.jpg', 4, NOW()),
 ('https://media.flixcar.com/webp/synd-asset/Samsung-123166095-latin-qled-q60c-qn50q60capxpa-536876303--Download-Source--zoom.png', 5, NOW()),
 ('https://i0.wp.com/blog.son-video.com/wp-content/uploads/2024/01/TV-x-Phillips-Hue_Lifestyle.jpg?resize=696%2C383&ssl=1', 5, NOW()),
@@ -252,7 +277,7 @@ INSERT INTO productoimagen (url, productoId, createdAt) VALUES
 -- 💻 Notebooks
 INSERT INTO productoimagen (url, productoId, createdAt) VALUES
 ('https://omnitech.ar/wp-content/uploads/2025/03/macbook-air-m2.jpg.webp', 7, NOW()),
-('https://root-nation.com/wp-content/webp-express/webp-images/doc-root/wp-content/uploads/2023/08/6efd6ab0-e5d1-11ec-be6c-b2fe04160b9a.cf_.jpg.webp', 7, NOW()),
+('https://thedisconnekt.com/wp-content/uploads/2024/03/Apple-MacBook-Air-15-inch-23.jpg', 7, NOW()),
 ('https://ar-media.hptiendaenlinea.com/catalog/product/cache/b3b166914d87ce343d4dc5ec5117b502/9/1/91S43LA-1_T1717517862.png', 8, NOW()),
 ('https://acdn-us.mitiendanube.com/stores/001/907/418/products/3-144808ada911a9eaf117025781453077-1024-1024.webp', 8, NOW()),
 ('https://www.stec.com.ar/cdn/shop/files/D_NQ_NP_939290-MLU77147912887_062024-O.jpg?v=1734448575&width=2048', 9, NOW()),
@@ -272,7 +297,7 @@ INSERT INTO paquetebase
 (nombre, descripcion, imagen_url, categoria_id, marcaId, createdAt, updatedAt)
 VALUES
 ('Pack Galaxy Performance', 'Paquete Samsung con celular Galaxy y complementos oficiales.', 
-'https://images.samsung.com/is/image/samsung/assets/us/explore/brand/take-charge-of-sustainability-with-galaxy/01042022/Galaxy_S21_packaging.jpg?$720_N_JPG$', 4, 2, NOW(), NOW());
+'https://packagingguruji.com/wp-content/uploads/2022/01/Samsung-has-defined-its-mobile-packaging-with-Eco-Conscious-Packaging.jpg', 4, 2, NOW(), NOW());
 
 -- 🖥️ Paquete de televisores LG
 INSERT INTO paquetebase 
@@ -342,49 +367,37 @@ VALUES
 INSERT INTO paquetepublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipoPaquete, createdAt, updatedAt)
 VALUES
-(1, 1, 1, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 50, 1200.00, 'https://static.rfstat.com/renderforest/images/v2/landing-pics/mockups/iphone/hero_slide_0.jpeg?v=18', 'SINERGICO', NOW(), NOW());
+(1, 1, 1, NOW(), DATE_ADD(NOW(), INTERVAL 5 DAY), 50, 1200.00, 'https://static.rfstat.com/renderforest/images/v2/landing-pics/mockups/iphone/hero_slide_0.jpeg?v=18', 'SINERGICO', NOW(), NOW());
 
 -- 📦 Pack Galaxy Performance publicado en Zona Sur (Activo)
 INSERT INTO paquetepublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipoPaquete, createdAt, updatedAt)
 VALUES
-(2, 1, 2, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 40, 1100.00, 'https://img.global.news.samsung.com/global/wp-content/uploads/2023/02/%EA%B8%80%EB%A1%9C%EB%B2%8C-Featured-Stories-Thumbnail-728x410.jpg', 'SINERGICO', NOW(), NOW());
+(2, 1, 2, NOW(), DATE_ADD(NOW(), INTERVAL 4 DAY), 40, 1100.00, 'https://img.global.news.samsung.com/global/wp-content/uploads/2023/02/%EA%B8%80%EB%A1%9C%EB%B2%8C-Featured-Stories-Thumbnail-728x410.jpg', 'SINERGICO', NOW(), NOW());
 
 -- 📦 Pack Smart TV LG publicado en CABA (Activo)
 INSERT INTO paquetepublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipoPaquete, createdAt, updatedAt)
 VALUES
-(3, 1, 4, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 25, 1800.00, 'https://www.lg.com/global/images/business/information-display/commercial-tv/md07574661/gallery/medium01.jpg', 'ENERGETICO', NOW(), NOW());
+(3, 1, 4, NOW(), DATE_ADD(NOW(), INTERVAL 3 DAY), 25, 1800.00, 'https://www.lg.com/global/images/business/information-display/commercial-tv/md07574661/gallery/medium01.jpg', 'ENERGETICO', NOW(), NOW());
 
 -- 📦 Pack Philips Ambilight publicado en Zona Sur (Pendiente)
 INSERT INTO paquetepublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipoPaquete, createdAt, updatedAt)
 VALUES
-(4, 3, 2, NOW(), DATE_ADD(NOW(), INTERVAL 15 DAY), 30, 1000.00, 'https://www.philips.es/c-dam/b2c/tv/categorypage/master/oled-2024/oled-2023-thumbnail-l-m.jpg', 'ENERGETICO', NOW(), NOW());
+(4, 3, 2, NOW(), DATE_ADD(NOW(), INTERVAL 2 DAY), 30, 1000.00, 'https://www.philips.es/c-dam/b2c/tv/categorypage/master/oled-2024/oled-2023-thumbnail-l-m.jpg', 'ENERGETICO', NOW(), NOW());
 
 -- 📦 Pack Oficina HP publicado en Zona Oeste (Activo)
 INSERT INTO paquetepublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipoPaquete, createdAt, updatedAt)
 VALUES
-(5, 1, 3, NOW(), DATE_ADD(NOW(), INTERVAL 20 DAY), 45, 950.00, 'https://www.muycomputerpro.com/wp-content/uploads/2015/03/HP_Care_Pack-1.jpeg', 'SINERGICO', NOW(), NOW());
+(5, 1, 3, NOW(), DATE_ADD(NOW(), INTERVAL 1 DAY), 45, 950.00, 'https://www.muycomputerpro.com/wp-content/uploads/2015/03/HP_Care_Pack-1.jpeg', 'SINERGICO', NOW(), NOW());
 
 -- 📦 Pack Apple Productivity publicado en CABA (Activo)
 INSERT INTO paquetepublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipoPaquete, createdAt, updatedAt)
 VALUES
-(6, 1, 4, NOW(), DATE_ADD(NOW(), INTERVAL 25 DAY), 30, 1900.00, 'https://i.ytimg.com/vi/P-UifawCilA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBx5Omr-Pgm8jU20l8i0KXkNUKAeQ', 'ENERGETICO', NOW(), NOW());
-
-
--- ============================ ESTADOPAQUETEPUBLICADO ============================
-INSERT INTO estadopaquetepublicado (nombre) 
-VALUES
-("Activo"),
-("Inactivo"),
-("Pendiente"),
-("Cancelado"),
-("Cerrado"),
-("Incompleto"),
-("Eliminado");
+(6, 1, 4, NOW(), DATE_ADD(NOW(), INTERVAL 10 DAY), 30, 1900.00, 'https://i.ytimg.com/vi/P-UifawCilA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBx5Omr-Pgm8jU20l8i0KXkNUKAeQ', 'ENERGETICO', NOW(), NOW());
 
 
 -- ============================ PEDIDO ============================
@@ -422,15 +435,6 @@ VALUES (3, 3);
 INSERT INTO pedidopaquetepublicado (pedidoId, paquetePublicadoId)
 VALUES (4, 5);
 
-
--- ============================ ESTADOPEDIDO ============================
-INSERT INTO estadopedido (nombre) VALUES
-('Pendiente'),
-('Confirmado'),
-('Pagado'),
-('Enviado'),
-('Entregado'),
-('Cancelado');
 
 -- ============================ CARRITO ============================
 INSERT INTO carrito (usuarioId, createdAt, updatedAt) VALUES
