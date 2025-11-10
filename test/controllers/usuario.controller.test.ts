@@ -18,7 +18,7 @@ describe("UsuarioController", () => {
             obtenerUsuario: jest.fn(),
             actualizarUsuario: jest.fn()
         } as any;
-        
+
         imagenService = {
             uploadToCloudinary: jest.fn().mockResolvedValue('http://example.com/fake.jpg'),
             uploadFromUrl: jest.fn().mockResolvedValue('http://example.com/fake.jpg')
@@ -40,7 +40,7 @@ describe("UsuarioController", () => {
             json: jest.fn(),
             send: jest.fn().mockReturnThis()
         };
-    next = jest.fn();
+        next = jest.fn();
     });
 
     it("debería registrar un usuario y devolver estado 201", async () => {
@@ -164,7 +164,12 @@ describe("UsuarioController", () => {
         await controller.actualizarUsuario(req, res);
 
         expect(res.status).toHaveBeenCalledWith(200);
-        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
+        expect(res.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                message: expect.any(String),
+                usuario: expect.objectContaining({ id: 1, email: "test@example.com" }),
+            })
+        );
     });
 
     it("debería devolver estado 401 si el usuario no está autenticado al actualizar usuario", async () => {
