@@ -10,13 +10,16 @@ import { firebaseAuthMiddleware } from '../../middlewares/firebaseAuth.middlewar
 import { UsuarioUpdateDTO } from '../../dtos/usuario/usuarioUpdate.dto';
 import { procesarSubidaImagen } from './../../middlewares/uploadFiles.middleware';
 import { ImagenService } from '../../services/imagen.service';
+import multer from 'multer';
+
+const upload = multer();
 const usuarioService = new UsuarioService();
 const imagenService = new ImagenService();
 const usuarioController = new UsuarioController(usuarioService, imagenService);
 export const usuarioRouter = Router();
 
 usuarioRouter.get('/me', authMiddleware, usuarioController.obtenerUsuario);
-usuarioRouter.patch('/me', authMiddleware, validarDto(UsuarioUpdateDTO), usuarioController.actualizarUsuario);
+usuarioRouter.patch('/me', authMiddleware, upload.single('imagen'), validarDto(UsuarioUpdateDTO), usuarioController.actualizarUsuario);
 usuarioRouter.post('/registrar', validarDto(UsuarioDTO),usuarioController.registrar.bind(usuarioController));
 usuarioRouter.post('/login', validarDto(LoginDTO), usuarioController.iniciarSesion.bind(usuarioController));
 usuarioRouter.post('/login-firebase', firebaseAuthMiddleware, usuarioController.loginConFirebase.bind(usuarioController));

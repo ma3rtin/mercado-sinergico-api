@@ -119,7 +119,7 @@ export class UsuarioService {
     userId: number,
     datos: Partial<UsuarioDTO>
   ): Promise<Usuario> {
-    const { email, nombre, telefono, fecha_nac, contraseña } = datos;
+    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url } = datos;
 
     let contraseñaHash: string | undefined = undefined;
     if (contraseña) {
@@ -134,9 +134,11 @@ export class UsuarioService {
         telefono: telefono ?? undefined,
         fecha_nac: fecha_nac ? new Date(fecha_nac) : undefined,
         contraseña: contraseñaHash ?? undefined,
+        imagen_url: imagen_url ?? undefined,
       },
     });
   }
+
 
   public async loginConFirebase(firebaseUser: FirebaseUser): Promise<Usuario & { rol: { nombre: string } }> {
     const { uid, email, name, picture } = firebaseUser;
