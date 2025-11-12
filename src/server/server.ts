@@ -1,7 +1,7 @@
-import express, { Router } from "express";
-import cors from "cors";
-import { errorHandler } from "../middlewares/errorHandler.middleware";
-import { envs } from "../config/envs";
+import express, { Router } from 'express';
+import cors from 'cors';
+import { errorHandler } from '../middlewares/errorHandler.middleware';
+import { envs } from '../config/envs';
 
 interface Options {
   port: number;
@@ -30,7 +30,7 @@ export class Server {
 
     this.app.use(
       cors({
-        origin: "*",
+        origin: '*',
       })
     );
 

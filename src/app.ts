@@ -1,7 +1,7 @@
-import "reflect-metadata";
-import { envs } from "./config/envs";
-import { AppRoutes } from "./routes/router";
-import { Server } from "./server/server";
+import 'reflect-metadata';
+import { envs } from './config/envs';
+import { AppRoutes } from './routes/router';
+import { Server } from './server/server';
 
 (async () => {
   main();
@@ -13,5 +13,5 @@ function main() {
     routes: AppRoutes.routes,
   });
   server.start();
-  console.log("Servidor iniciado");
+  console.log('Servidor iniciado');
 }
