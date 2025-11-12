@@ -28,27 +28,12 @@ export class Server {
     this.app.use(express.json());
     this.app.use(express.urlencoded({ extended: true }));
 
-    const allowedOrigins = envs.FRONTEND_URL.split(",").map((url) =>
-      url.trim()
+    this.app.use(
+      cors({
+        origin: "*",
+      })
     );
 
-    const corsOptions = {
-      origin: (
-        origin: string | undefined,
-        callback: (err: Error | null, allow?: boolean) => void
-      ) => {
-        if (!origin) return callback(null, true);
-
-        if (allowedOrigins.includes(origin)) {
-          callback(null, true);
-        } else {
-          callback(new Error("Not allowed by CORS"));
-        }
-      },
-      credentials: true,
-    };
-
-    this.app.use(cors(corsOptions));
     this.app.use(this.routes);
     this.app.use(errorHandler);
 
