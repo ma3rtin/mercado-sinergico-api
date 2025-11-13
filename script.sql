@@ -89,19 +89,19 @@ INSERT INTO localidadzona (zonaId, localidadId) VALUES
 
 
 -- ============================ USUARIO ============================
--- 👤 Usuario admin
+-- 👤 Usuario admin (contraseña: Admin123)
 INSERT INTO usuario 
 (email, nombre, contraseña, telefono, fecha_nac, imagen_url, rolId, createdAt, updatedAt)
 VALUES
-('admin@admin.com', 'Administrador', 'admin123', '1122334455', '1990-01-01', 
-'https://img.freepik.com/free-psd/3d-illustration-bald-person-with-glasses_23-2149436184.jpg?semt=ais_incoming&w=740&q=80', 1, NOW(), NOW());
+('admin@admin.com', 'Administrador', '$2b$10$bRN.9ubsi8pgl0Mun.oD/.dIMMmj2/gofIoiij5TyeEFVXFtLp/vW', '1122334455', '1990-01-01', 
+'https://www.pngmart.com/files/21/Admin-Profile-Vector-PNG-Photos.png', 1, NOW(), NOW());
 
--- 👤 Usuario cliente
+-- 👤 Usuario cliente (contraseña: Clave123)
 INSERT INTO usuario 
 (email, nombre, contraseña, telefono, fecha_nac, imagen_url, rolId, createdAt, updatedAt)
 VALUES
-('juanperez@example.com', 'Juan Pérez', 'clave123', '1199887766', '1995-05-15', 
-'https://img.freepik.com/psd-gratuit/illustration-3d-personne-lunettes-soleil_23-2149436188.jpg?semt=ais_hybrid&w=740&q=80', 2, NOW(), NOW());
+('prueba@prueba.com', 'Juan Pérez', '$2b$10$W/AjjH9ka.qZKrz5a20jGuicKvHYaOJTCMageZNaM2amDrI7Gup2i', '1199887766', '1995-05-15', 
+'https://res.cloudinary.com/dinntdzos/image/upload/v1762726834/mercado_sinergico/ggeuhzy1wglrgtu1a8jm.png', 2, NOW(), NOW());
 
 
 -- ============================ DIRECCION ============================

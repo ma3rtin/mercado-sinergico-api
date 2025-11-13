@@ -9,55 +9,44 @@ import { FirebaseAuthenticatedRequest, FirebaseUser } from '../middlewares/fireb
 export class UsuarioController {
   constructor(private usuarioService: UsuarioService, private imagenService: ImagenService) { }
 
-  public registrar = async (
-    req: Request,
-    res: Response
-  ) => {
+  // 🧾 Registro normal
+  public registrar = async (req: Request, res: Response) => {
     try {
       const usuario: UsuarioDTO = req.body;
       const resultado = await this.usuarioService.registrar(usuario);
       res.status(201).json(resultado);
     } catch (error: any) {
       const status = error.status || 500;
-      const message = error.message || 'Error interno del servidor';
-      res.status(status).json({ message });
+      res.status(status).json({ message: error.message || 'Error interno del servidor' });
     }
   };
 
-  public registrarDireccion = async (
-    req: Request,
-    res: Response
-  ) => {
+  // 🏠 Registrar dirección
+  public registrarDireccion = async (req: Request, res: Response) => {
     try {
       const direccion = req.body;
       const imagen = req.file as Express.Multer.File;
 
       if (imagen) {
-        const url = await this.imagenService.uploadToCloudinary(
-          imagen.buffer
-        );
+        const url = await this.imagenService.uploadToCloudinary(imagen.buffer);
         direccion.imagen_url = url;
       }
+
       const user = (req as Request & { user?: DatosEncriptados }).user;
       if (!user) {
         return res.status(401).json({ message: 'Usuario no autenticado' });
       }
-      const resultado = await this.usuarioService.registrarDireccion(
-        user.id,
-        direccion
-      );
+
+      const resultado = await this.usuarioService.registrarDireccion(user.id, direccion);
       res.status(201).json(resultado);
     } catch (error: any) {
       const status = error.status || 500;
-      const message = error.message || 'Error interno del servidor';
-      res.status(status).json({ message });
+      res.status(status).json({ message: error.message || 'Error interno del servidor' });
     }
   };
 
-  public iniciarSesion = async (
-    req: Request,
-    res: Response
-  ) => {
+  // 🔐 Login normal
+  public iniciarSesion = async (req: Request, res: Response) => {
     try {
       const credenciales: LoginDTO = req.body;
       const token = await this.usuarioService.iniciarSesion(credenciales);
@@ -67,15 +56,12 @@ export class UsuarioController {
       return res.status(200).json({ token });
     } catch (error: any) {
       const status = error.status || 500;
-      const message = error.message || 'Error interno del servidor';
-      res.status(status).json({ message });
+      res.status(status).json({ message: error.message || 'Error interno del servidor' });
     }
   };
 
-  public obtenerUsuario = async (
-    req: Request,
-    res: Response
-  ) => {
+  // 👤 Obtener perfil
+  public obtenerUsuario = async (req: Request, res: Response) => {
     try {
       const user = (req as Request & { user?: DatosEncriptados }).user;
       if (!user) {
@@ -86,15 +72,12 @@ export class UsuarioController {
       res.status(200).json(usuario);
     } catch (error: any) {
       const status = error.status || 500;
-      const message = error.message || 'Error interno del servidor';
-      res.status(status).json({ message });
+      res.status(status).json({ message: error.message || 'Error interno del servidor' });
     }
   };
 
-  public actualizarUsuario = async (
-    req: Request,
-    res: Response
-  ) => {
+  // 🧩 Actualizar perfil (datos o imagen)
+  public actualizarUsuario = async (req: Request, res: Response) => {
     try {
       const user = (req as Request & { user?: DatosEncriptados }).user;
       if (!user) {
@@ -102,41 +85,44 @@ export class UsuarioController {
       }
 
       const usuario: UsuarioDTO = req.body;
+      const file = req.file as Express.Multer.File | undefined;
+
+      // 📸 Si hay imagen, subir a Cloudinary
+      if (file) {
+        const url = await this.imagenService.uploadToCloudinary(file.buffer, 'mercado_sinergico/perfiles');
+        usuario.imagen_url = url;
+      }
+
       const resultado = await this.usuarioService.actualizarUsuario(user.id, usuario);
-      res.status(200).json(resultado);
+      res.status(200).json({
+        message: file ? 'Perfil e imagen actualizados correctamente' : 'Perfil actualizado correctamente',
+        usuario: resultado,
+      });
     } catch (error: any) {
       const status = error.status || 500;
-      const message = error.message || 'Error interno del servidor';
-      res.status(status).json({ message });
+      res.status(status).json({ message: error.message || 'Error interno del servidor' });
     }
   };
 
-  public loginConFirebase = async (
-    req: Request,
-    res: Response
-  ) => {
+  // 🔵 Login con Firebase
+  public loginConFirebase = async (req: Request, res: Response) => {
     try {
       const firebaseUser: FirebaseUser = (req as FirebaseAuthenticatedRequest).firebaseUser!;
-      
-      // Buscar o crear usuario en la base de datos
       const usuario = await this.usuarioService.loginConFirebase(firebaseUser);
-      
-      // Crear token JWT personalizado para el usuario
       const token = await this.usuarioService.crearTokenPersonalizado(usuario);
-      
+
       res.status(200).json({
         token,
         usuario: {
           id: usuario.id,
           email: usuario.email,
           nombre: usuario.nombre,
-          rol: usuario.rol
-        }
+          rol: usuario.rol,
+        },
       });
     } catch (error: any) {
       const status = error.status || 500;
-      const message = error.message || 'Error interno del servidor';
-      res.status(status).json({ message });
+      res.status(status).json({ message: error.message || 'Error interno del servidor' });
     }
   };
 }

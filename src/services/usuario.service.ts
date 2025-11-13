@@ -1,14 +1,14 @@
-import { cifrarContraseña, compararContraseñas } from "../auth/bcrypt";
-import { crearToken } from "../auth/jwt";
-import { DireccionDTO } from "../dtos/direccion.dto";
-import { LoginDTO } from "../dtos/login.dto";
-import { UsuarioDTO } from "../dtos/usuario/usuario.dto";
-import { Direccion, PrismaClient, Usuario } from "@prisma/client";
-import { CustomError } from "../errors/custom.error";
-import { UsuarioUpdateDTO } from "../dtos/usuario/usuarioUpdate.dto";
-import { FirebaseUser } from "../middlewares/firebaseAuth.middleware";
-import { ImagenService } from "../services/imagen.service";
-import { generarAvatar } from "../utils/avatar";
+import { cifrarContraseña, compararContraseñas } from '../auth/bcrypt';
+import { crearToken } from '../auth/jwt';
+import { DireccionDTO } from '../dtos/direccion.dto';
+import { LoginDTO } from '../dtos/login.dto';
+import { UsuarioDTO } from '../dtos/usuario/usuario.dto';
+import { Direccion, PrismaClient, Usuario } from '@prisma/client';
+import { CustomError } from '../errors/custom.error';
+import { UsuarioUpdateDTO } from '../dtos/usuario/usuarioUpdate.dto';
+import { FirebaseUser } from '../middlewares/firebaseAuth.middleware';
+import { ImagenService } from '../services/imagen.service';
+import { generarAvatar } from '../utils/avatar';
 
 export class UsuarioService {
   private prismaClient = new PrismaClient();
@@ -26,7 +26,7 @@ export class UsuarioService {
     // Generar imagen si no se proporciona
     let imagen_url = usuario.imagen_url;
     if (!imagen_url) {
-      const apellido = (usuario as any).apellido ?? "";
+      const apellido = (usuario as any).apellido ?? '';
       const avatarBuffer = generarAvatar(nombre, apellido);
       imagen_url = await this.imagenService.uploadToCloudinary(avatarBuffer);
     }
@@ -39,7 +39,7 @@ export class UsuarioService {
         telefono,
         fecha_nac: fecha_nac ? new Date(fecha_nac) : null,
         imagen_url,
-        rol: { connect: { nombre: "Usuario" } },
+        rol: { connect: { nombre: 'Usuario' } },
       },
     });
   }
@@ -119,7 +119,7 @@ export class UsuarioService {
     userId: number,
     datos: Partial<UsuarioDTO>
   ): Promise<Usuario> {
-    const { email, nombre, telefono, fecha_nac, contraseña } = datos;
+    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url } = datos;
 
     let contraseñaHash: string | undefined = undefined;
     if (contraseña) {
@@ -134,9 +134,11 @@ export class UsuarioService {
         telefono: telefono ?? undefined,
         fecha_nac: fecha_nac ? new Date(fecha_nac) : undefined,
         contraseña: contraseñaHash ?? undefined,
+        imagen_url: imagen_url ?? undefined,
       },
     });
   }
+
 
   public async loginConFirebase(firebaseUser: FirebaseUser): Promise<Usuario & { rol: { nombre: string } }> {
     const { uid, email, name, picture } = firebaseUser;
@@ -152,13 +154,13 @@ export class UsuarioService {
       let imagen_url: string;
       if (picture) {
         // Subir imagen de Google a Cloudinary
-        const axios = await import("axios");
-        const response = await axios.default.get(picture, { responseType: "arraybuffer" });
-        const buffer = Buffer.from(response.data, "binary");
+        const axios = await import('axios');
+        const response = await axios.default.get(picture, { responseType: 'arraybuffer' });
+        const buffer = Buffer.from(response.data, 'binary');
         imagen_url = await this.imagenService.uploadToCloudinary(buffer);
       } else {
         // Generar avatar con iniciales
-        const [nombre, apellido = ""] = (name ?? "Usuario Firebase").split(" ");
+        const [nombre, apellido = ''] = (name ?? 'Usuario Firebase').split(' ');
         const avatarBuffer = generarAvatar(nombre, apellido);
         imagen_url = await this.imagenService.uploadToCloudinary(avatarBuffer);
       }
@@ -166,12 +168,12 @@ export class UsuarioService {
       usuario = await this.prismaClient.usuario.create({
         data: {
           email,
-          nombre: name || "Usuario Firebase",
-          contraseña: "", // No se usa para Firebase
-          telefono: "",
+          nombre: name || 'Usuario Firebase',
+          contraseña: '', // No se usa para Firebase
+          telefono: '',
           fecha_nac: null,
           imagen_url,
-          rol: { connect: { nombre: "Usuario" } },
+          rol: { connect: { nombre: 'Usuario' } },
         },
         include: { rol: { select: { nombre: true } } },
       });

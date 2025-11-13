@@ -1,6 +1,6 @@
-import { v2 as cloudinary } from "cloudinary";
-import axios from "axios";
-import streamifier from "streamifier";
+import { v2 as cloudinary } from 'cloudinary';
+import axios from 'axios';
+import streamifier from 'streamifier';
 
 export class ImagenService {
   constructor() {}
@@ -25,10 +25,10 @@ export class ImagenService {
 
   public async uploadFromUrl(
     imageUrl: string,
-    folder = "mercado_sinergico"
+    folder = 'mercado_sinergico'
   ): Promise<string> {
-    const response = await axios.get(imageUrl, { responseType: "arraybuffer" });
-    const buffer = Buffer.from(response.data, "binary");
+    const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+    const buffer = Buffer.from(response.data, 'binary');
     return this.uploadToCloudinary(buffer, folder);
   }
 }

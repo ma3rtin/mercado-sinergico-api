@@ -1,5 +1,5 @@
-import { Request, Response } from "express";
-import { PedidoService } from "../services/pedido.service";
+import { Request, Response } from 'express';
+import { PedidoService } from '../services/pedido.service';
 
 const pedidoService = new PedidoService();
 
@@ -26,7 +26,7 @@ export class PedidoController {
     try {
       const id = parseInt(req.params.id);
       const pedido = await pedidoService.getById(id);
-      if (!pedido) return res.status(404).json({ error: "Pedido no encontrado" });
+      if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
       res.json(pedido);
     } catch (error: any) {
       res.status(500).json({ error: error.message });

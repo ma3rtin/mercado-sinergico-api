@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from '@prisma/client';
 
 export class PedidoService {
   private prisma = new PrismaClient();
@@ -15,7 +15,7 @@ export class PedidoService {
         });
 
         if (!carrito) {
-          throw new Error("El usuario no tiene carrito o no existe");
+          throw new Error('El usuario no tiene carrito o no existe');
         }
 
         const pedido = await tx.pedido.create({
