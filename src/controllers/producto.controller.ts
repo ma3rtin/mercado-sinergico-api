@@ -14,7 +14,7 @@ export class ProductoController {
     try {
       const name = req.query.name as string | undefined;
       const skip = parseInt(req.query.skip as string) || 0;
-      const take = parseInt(req.query.take as string) || 10;
+      const take = parseInt(req.query.take as string) || 20;
       const productos = await this.productoService.getAll(name, skip, take);
       res.status(200).json(productos);
     } catch (error: any) {
