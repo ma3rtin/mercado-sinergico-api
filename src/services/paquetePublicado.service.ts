@@ -7,7 +7,7 @@ export class PaquetePublicadoService {
 
   async getAll() {
     try {
-      console.log("obteniendo todos los paquetes");
+      console.log('obteniendo todos los paquetes');
       return await this.prisma.paquetePublicado.findMany({
         include: {
           paqueteBase: {
