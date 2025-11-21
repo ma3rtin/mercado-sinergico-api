@@ -1,34 +1,21 @@
 import { prisma } from '../prisma/client';
 
-export class MarcaService {
-    private client = prisma;
+export class CategoriaService {
+  private client = prisma;
 
-    public async getAll() {
-        try {
-            const marcas = await this.client.marca.findMany();
-            return marcas;
-        } catch (error) {
-            throw error;
-        }
-    }
+  public async getAll() {
+    return this.client.categoria.findMany();
+  }
 
-    public async getById(id: number) {
-        try {
-            const marca = await this.client.marca.findUnique({
-                where: { id_marca: id },
-            });
-            return marca;
-        } catch (error) {
-            throw error;
-        }
-    }
+  public async getById(id: number) {
+    return this.client.categoria.findUnique({
+      where: { id_categoria: id },
+    });
+  }
 
-    public async create(marca: string) {
-        try {
-            const newMarca = await this.client.marca.create({ data: {nombre: marca} });
-            return newMarca;
-        } catch (error) {
-            throw error;
-        }
-    }
+  public async create(nombre: string) {
+    return this.client.categoria.create({
+      data: { nombre },
+    });
+  }
 }

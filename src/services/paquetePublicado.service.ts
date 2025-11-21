@@ -1,97 +1,95 @@
 import { PaquetePublicadoDTO } from '../dtos/paquetePublicado.dto';
 import { PaquetePublicadoUpdateDTO } from '../dtos/paquetePublicadoUpdate.dto';
 import { prisma } from '../prisma/client';
+import { CustomError } from '../errors/custom.error';
 
 export class PaquetePublicadoService {
   private prisma = prisma;
 
   async getAll() {
-    try {
-      console.log('obteniendo todos los paquetes');
-      return await this.prisma.paquetePublicado.findMany({
-        include: {
-          paqueteBase: {
-            include: {
-              marca: true,
-              categoria: true
-            }
+    return this.prisma.paquetePublicado.findMany({
+      include: {
+        paqueteBase: {
+          include: {
+            marca: true,
+            categoria: true,
           },
-          zona: true,
-          estado: true,
-          pedidos: true
-        }
-      });
-    } catch (error: any) {
-      throw new Error(`Error al obtener paquetes: ${error.message}`);
-    }
+        },
+        zona: true,
+        estado: true,
+        pedidos: true,
+      },
+    });
   }
 
   async getById(id: number) {
-    try {
-      return await this.prisma.paquetePublicado.findUnique({
-        where: { id_paquete_publicado: id },
-        include: {
-          paqueteBase: {
-            include: { marca: true, categoria: true }
-          },
-          zona: true,
-          estado: true,
-          pedidos: true
-        }
-      });
-    } catch (error: any) {
-      throw new Error(
-        `Error al obtener paquete con id=${id}: ${error.message}`
-      );
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: {
+        paqueteBase: { include: { marca: true, categoria: true } },
+        zona: true,
+        estado: true,
+        pedidos: true,
+      },
+    });
+
+    if (!paquete) {
+      throw new CustomError(`Paquete publicado con id ${id} no encontrado`, 404);
     }
+
+    return paquete;
   }
 
-  async create(paquetePublicadoDTO: PaquetePublicadoDTO) {
-    try {
-      const fecha_inicio = new Date(paquetePublicadoDTO.fecha_inicio);
-      const fecha_fin = new Date(paquetePublicadoDTO.fecha_fin);
+  async create(dto: PaquetePublicadoDTO) {
+    const fecha_inicio = new Date(dto.fecha_inicio);
+    const fecha_fin = new Date(dto.fecha_fin);
 
-      return await this.prisma.paquetePublicado.create({
-        data: {
-          cant_productos: paquetePublicadoDTO.cant_productos,
-          fecha_inicio,
-          fecha_fin,
-          zona: { connect: { id_zona: Number(paquetePublicadoDTO.zonaId) } },
-          paqueteBase: {
-            connect: { id_paquete_base: paquetePublicadoDTO.paqueteBaseId },
-          },
-          estado: { connect: { nombre: 'Activo' } },
-        },
-      });
-    } catch (error: any) {
-      throw error;
-    }
+    // Validar zona
+    const zona = await this.prisma.zona.findUnique({
+      where: { id_zona: Number(dto.zonaId) },
+    });
+
+    if (!zona) throw new CustomError('La zona no existe', 404);
+
+    // Validar paquete base
+    const paqueteBase = await this.prisma.paqueteBase.findUnique({
+      where: { id_paquete_base: dto.paqueteBaseId },
+    });
+
+    if (!paqueteBase) throw new CustomError('El paquete base no existe', 404);
+
+    return this.prisma.paquetePublicado.create({
+      data: {
+        cant_productos: dto.cant_productos,
+        fecha_inicio,
+        fecha_fin,
+        zona: { connect: { id_zona: Number(dto.zonaId) } },
+        paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
+        estado: { connect: { nombre: 'Activo' } },
+      },
+    });
   }
 
   async update(id: number, dto: PaquetePublicadoUpdateDTO) {
-    try {
-      return await this.prisma.paquetePublicado.update({
-        where: { id_paquete_publicado: id },
-        data: {
-          cant_productos: dto.cant_productos,
-          fecha_inicio: dto.fecha_inicio,
-          fecha_fin: dto.fecha_fin,
-          zona: {
-            connect: { id_zona: dto.zonaId },
-          },
-          paqueteBase: {
-            connect: { id_paquete_base: dto.paqueteBaseId },
-          },
-          ...(dto.estadoNombre && {
-            estado: { connect: { nombre: dto.estadoNombre } },
-          }),
-        },
-      });
-    } catch (error: any) {
-      throw new Error(
-        `Error al actualizar paquete publicado: ${error.message}`
-      );
-    }
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+    });
+
+    if (!paquete) throw new CustomError('Paquete publicado no encontrado', 404);
+
+    return this.prisma.paquetePublicado.update({
+      where: { id_paquete_publicado: id },
+      data: {
+        cant_productos: dto.cant_productos,
+        fecha_inicio: dto.fecha_inicio,
+        fecha_fin: dto.fecha_fin,
+        zona: { connect: { id_zona: dto.zonaId } },
+        paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
+        ...(dto.estadoNombre && {
+          estado: { connect: { nombre: dto.estadoNombre } },
+        }),
+      },
+    });
   }
 
   delete(id: number) {
@@ -102,39 +100,30 @@ export class PaquetePublicadoService {
   }
 
   async getPorCerrarse() {
-    try {
-      const hoy = new Date();
-      const dentroDe5Dias = new Date(hoy);
-      dentroDe5Dias.setDate(hoy.getDate() + 5);
+    const hoy = new Date();
+    const dentroDe5Dias = new Date();
+    dentroDe5Dias.setDate(hoy.getDate() + 5);
 
-      console.log('🔎 Buscando paquetes entre:', hoy, 'y', dentroDe5Dias);
-
-      const paquetes = await this.prisma.paquetePublicado.findMany({
-        where: {
-          estado: {
-            nombre: { in: ['Activo', 'Pendiente'] }
-          },
-          fecha_fin: {
-            gte: hoy,
-            lte: dentroDe5Dias
-          }
+    return this.prisma.paquetePublicado.findMany({
+      where: {
+        estado: { nombre: { in: ['Activo', 'Pendiente'] } },
+        fecha_fin: {
+          gte: hoy,
+          lte: dentroDe5Dias,
         },
-        include: {
-          paqueteBase: {
-            select: { nombre: true, descripcion: true, imagen_url: true }
+      },
+      include: {
+        paqueteBase: {
+          select: {
+            nombre: true,
+            descripcion: true,
+            imagen_url: true,
           },
-          zona: { select: { nombre: true } },
-          estado: { select: { nombre: true } }
         },
-        orderBy: { fecha_fin: 'asc' }
-      });
-
-
-      console.log(`✅ ${paquetes.length} paquetes encontrados`);
-      return paquetes;
-    } catch (error: any) {
-      console.error('💥 Error en getPorCerrarse:', error);
-      throw new Error(`Error al obtener paquetes por cerrarse: ${error.message}`);
-    }
+        zona: { select: { nombre: true } },
+        estado: { select: { nombre: true } },
+      },
+      orderBy: { fecha_fin: 'asc' },
+    });
   }
 }

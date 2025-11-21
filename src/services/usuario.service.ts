@@ -6,10 +6,10 @@ import { UsuarioDTO } from '../dtos/usuario/usuario.dto';
 import type { Direccion, Usuario } from '../../prisma/generated/client';
 import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
-import { UsuarioUpdateDTO } from '../dtos/usuario/usuarioUpdate.dto';
 import { FirebaseUser } from '../middlewares/firebaseAuth.middleware';
 import { ImagenService } from '../services/imagen.service';
 import { generarAvatar } from '../utils/avatar';
+import { Localidad, Rol } from '@prisma/client';
 
 export class UsuarioService {
   private prismaClient = prisma;
@@ -27,7 +27,7 @@ export class UsuarioService {
     // Generar imagen si no se proporciona
     let imagen_url = usuario.imagen_url;
     if (!imagen_url) {
-      const apellido = (usuario as any).apellido ?? '';
+      const apellido = usuario.nombre.split(' ')[1] || '';
       const avatarBuffer = generarAvatar(nombre, apellido);
       imagen_url = await this.imagenService.uploadToCloudinary(avatarBuffer);
     }
@@ -76,7 +76,10 @@ export class UsuarioService {
         where: { id_localidad: direccion.localidad_id },
       });
       if (!localidad) {
-        throw new CustomError('Localidad no encontrada en la base de datos', 404);
+        throw new CustomError(
+          'Localidad no encontrada en la base de datos',
+          404
+        );
       }
 
       const resultado = await tx.direccion.create({
@@ -104,23 +107,29 @@ export class UsuarioService {
     });
   }
 
-  public async obtenerUsuario(userId: number): Promise<any> {
-    return await this.prismaClient.usuario.findUnique({
-      where: { id: userId },
-      include: {
-        rol: { select: { nombre: true } },
-        direccion: {
-          include: { localidad: true },
-        },
-      },
-    });
-  }
+  public async obtenerUsuario(userId: number): Promise<
+  | (Usuario & {
+      rol: { nombre: string };
+      direccion: (Direccion & { localidad: Localidad }) | null;
+    })
+  | null
+> {
+  return await this.prismaClient.usuario.findUnique({
+    where: { id: userId },
+    include: {
+      rol: { select: { nombre: true } },
+      direccion: { include: { localidad: true } },
+    },
+  });
+}
+
 
   public async actualizarUsuario(
     userId: number,
     datos: Partial<UsuarioDTO>
   ): Promise<Usuario> {
-    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url } = datos;
+    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url } =
+      datos;
 
     let contraseñaHash: string | undefined = undefined;
     if (contraseña) {
@@ -140,12 +149,16 @@ export class UsuarioService {
     });
   }
 
-
-  public async loginConFirebase(firebaseUser: FirebaseUser): Promise<Usuario & { rol: { nombre: string } }> {
+  public async loginConFirebase(
+    firebaseUser: FirebaseUser
+  ): Promise<Usuario & { rol: { nombre: string } }> {
     const { uid, email, name, picture } = firebaseUser;
 
     if (!email) {
-      throw new CustomError('Email no disponible en la información de Firebase', 400);
+      throw new CustomError(
+        'Email no disponible en la información de Firebase',
+        400
+      );
     }
 
     let usuario = await this.buscarPorEmail(email);
@@ -156,7 +169,9 @@ export class UsuarioService {
       if (picture) {
         // Subir imagen de Google a Cloudinary
         const axios = await import('axios');
-        const response = await axios.default.get(picture, { responseType: 'arraybuffer' });
+        const response = await axios.default.get(picture, {
+          responseType: 'arraybuffer',
+        });
         const buffer = Buffer.from(response.data, 'binary');
         imagen_url = await this.imagenService.uploadToCloudinary(buffer);
       } else {
@@ -183,7 +198,9 @@ export class UsuarioService {
     return usuario;
   }
 
-  public async crearTokenPersonalizado(usuario: Usuario & { rol: { nombre: string } }): Promise<string> {
+  public async crearTokenPersonalizado(
+    usuario: Usuario & { rol: { nombre: string } }
+  ): Promise<string> {
     return await crearToken({
       id: usuario.id,
       email: usuario.email,
