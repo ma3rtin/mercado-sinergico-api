@@ -1,16 +1,17 @@
-const { createDefaultPreset } = require("ts-jest");
-
-const tsJestTransformCfg = createDefaultPreset().transform;
-
-/** @type {import("jest").Config} **/
-module.exports = {
-  testEnvironment: "node",
+/** @type {import('jest').Config} */
+export default {
+  preset: 'ts-jest/presets/default-esm',
+  testEnvironment: 'node',
   setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],
-  transform: {
-    ...tsJestTransformCfg,
-  },
+  extensionsToTreatAsEsm: ['.ts'],
   testPathIgnorePatterns: [
-    "/node_modules/",
-    "/dist/"
-  ]
-}
+    '/node_modules/',
+    '/dist/'
+  ],
+  globals: {
+    'ts-jest': {
+      useESM: true,
+      tsconfig: '<rootDir>/tsconfig.json',
+    },
+  },
+};
