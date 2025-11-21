@@ -1,20 +1,20 @@
 import { prisma } from '../prisma/client';
 
-export class CategoriaService {
+export class MarcaService {
   private client = prisma;
 
   public async getAll() {
-    return this.client.categoria.findMany();
+    return this.client.marca.findMany();
   }
 
   public async getById(id: number) {
-    return this.client.categoria.findUnique({
-      where: { id_categoria: id },
+    return this.client.marca.findUnique({
+      where: { id_marca: id },
     });
   }
 
   public async create(nombre: string) {
-    return this.client.categoria.create({
+    return this.client.marca.create({
       data: { nombre },
     });
   }
