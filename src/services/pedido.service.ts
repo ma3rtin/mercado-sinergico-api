@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma/client';
 
 export class PedidoService {
-  private prisma = new PrismaClient();
+  private prisma = prisma;
 
   public async crearPedido(usuarioId: number) {
     try {

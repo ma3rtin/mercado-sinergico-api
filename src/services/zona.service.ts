@@ -1,8 +1,8 @@
 import { ZonaDTO } from '../dtos/zona.dto';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma/client';
 
 export class ZonaService {
-  private prisma = new PrismaClient();
+  private prisma = prisma;
   async getAll() {
     return this.prisma.zona.findMany({
       include: { localidades: true, paquetes: true },

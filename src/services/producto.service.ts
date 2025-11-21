@@ -1,8 +1,9 @@
 import { ProductoDTO } from '../dtos/producto.dto';
-import { PrismaClient, Producto } from '@prisma/client';
+import type { Producto } from '../../prisma/generated/client';
+import { prisma } from '../prisma/client';
 
 export class ProductoService {
-  private prisma = new PrismaClient();
+  private prisma = prisma;
 
   public async getAll(name?: string, skip = 0, take = 10): Promise<Producto[]> {
     try {

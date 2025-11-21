@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma/client';
 
 export class CategoriaService {
-    private client = new PrismaClient();
+    private client = prisma;
 
     public async getAll() {
         try {

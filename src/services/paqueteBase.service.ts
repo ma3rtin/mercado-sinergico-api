@@ -1,9 +1,9 @@
 import { AgregarProductoPaqueteDTO } from '../dtos/agregarProductoPaquete.dto';
 import { PaqueteBaseDTO } from '../dtos/paqueteBase.dto';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma/client';
 
 export class PaqueteBaseService {
-  private prisma = new PrismaClient();
+  private prisma = prisma;
 
   public async getAll() {
     try {
