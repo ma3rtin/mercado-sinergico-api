@@ -1,3 +1,15 @@
+jest.mock("canvas", () => ({
+  createCanvas: () => ({
+    getContext: () => ({
+      fillStyle: "",
+      fillRect: jest.fn(),
+      font: "",
+      fillText: jest.fn(),
+      measureText: () => ({ width: 10 }),
+    }),
+    toBuffer: () => Buffer.from("fake"),
+  }),
+}));
 import { UsuarioService } from "../../src/services/usuario.service";
 
 jest.mock("../../src/prisma/client", () => {
@@ -49,7 +61,6 @@ describe("UsuarioService", () => {
 
     mocks = require("../../src/prisma/client").__mocks;
 
-    // valores por defecto
     mocks.mockUsuarioCreate.mockResolvedValue({
       id: 1,
       email: "test@example.com",
@@ -154,7 +165,9 @@ describe("UsuarioService", () => {
       telefono: "1234567890",
     });
 
-    const result = await service.actualizarUsuario(1, { email: "test@example.com" });
+    const result = await service.actualizarUsuario(1, {
+      email: "test@example.com",
+    });
     expect(result).toHaveProperty("id");
     expect(result.email).toBe("test@example.com");
   });
