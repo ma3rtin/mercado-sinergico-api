@@ -24,14 +24,15 @@ jobs:
       - name: Install dependencies (skip scripts)
         run: npm ci --ignore-scripts
 
-      - name: Generate Prisma client (skip if no DATABASE_URL)
+      - name: Generate Prisma client (use fallback if no DATABASE_URL)
         run: |
           if [ -z "${DATABASE_URL}" ]; then
-            echo "DATABASE_URL is not set — skipping 'npx prisma generate'"
+            echo "DATABASE_URL is not set — using fallback for 'prisma generate'"
+            export DATABASE_URL="mysql://dummy:dummy@127.0.0.1:3306/dummy"
           else
-            echo "DATABASE_URL is set — running 'npx prisma generate'"
-            npx prisma generate
+            echo "DATABASE_URL is set — using secret for 'prisma generate'"
           fi
+          npx prisma generate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
