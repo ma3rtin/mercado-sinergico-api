@@ -3,13 +3,12 @@ import { crearToken } from '../auth/jwt';
 import { DireccionDTO } from '../dtos/direccion.dto';
 import { LoginDTO } from '../dtos/login.dto';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto';
-import type { Direccion, Usuario } from '../../prisma/generated/client';
+import type { Direccion, Localidad, Usuario } from '../../prisma/generated/client';
 import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
 import { FirebaseUser } from '../middlewares/firebaseAuth.middleware';
 import { ImagenService } from '../services/imagen.service';
 import { generarAvatar } from '../utils/avatar';
-import { Localidad, Rol } from '@prisma/client';
 
 export class UsuarioService {
   private prismaClient = prisma;
