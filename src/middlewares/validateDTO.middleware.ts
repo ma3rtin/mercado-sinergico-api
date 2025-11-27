@@ -2,10 +2,13 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { NextFunction, Request, Response } from 'express';
 
-export function validarDto(dtoClass: any) {
+export function validarDto<T extends object>(dtoClass: new () => T) {
   return async (req: Request, res: Response, next: NextFunction) => {
     const contentType = req.headers['content-type'] || '';
-    if (!contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
+    if (
+      !contentType.includes('application/json') &&
+      !contentType.includes('multipart/form-data')
+    ) {
       return res.status(400).json({
         message: 'El body debe enviarse en formato JSON o multipart/form-data',
       });

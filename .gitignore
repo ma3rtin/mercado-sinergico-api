@@ -1,7 +1,32 @@
 node_modules/
+
+# Build outputs
+dist/
+coverage/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor
+.vscode/
+.idea/
+.DS_Store
+
+# Env files
+.env
+.env.*
+
+# Prisma generated client (do not commit). CI will run `prisma generate`.
+prisma/generated/
+
+# Prisma engine artifacts
+.prisma/
+
+# TypeScript incremental
+*.tsbuildinfo
+node_modules/
 dist/
 .env
 *.log
-
-/generated/prisma
-/src/generated/prisma

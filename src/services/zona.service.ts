@@ -1,8 +1,9 @@
 import { ZonaDTO } from '../dtos/zona.dto';
-import { PrismaClient } from '@prisma/client';
+import { CustomError } from '../errors/custom.error';
+import { prisma } from '../prisma/client';
 
 export class ZonaService {
-  private prisma = new PrismaClient();
+  private prisma = prisma;
   async getAll() {
     return this.prisma.zona.findMany({
       include: { localidades: true, paquetes: true },
@@ -20,7 +21,7 @@ export class ZonaService {
     const exists = await this.prisma.zona.findUnique({
       where: { nombre: zonaDto.nombre },
     });
-    if (exists) throw new Error('La zona ya existe');
+    if (exists) throw new CustomError('La zona ya existe', 409);
 
     const zona = await this.prisma.zona.create({
       data: {
@@ -39,7 +40,7 @@ export class ZonaService {
   async update(id: number, data: { nombre?: string }) {
     // Validación: que la zona exista
     const zona = await this.prisma.zona.findUnique({ where: { id_zona: id } });
-    if (!zona) throw new Error('Zona no encontrada');
+    if (!zona) throw new CustomError('Zona con id ' + id + ' no encontrada', 404);
 
     // Validación: si cambia nombre, que no se repita
     if (data.nombre) {
@@ -47,7 +48,7 @@ export class ZonaService {
         where: { nombre: data.nombre },
       });
       if (duplicate && duplicate.id_zona !== id) {
-        throw new Error('Ya existe otra zona con ese nombre');
+        throw new CustomError('Ya existe otra zona con ese nombre');
       }
     }
 
@@ -63,9 +64,9 @@ export class ZonaService {
       where: { id_zona: id },
       include: { localidades: true },
     });
-    if (!zona) throw new Error('Zona no encontrada');
+    if (!zona) throw new CustomError('Zona no encontrada');
     if (zona.localidades.length > 0) {
-      throw new Error(
+      throw new CustomError(
         'No se puede eliminar la zona porque tiene localidades asociadas'
       );
     }

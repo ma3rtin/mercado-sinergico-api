@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../prisma/client';
 import { rolMiddleware } from '../../middlewares/auth.middleware';
 import { validarDto } from '../../middlewares/validateDTO.middleware';
 import { PaqueteBaseDTO } from '../../dtos/paqueteBase.dto';
@@ -9,7 +9,6 @@ import { AdminController } from '../../controllers/admin.controller';
 import { ProductoDTO } from '../../dtos/producto.dto';
 import { AgregarProductoPaqueteDTO } from '../../dtos/agregarProductoPaquete.dto';
 
-const prisma = new PrismaClient();
 const router = Router();
 const productoService = new ProductoService();
 const paqueteService = new PaqueteBaseService();

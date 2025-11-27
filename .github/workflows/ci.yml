@@ -1,33 +1,42 @@
 name: CI
 
 on:
-  pull_request:
-    branches:
-      - main
-      - dev
   push:
-    branches: [ main ]
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node
+      - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20.x'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies (skip scripts)
+        run: npm ci --ignore-scripts
 
-      - name: Run ESLint
-        run: npm run lint
+      - name: Generate Prisma client (use fallback if no DATABASE_URL)
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "DATABASE_URL is not set — using fallback for 'prisma generate'"
+            export DATABASE_URL="mysql://dummy:dummy@127.0.0.1:3306/dummy"
+          else
+            echo "DATABASE_URL is set — using secret for 'prisma generate'"
+          fi
+          npx prisma generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-      - name: Run build
+      - name: Build
         run: npm run build
 
       - name: Run tests

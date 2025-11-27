@@ -28,12 +28,12 @@ export async function authMiddleware(
     const user = await decodificarToken(token);
     console.log('✅ Token decodificado:', user);
 
-
     req.user = user;
 
     next();
-  } catch (error: any) {
-    console.error('❌ Error al verificar token:', error.message);
+  } catch (error: unknown) {
+    const err = error as Error;
+    console.error('❌ Error al verificar token:', err.message);
 
     res.status(401).json({ message: 'Token inválido o expirado' });
     return;
