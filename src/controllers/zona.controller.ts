@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { ZonaService } from '../services/zona.service';
-import { ZonaDTO } from '../dtos/zona.dto';
+import { ZonaDTO } from '../dtos/direccion/zona.dto';
 import { asyncHandler } from '../utils/asyncHandler';
 
 export class ZonaController {

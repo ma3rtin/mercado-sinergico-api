@@ -1,5 +1,5 @@
-import { AgregarProductoPaqueteDTO } from '../dtos/agregarProductoPaquete.dto';
-import { PaqueteBaseDTO } from '../dtos/paqueteBase.dto';
+import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaquete.dto';
+import { PaqueteBaseDTO } from '../dtos/paquete/paqueteBase.dto';
 import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
 

@@ -2,8 +2,8 @@ import { Router } from 'express';
 import { PaqueteController } from '../../controllers/paqueteBase.controller';
 import { PaqueteBaseService } from '../../services/paqueteBase.service';
 import { validarDto } from '../../middlewares/validateDTO.middleware';
-import { PaqueteBaseDTO } from '../../dtos/paqueteBase.dto';
-import { AgregarProductoPaqueteDTO } from '../../dtos/agregarProductoPaquete.dto';
+import { PaqueteBaseDTO } from '../../dtos/paquete/paqueteBase.dto';
+import { AgregarProductoPaqueteDTO } from '../../dtos/producto/agregarProductoPaquete.dto';
 import { ImagenService } from './../../services/imagen.service';
 import { procesarSubidaImagen } from '../../middlewares/uploadFiles.middleware';
 

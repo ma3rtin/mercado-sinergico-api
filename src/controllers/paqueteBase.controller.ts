@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { PaqueteBaseService } from '../services/paqueteBase.service';
-import { PaqueteBaseDTO } from '../dtos/paqueteBase.dto';
-import { AgregarProductoPaqueteDTO } from '../dtos/agregarProductoPaquete.dto';
+import { PaqueteBaseDTO } from '../dtos/paquete/paqueteBase.dto';
+import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaquete.dto';
 import { ImagenService } from '../services/imagen.service';
 import { CustomError } from '../errors/custom.error';
 import { asyncHandler } from '../utils/asyncHandler';

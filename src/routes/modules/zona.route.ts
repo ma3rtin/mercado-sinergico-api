@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { ZonaController } from '../../controllers/zona.controller';
 import { localidadRouter } from './localidad.route';
 import { validarDto } from './../../middlewares/validateDTO.middleware';
-import { ZonaDTO } from '../../dtos/zona.dto';
+import { ZonaDTO } from '../../dtos/direccion/zona.dto';
 import { ZonaService } from '../../services/zona.service';
 import { rolMiddleware } from '../../middlewares/auth.middleware';
 

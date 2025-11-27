@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler';
 import { UsuarioService } from '../services/usuario.service';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto';
-import { LoginDTO } from '../dtos/login.dto';
+import { LoginDTO } from '../dtos/usuario/login.dto';
 import { DatosEncriptados } from '../auth/jwt';
 import { ImagenService } from './../services/imagen.service';
 import { FirebaseAuthenticatedRequest, FirebaseUser } from '../middlewares/firebaseAuth.middleware';

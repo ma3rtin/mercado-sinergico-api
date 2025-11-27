@@ -1,4 +1,4 @@
-import { ZonaDTO } from '../dtos/zona.dto';
+import { ZonaDTO } from '../dtos/direccion/zona.dto';
 import { CustomError } from '../errors/custom.error';
 import { prisma } from '../prisma/client';
 
