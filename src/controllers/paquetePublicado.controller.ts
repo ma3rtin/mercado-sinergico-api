@@ -99,4 +99,32 @@ export class PaquetePublicadoController {
       next(error);
     }
   }
+
+  async getByUserZone(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Usuario no autenticado' });
+      }
+
+      const paquetes = await this.service.getByUserZone(userId);
+      res.status(200).json(paquetes);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getByProductId(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({ message: 'ID de producto no proporcionado' });
+      }
+
+      const paquetes = await this.service.getByProductId(Number(id));
+      res.status(200).json(paquetes);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

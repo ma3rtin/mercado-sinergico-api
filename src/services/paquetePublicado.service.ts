@@ -28,21 +28,127 @@ export class PaquetePublicadoService {
 
   async getById(id: number) {
     try {
-      return await this.prisma.paquetePublicado.findUnique({
+      const paquete = await this.prisma.paquetePublicado.findUnique({
         where: { id_paquete_publicado: id },
         include: {
           paqueteBase: {
-            include: { marca: true, categoria: true }
+            include: {
+              marca: true,
+              categoria: true,
+              productos: {
+                include: {
+                  producto: {
+                    include: {
+                      imagenes: true
+                    }
+                  }
+                }
+              }
+            }
           },
           zona: true,
           estado: true,
           pedidos: true
         }
       });
+
+      if (paquete) {
+        return {
+          ...paquete,
+          descuento: 10 // Descuento fijo del 10%
+        };
+      }
+      return null;
     } catch (error: any) {
       throw new Error(
         `Error al obtener paquete con id=${id}: ${error.message}`
       );
+    }
+  }
+
+  async getByUserZone(userId: number) {
+    try {
+      const usuario = await this.prisma.usuario.findUnique({
+        where: { id: userId },
+        include: {
+          direccion: {
+            include: {
+              localidad: {
+                include: {
+                  zonas: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!usuario || !usuario.direccion || !usuario.direccion.localidad) {
+        throw new Error('Usuario o dirección no encontrados');
+      }
+
+      const zonaIds = usuario.direccion.localidad.zonas.map(z => z.zonaId);
+
+      if (zonaIds.length === 0) {
+        return [];
+      }
+
+      return await this.prisma.paquetePublicado.findMany({
+        where: {
+          zonaId: { in: zonaIds },
+          estado: { nombre: 'Activo' }
+        },
+        include: {
+          paqueteBase: {
+            include: {
+              marca: true,
+              categoria: true,
+              productos: {
+                include: {
+                  producto: {
+                    include: {
+                      imagenes: true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          zona: true,
+          estado: true
+        }
+      });
+    } catch (error: any) {
+      throw new Error(`Error al obtener paquetes por zona de usuario: ${error.message}`);
+    }
+  }
+
+  async getByProductId(productId: number) {
+    try {
+      return await this.prisma.paquetePublicado.findMany({
+        where: {
+          paqueteBase: {
+            productos: {
+              some: {
+                productoId: productId
+              }
+            }
+          },
+          estado: { nombre: 'Activo' }
+        },
+        include: {
+          paqueteBase: {
+            include: {
+              marca: true,
+              categoria: true
+            }
+          },
+          zona: true,
+          estado: true
+        }
+      });
+    } catch (error: any) {
+      throw new Error(`Error al obtener paquetes por producto: ${error.message}`);
     }
   }
 
