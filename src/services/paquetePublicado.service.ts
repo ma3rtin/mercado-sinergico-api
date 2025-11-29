@@ -207,6 +207,7 @@ export class PaquetePublicadoService {
     });
   }
 
+ // 🔥 ESTE ES EL MÉTODO QUE NECESITA ARREGLARSE
   async getPorCerrarse() {
     try {
       const hoy = new Date();
@@ -215,6 +216,7 @@ export class PaquetePublicadoService {
 
       console.log('🔎 Buscando paquetes entre:', hoy, 'y', dentroDe5Dias);
 
+      // ✅ CAMBIO IMPORTANTE: Agregar el include de paqueteBase
       const paquetes = await this.prisma.paquetePublicado.findMany({
         where: {
           estado: {
@@ -226,15 +228,23 @@ export class PaquetePublicadoService {
           }
         },
         include: {
+          // ✅ ESTO FALTABA - Ahora trae la info de paqueteBase
           paqueteBase: {
-            select: { nombre: true, descripcion: true, imagen_url: true }
+            include: {
+              marca: true,      // ✅ Trae la marca
+              categoria: true   // ✅ Trae la categoría
+            }
           },
-          zona: { select: { nombre: true } },
-          estado: { select: { nombre: true } }
+          zona: { 
+            select: { nombre: true, id_zona: true } 
+          },
+          estado: { 
+            select: { nombre: true, id_estado: true } 
+          },
+          pedidos: true
         },
         orderBy: { fecha_fin: 'asc' }
       });
-
 
       console.log(`✅ ${paquetes.length} paquetes encontrados`);
       return paquetes;
