@@ -33,12 +33,11 @@ model Usuario {
   id          Int        @id @default(autoincrement())
   email       String     @unique
   nombre      String
-  contraseña String
+  contraseña  String
   telefono    String
   fecha_nac   DateTime?
   imagen_url  String?
   direccion   Direccion?
-  carrito     Carrito?
   rolId       Int
   rol         Rol        @relation(fields: [rolId], references: [id])
 
@@ -71,15 +70,13 @@ model Localidad {
   nombre        String
   codigo_postal Int
   direcciones   Direccion[]
-
-  zonas LocalidadZona[]
+  zonas         LocalidadZona[]
 }
 
 model Zona {
   id_zona  Int                @id @default(autoincrement())
   nombre   String             @unique
   paquetes PaquetePublicado[]
-
   localidades LocalidadZona[]
 
   createdAt DateTime @default(now())
@@ -125,12 +122,12 @@ model Producto {
   profundidad  Float?
   peso         Float?
   stock        Int?
-  plantillaId  Int? // opcional, porque no todos los productos la van a usar
+  plantillaId  Int?
   categoria_id Int
   categoria    Categoria             @relation(fields: [categoria_id], references: [id_categoria])
   paquetes     PaqueteBaseProducto[]
   imagenes     ProductoImagen[]
-  carritoProductos CarritoProducto[]
+  pedidoDetalles PedidoDetalle[]
   plantilla    Plantilla?            @relation(fields: [plantillaId], references: [id])
 
   createdAt DateTime @default(now())
@@ -171,32 +168,32 @@ model PaqueteBaseProducto {
   producto      Producto    @relation(fields: [productoId], references: [id_producto], onDelete: Cascade)
   paqueteBase   PaqueteBase @relation(fields: [paqueteBaseId], references: [id_paquete_base])
 }
+
 enum TipoPaquete {
- SINERGICO
- ENERGETICO
- POR_DEFINIR  
+  SINERGICO
+  ENERGETICO
+  POR_DEFINIR  
 }
 
 model PaquetePublicado {
-  id_paquete_publicado Int                    @id @default(autoincrement())
-  paqueteBaseId        Int
-  paqueteBase          PaqueteBase            @relation(fields: [paqueteBaseId], references: [id_paquete_base])
-  estadoId             Int
-  estado               EstadoPaquetePublicado @relation(fields: [estadoId], references: [id_estado])
-  zonaId               Int
-  zona                 Zona                   @relation(fields: [zonaId], references: [id_zona])
-  fecha_inicio         DateTime
-  fecha_fin            DateTime
-  cant_productos       Int?
-  cant_productos_reservados Int @default(0)
-  cant_usuarios_registrados Int @default(0)
-  monto_total          Float?
-  imagen_url           String?
-  tipoPaquete          TipoPaquete @default(POR_DEFINIR)
+  id_paquete_publicado      Int                    @id @default(autoincrement())
+  paqueteBaseId             Int
+  paqueteBase               PaqueteBase            @relation(fields: [paqueteBaseId], references: [id_paquete_base])
+  estadoId                  Int
+  estado                    EstadoPaquetePublicado @relation(fields: [estadoId], references: [id_estado])
+  zonaId                    Int
+  zona                      Zona                   @relation(fields: [zonaId], references: [id_zona])
+  fecha_inicio              DateTime
+  fecha_fin                 DateTime
+  cant_productos            Int?
+  cant_productos_reservados Int                    @default(0)
+  cant_usuarios_registrados Int                    @default(0)
+  monto_total               Float?
+  imagen_url                String?
+  tipoPaquete               TipoPaquete            @default(POR_DEFINIR)
+  descuento                 Float?
 
   pedidos   Pedido[]
-  pedidosPaquetePublicado PedidoPaquetePublicado[]
-  carritoPaquetePublicado CarritoPaquetePublicado[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -211,56 +208,32 @@ model Pedido {
   id_pedido          Int              @id @default(autoincrement())
   usuarioId          Int
   usuario            Usuario          @relation(fields: [usuarioId], references: [id])
-  paquetePublicadoId Int?
-  paquetePublicado   PaquetePublicado? @relation(fields: [paquetePublicadoId], references: [id_paquete_publicado])
-  carritoId          Int?             
-  carrito            Carrito?         @relation(fields: [carritoId], references: [id_carrito])
+  paquetePublicadoId Int
+  paquetePublicado   PaquetePublicado @relation(fields: [paquetePublicadoId], references: [id_paquete_publicado])
   estadoId           Int
   estado             EstadoPedido     @relation(fields: [estadoId], references: [id_estado])
-  pedidosPaquetePublicado PedidoPaquetePublicado[]
-  monto_total        Float?
+  monto_total        Float
+  descuento_aplicado Float?
   fecha              DateTime         @default(now())
+  
+  detalles  PedidoDetalle[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 }
 
-model PedidoPaquetePublicado {
-  id                 Int          @id @default(autoincrement())
-  pedidoId           Int
-  paquetePublicadoId Int
-  pedido             Pedido       @relation(fields: [pedidoId], references: [id_pedido])
-  paquetePublicado   PaquetePublicado  @relation(fields: [paquetePublicadoId], references: [id_paquete_publicado])
+model PedidoDetalle {
+  id              Int      @id @default(autoincrement())
+  pedidoId        Int
+  pedido          Pedido   @relation(fields: [pedidoId], references: [id_pedido], onDelete: Cascade)
+  productoId      Int
+  producto        Producto @relation(fields: [productoId], references: [id_producto])
+  cantidad        Int
+  precio_unitario Float
+  subtotal        Float
 }
 
 model EstadoPedido {
   id_estado Int      @id @default(autoincrement())
   nombre    String   @unique
   pedidos   Pedido[]
-}
-
-model Carrito {
-  id_carrito   Int                  @id @default(autoincrement())
-  usuarioId    Int                  @unique
-  usuario      Usuario              @relation(fields: [usuarioId], references: [id])
-  productos    CarritoProducto[]
-  paquetes     CarritoPaquetePublicado[]
-  pedidos      Pedido[]
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
-}
-
-model CarritoProducto {
-  id_carrito_producto Int       @id @default(autoincrement())
-  carritoId           Int
-  productoId          Int
-  cantidad            Int       @default(1)
-  carrito             Carrito   @relation(fields: [carritoId], references: [id_carrito])
-  producto            Producto  @relation(fields: [productoId], references: [id_producto])
-}
-
-model CarritoPaquetePublicado {
-  id_carrito_paquete Int        @id @default(autoincrement())
-  carritoId          Int
-  paquetePublicadoId Int
-  cantidad           Int        @default(1)
-  carrito            Carrito    @relation(fields: [carritoId], references: [id_carrito])
-  paquetePublicado   PaquetePublicado @relation(fields: [paquetePublicadoId], references: [id_paquete_publicado])
 }
