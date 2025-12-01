@@ -127,26 +127,4 @@ export class PaquetePublicadoService {
       orderBy: { fecha_fin: 'asc' },
     });
   }
-
-  async sumarse(userId: number, productoAComprar: ComprarProductoDto){
-    // const pedido = await this.prisma.pedido.findFirst({where: {paquetePublicadoId: productoAComprar.paquetePublicadoId, usuarioId: userId}});
-    // if(pedido){
-    //   return this.prisma.paquetePublicado.update({
-    //     where: { id_paquete_publicado: productoAComprar.paquetePublicadoId },
-    //     data: {
-    //       pedidos: { create: { usuario: { connect: { usuarioId: userId } },
-    //       paquetePublicado: { connect: { id_paquete_publicado: productoAComprar.paquetePublicadoId } },
-    //     } },
-    //     },
-    //   });
-    // }
-    // return this.prisma.paquetePublicado.update({
-    //   where: { id_paquete_publicado: productoAComprar.paquetePublicadoId },
-    //   data: {
-    //     pedidos: { create: { usuario: { connect: { usuarioId: userId } },
-    //     paquetePublicado: { connect: { id_paquete_publicado: productoAComprar.paquetePublicadoId } },
-    //   } },
-    //   },
-    // });
-  } 
 }
