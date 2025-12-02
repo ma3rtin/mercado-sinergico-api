@@ -1,6 +1,6 @@
-import { prisma } from "../prisma/client";
-import { CustomError } from "../errors/custom.error";
-import { SumarseDTO } from "../dtos/pedido/sumarse.dto";
+import { prisma } from '../prisma/client';
+import { CustomError } from '../errors/custom.error';
+import { SumarseDTO } from '../dtos/pedido/sumarse.dto';
 
 export class PedidoService {
   private prisma = prisma;
@@ -25,11 +25,11 @@ export class PedidoService {
     });
 
     if (!paquete) {
-      throw new CustomError("Paquete no encontrado", 404);
+      throw new CustomError('Paquete no encontrado', 404);
     }
 
-    if (paquete.estado.nombre !== "Activo") {
-      throw new CustomError("El paquete no está activo", 400);
+    if (paquete.estado.nombre !== 'Activo') {
+      throw new CustomError('El paquete no está activo', 400);
     }
 
     const productoEnPaquete = paquete.paqueteBase.productos.find(
@@ -37,13 +37,13 @@ export class PedidoService {
     );
 
     if (!productoEnPaquete) {
-      throw new CustomError("El producto no pertenece a este paquete", 400);
+      throw new CustomError('El producto no pertenece a este paquete', 400);
     }
 
     const producto = productoEnPaquete.producto;
 
     if (producto.stock && producto.stock < productoAComprar.cantidad) {
-      throw new CustomError("Stock insuficiente", 400);
+      throw new CustomError('Stock insuficiente', 400);
     }
 
     // aplicar descuento provisorio
@@ -190,7 +190,7 @@ export class PedidoService {
         estado: true,
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
 
@@ -245,11 +245,11 @@ export class PedidoService {
     });
 
     if (!pedido) {
-      throw new CustomError("Pedido no encontrado", 404);
+      throw new CustomError('Pedido no encontrado', 404);
     }
 
     if (pedido.usuarioId !== usuarioId) {
-      throw new CustomError("No tienes permiso para ver este pedido", 403);
+      throw new CustomError('No tienes permiso para ver este pedido', 403);
     }
 
     return pedido;
@@ -269,13 +269,13 @@ export class PedidoService {
 
     if (!pedido) {
       throw new CustomError(
-        "No tenés un pedido pendiente en este paquete",
+        'No tenés un pedido pendiente en este paquete',
         404
       );
     }
 
     if (pedido.estadoId > 2) {
-      throw new CustomError("Este pedido ya no se puede cancelar", 400);
+      throw new CustomError('Este pedido ya no se puede cancelar', 400);
     }
 
     const resultado = await this.prisma.$transaction(async (prisma) => {
@@ -305,7 +305,7 @@ export class PedidoService {
     });
 
     return {
-      message: "Baja de pedido exitosa",
+      message: 'Baja de pedido exitosa',
       pedidoEliminado: resultado,
     };
   }
