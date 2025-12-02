@@ -147,16 +147,17 @@ export class PedidoService {
       },
     });
 
-    if (producto.stock) {
-      await this.prisma.producto.update({
-        where: { id_producto: productoAComprar.productoId },
-        data: {
-          stock: {
-            decrement: productoAComprar.cantidad,
-          },
-        },
-      });
-    }
+    // si hacemos que pague al sumarse tenemos que actualizar el stock, sino se maneja cuando se pague
+    // if (producto.stock) {
+    //   await this.prisma.producto.update({
+    //     where: { id_producto: productoAComprar.productoId },
+    //     data: {
+    //       stock: {
+    //         decrement: productoAComprar.cantidad,
+    //       },
+    //     },
+    //   });
+    // }
 
     return pedido;
   }
@@ -252,5 +253,60 @@ export class PedidoService {
     }
 
     return pedido;
+  }
+
+  public async bajarse(userId: number, paqueteId: number) {
+    const pedido = await this.prisma.pedido.findFirst({
+      where: {
+        usuarioId: userId,
+        paquetePublicadoId: paqueteId,
+        estadoId: 1,
+      },
+      include: {
+        detalles: true,
+      },
+    });
+
+    if (!pedido) {
+      throw new CustomError(
+        "No tenés un pedido pendiente en este paquete",
+        404
+      );
+    }
+
+    if (pedido.estadoId > 2) {
+      throw new CustomError("Este pedido ya no se puede cancelar", 400);
+    }
+
+    const resultado = await this.prisma.$transaction(async (prisma) => {
+      const totalProductosReservados = pedido.detalles.reduce(
+        (sum, detalle) => sum + detalle.cantidad,
+        0
+      );
+
+      await prisma.paquetePublicado.update({
+        where: { id_paquete_publicado: paqueteId },
+        data: {
+          cant_productos_reservados: {
+            decrement: totalProductosReservados,
+          },
+        },
+      });
+
+      await prisma.pedidoDetalle.deleteMany({
+        where: { pedidoId: pedido.id_pedido },
+      });
+
+      const pedidoEliminado = await prisma.pedido.delete({
+        where: { id_pedido: pedido.id_pedido },
+      });
+
+      return pedidoEliminado;
+    });
+
+    return {
+      message: "Baja de pedido exitosa",
+      pedidoEliminado: resultado,
+    };
   }
 }

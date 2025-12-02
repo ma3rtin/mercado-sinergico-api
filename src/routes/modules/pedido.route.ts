@@ -8,7 +8,8 @@ const router = Router();
 const controller = new PedidoController();
 
 router.post("/:paqueteId", authMiddleware, validarDto(SumarseDTO), controller.crearPedido);
-router.get("/", authMiddleware, controller.getAll);
+router.get("/mis-paquetes", authMiddleware, controller.getAll);
 router.get("/:id", authMiddleware, controller.getById);
+router.get("/bajarse/:paqueteId", authMiddleware, controller.bajarse);
 
 export default router;

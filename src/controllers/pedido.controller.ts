@@ -39,4 +39,11 @@ export class PedidoController {
     const pedido = await pedidoService.getById(Number(id), user!.id);
     res.status(200).json(pedido);
   });
+
+  public bajarse = asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user;
+    const { paqueteId } = req.params;
+    const pedido = await pedidoService.bajarse(user!.id, Number(paqueteId));
+    res.status(200).json(pedido);
+  });
 }
