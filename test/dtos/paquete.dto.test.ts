@@ -1,5 +1,5 @@
-import { PaqueteBaseDTO, TipoPaquete } from '../../src/dtos/paqueteBase.dto';
 import { validate } from 'class-validator';
+import { PaqueteBaseDTO } from './../../src/dtos/paquete/paqueteBase.dto';
 
 describe("PaqueteDTO", () => {
   it("deberia fallar la validacion si falta algun dato", async () => {

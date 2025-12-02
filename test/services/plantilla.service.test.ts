@@ -1,5 +1,5 @@
 import { PlantillaService } from "../../src/services/plantilla.service";
-import { PlantillaDTO } from "../../src/dtos/dtos-plantilla/plantilla.dto";
+import { PlantillaDTO } from "../../src/dtos/plantilla/plantilla.dto";
 
 jest.mock("../../src/prisma/client", () => {
   const mockTransaction = jest.fn();

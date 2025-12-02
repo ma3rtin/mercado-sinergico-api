@@ -1,5 +1,5 @@
 import { PaqueteBaseService } from "../../src/services/paqueteBase.service";
-import { PaqueteBaseDTO } from "../../src/dtos/paqueteBase.dto";
+import { PaqueteBaseDTO } from "../../src/dtos/paquete/paqueteBase.dto";
 
 jest.mock("../../src/prisma/client", () => {
   const mockTransaction = jest.fn();
