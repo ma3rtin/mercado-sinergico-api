@@ -1,7 +1,7 @@
 // tests/dto/caracteristica.dto.spec.ts
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { CaracteristicaDTO } from '../../src/dtos/dtos-plantilla/caracteristica.dto';
+import { CaracteristicaDTO } from './../../src/dtos/plantilla/caracteristica.dto';
 
 describe('CaracteristicaDTO validation', () => {
     it('debe fallar si falta nombre u opciones', async () => {

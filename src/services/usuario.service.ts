@@ -1,7 +1,7 @@
 import { cifrarContraseña, compararContraseñas } from '../auth/bcrypt';
 import { crearToken } from '../auth/jwt';
-import { DireccionDTO } from '../dtos/direccion.dto';
-import { LoginDTO } from '../dtos/login.dto';
+import { DireccionDTO } from '../dtos/direccion/direccion.dto';
+import { LoginDTO } from '../dtos/usuario/login.dto';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto';
 import type { Direccion, Localidad, Usuario } from '../../prisma/generated/client';
 import { prisma } from '../prisma/client';

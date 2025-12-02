@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { ProductoController } from "../../src/controllers/producto.controller";
-import { ProductoDTO } from "../../src/dtos/producto.dto";
+import { ProductoDTO } from "../../src/dtos/producto/producto.dto";
 
 const next: jest.Mock = jest.fn();
 

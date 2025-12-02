@@ -5,7 +5,7 @@
   "main": "dist/app.js",
   "scripts": {
     "test": "jest --detectOpenHandles --forceExit",
-    "dev": "tsx src/app.ts",
+    "dev": "tsx watch src/app.ts",
     "generate": "prisma generate",
     "migrate": "prisma migrate dev",
     "build": "tsc -p tsconfig.json",

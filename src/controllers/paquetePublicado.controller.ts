@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { PaquetePublicadoService } from '../services/paquetePublicado.service';
 import { asyncHandler } from '../utils/asyncHandler';
 import { CustomError } from '../errors/custom.error';
@@ -14,7 +14,8 @@ export class PaquetePublicadoController {
 
   getById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id || id === '') throw new CustomError('Id de paquete no proporcionado', 400);
+    if (!id || id === '')
+      throw new CustomError('Id de paquete no proporcionado', 400);
 
     const paquete = await this.service.getById(Number(id));
     if (!paquete) throw new CustomError('Paquete no encontrado', 404);
@@ -24,7 +25,8 @@ export class PaquetePublicadoController {
 
   create = asyncHandler(async (req: Request, res: Response) => {
     const paquetePublicadoDTO = req.body;
-    if (!paquetePublicadoDTO) throw new CustomError('Paquete no proporcionado', 400);
+    if (!paquetePublicadoDTO)
+      throw new CustomError('Paquete no proporcionado', 400);
 
     const paquetePublicado = await this.service.create(paquetePublicadoDTO);
     if (!paquetePublicado) throw new CustomError('Error al crear paquete', 400);
@@ -37,17 +39,20 @@ export class PaquetePublicadoController {
     if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
 
     const paquetePublicado = await this.service.update(Number(id), req.body);
-    if (!paquetePublicado) throw new CustomError('Error al actualizar paquete', 400);
+    if (!paquetePublicado)
+      throw new CustomError('Error al actualizar paquete', 400);
 
     res.json(paquetePublicado);
   });
 
   delete = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id || id === '') throw new CustomError('Id de paquete no proporcionado', 400);
+    if (!id || id === '')
+      throw new CustomError('Id de paquete no proporcionado', 400);
 
     const paquetePublicado = await this.service.delete(Number(id));
-    if (!paquetePublicado) throw new CustomError('Error al eliminar paquete', 400);
+    if (!paquetePublicado)
+      throw new CustomError('Error al eliminar paquete', 400);
 
     res.status(200).json({ message: 'Paquete eliminado' });
   });

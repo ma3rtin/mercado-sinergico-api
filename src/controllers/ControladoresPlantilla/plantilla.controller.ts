@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { PlantillaService } from '../../services/plantilla.service';
-import { PlantillaDTO } from '../../dtos/dtos-plantilla/plantilla.dto';
+import { PlantillaDTO } from '../../dtos/plantilla/plantilla.dto';
 import { CustomError } from '../../errors/custom.error';
 
 export class PlantillaController {

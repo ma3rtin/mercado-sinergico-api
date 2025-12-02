@@ -1,7 +1,8 @@
-import { PaquetePublicadoDTO } from '../dtos/paquetePublicado.dto';
-import { PaquetePublicadoUpdateDTO } from '../dtos/paquetePublicadoUpdate.dto';
+import { PaquetePublicadoDTO } from '../dtos/paquete/paquetePublicado.dto';
+import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdate.dto';
 import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
+import { ComprarProductoDto } from '../dtos/producto/comprarProducto.dto';
 
 export class PaquetePublicadoService {
   private prisma = prisma;

@@ -1,6 +1,6 @@
 import { prisma } from '../prisma/client';
 
-import { PlantillaDTO } from '../dtos/dtos-plantilla/plantilla.dto';
+import { PlantillaDTO } from '../dtos/plantilla/plantilla.dto';
 
 export class PlantillaService {
     private prismaClient = prisma;

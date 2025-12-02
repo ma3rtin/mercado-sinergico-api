@@ -1,5 +1,5 @@
 import { ProductoService } from "../../src/services/producto.service";
-import { ProductoDTO } from "../../src/dtos/producto.dto";
+import { ProductoDTO } from "../../src/dtos/producto/producto.dto";
 
 jest.mock("../../src/prisma/client", () => {
   const mockTransaction = jest.fn();

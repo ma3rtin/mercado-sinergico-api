@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { PaqueteBaseService } from '../services/paqueteBase.service';
 import { ProductoService } from '../services/producto.service';
-import { ProductoDTO } from '../dtos/producto.dto';
-import { AgregarProductoPaqueteDTO } from '../dtos/agregarProductoPaquete.dto';
+import { ProductoDTO } from '../dtos/producto/producto.dto';
+import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaquete.dto';
 import { asyncHandler } from '../utils/asyncHandler';
 
 export class AdminController {
