@@ -4,7 +4,9 @@ import { PaquetePublicadoController } from '../../controllers/paquetePublicado.c
 
 export const paquetePublicadoRouter = Router();
 
-const service = new PaquetePublicadoService();
+import { PrismaPaquetePublicadoRepository } from '../../repositories/prisma/PrismaPaquetePublicadoRepository';
+const repository = new PrismaPaquetePublicadoRepository();
+const service = new PaquetePublicadoService(repository);
 const controller = new PaquetePublicadoController(service);
 
 paquetePublicadoRouter.get('/por-cerrarse', controller.getPorCerrarse.bind(controller));
