@@ -8,9 +8,7 @@ export class ProductoService {
 
   public async getAll(name?: string, skip = 0, take = 10): Promise<Producto[]> {
     return this.prisma.producto.findMany({
-      where: name
-        ? { nombre: { contains: name } }
-        : undefined,
+      where: name ? { nombre: { contains: name } } : undefined,
       include: {
         categoria: true,
         marca: true,
@@ -22,7 +20,11 @@ export class ProductoService {
     });
   }
 
-  public async getById(id: number): Promise<Producto | null> {
+  public async getById(id: number): Promise<{producto: Producto, cantPaquetes: number} | null> {
+    const paquetesConProducto = await this.prisma.paquetePublicado.findMany({
+      where: { paqueteBase: { productos: { some: { productoId: id } } } },
+    });
+
     const producto = await this.prisma.producto.findUnique({
       where: { id_producto: id },
       include: { categoria: true, marca: true, imagenes: true },
@@ -32,7 +34,7 @@ export class ProductoService {
       throw new CustomError('Producto no encontrado', 404);
     }
 
-    return producto;
+    return {producto, cantPaquetes: paquetesConProducto.length};
   }
 
   public async create(producto: ProductoDTO): Promise<Producto> {
@@ -51,9 +53,7 @@ export class ProductoService {
         ...rest,
         categoria: { connect: { id_categoria: categoria_id } },
         marca: { connect: { id_marca: marca_id } },
-        plantilla: plantillaId
-          ? { connect: { id: plantillaId } }
-          : undefined,
+        plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
         imagenes: {
           create: imagenes?.map((url) => ({ url })) || [],
         },
@@ -70,9 +70,7 @@ export class ProductoService {
       categoria: categoria_id
         ? { connect: { id_categoria: categoria_id } }
         : undefined,
-      marca: marca_id
-        ? { connect: { id_marca: marca_id } }
-        : undefined,
+      marca: marca_id ? { connect: { id_marca: marca_id } } : undefined,
     };
 
     if (imagenes) {

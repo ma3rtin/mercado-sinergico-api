@@ -44,6 +44,38 @@ export class PedidoController {
     const user = req.user;
     const { paqueteId } = req.params;
     const pedido = await pedidoService.bajarse(user!.id, Number(paqueteId));
-    res.status(200).json(pedido);
+    res.status(200).json({pedidoEl: pedido});
   });
+
+  public eliminarProducto = asyncHandler(
+    async (req: Request, res: Response) => {
+      const user = req.user;
+      const { pedidoId, productoId } = req.params;
+
+      const pedido = await pedidoService.eliminarProducto(
+        user!.id,
+        Number(pedidoId),
+        Number(productoId)
+      );
+
+      res.status(200).json({pedidoActualizado: pedido});
+    }
+  );
+
+  public actualizarCantidad = asyncHandler(
+    async (req: Request, res: Response) => {
+      const user = req.user;
+      const { pedidoId, productoId } = req.params;
+      const { cantidad } = req.body;
+
+      const pedido = await pedidoService.actualizarCantidad(
+        user!.id,
+        Number(pedidoId),
+        Number(productoId),
+        Number(cantidad)
+      );
+
+      res.status(200).json({pedidoActualizado: pedido});
+    }
+  );
 }
