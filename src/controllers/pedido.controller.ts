@@ -44,7 +44,7 @@ export class PedidoController {
     const user = req.user;
     const { paqueteId } = req.params;
     const pedido = await pedidoService.bajarse(user!.id, Number(paqueteId));
-    res.status(200).json({pedidoEl: pedido});
+    res.status(200).json({pedidoEliminado: pedido});
   });
 
   public eliminarProducto = asyncHandler(
