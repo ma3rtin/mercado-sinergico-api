@@ -138,16 +138,16 @@ export class PedidoService {
       });
     }
 
-    await this.prisma.paquetePublicado.update({
-      where: { id_paquete_publicado: paqueteId },
-      data: {
-        cant_productos_reservados: {
-          increment: productoAComprar.cantidad,
-        },
-      },
-    });
+    // si hacemos que pague al sumarse tenemos que actualizar el stock y la cantidad de productos reservados, sino se maneja cuando se pague
+    // await this.prisma.paquetePublicado.update({
+    //   where: { id_paquete_publicado: paqueteId },
+    //   data: {
+    //     cant_productos_reservados: {
+    //       increment: productoAComprar.cantidad,
+    //     },
+    //   },
+    // });
 
-    // si hacemos que pague al sumarse tenemos que actualizar el stock, sino se maneja cuando se pague
     // if (producto.stock) {
     //   await this.prisma.producto.update({
     //     where: { id_producto: productoAComprar.productoId },
@@ -161,6 +161,7 @@ export class PedidoService {
 
     return pedido;
   }
+
   public async getAll(usuarioId: number) {
     const pedidos = await this.prisma.pedido.findMany({
       where: { usuarioId: usuarioId },
@@ -308,5 +309,184 @@ export class PedidoService {
       message: 'Baja de pedido exitosa',
       pedidoEliminado: resultado,
     };
+  }
+
+  public async eliminarProducto(
+    userId: number,
+    pedidoId: number,
+    productoId: number
+  ) {
+    const pedido = await this.prisma.pedido.findFirst({
+      where: {
+        id_pedido: pedidoId,
+        usuarioId: userId,
+        estadoId: { in: [1, 2] },
+      },
+      include: {
+        detalles: true,
+      },
+    });
+
+    if (!pedido) {
+      throw new CustomError(
+        'Pedido no encontrado o no se puede modificar',
+        404
+      );
+    }
+
+    const detalle = pedido.detalles.find((d) => d.productoId === productoId);
+
+    if (!detalle) {
+      throw new CustomError('Producto no encontrado en el pedido', 404);
+    }
+
+    const resultado = await this.prisma.$transaction(async (prisma) => {
+      await prisma.pedidoDetalle.delete({
+        where: { id: detalle.id },
+      });
+
+      const detallesRestantes = await prisma.pedidoDetalle.count({
+        where: { pedidoId: pedidoId },
+      });
+
+      if (detallesRestantes === 0) {
+        await prisma.pedido.delete({
+          where: { id_pedido: pedidoId },
+        });
+        return null;
+      }
+
+      const nuevoMontoTotal = await prisma.pedidoDetalle.aggregate({
+        where: { pedidoId: pedidoId },
+        _sum: { subtotal: true },
+      });
+
+      const pedidoActualizado = await prisma.pedido.update({
+        where: { id_pedido: pedidoId },
+        data: {
+          monto_total: nuevoMontoTotal._sum.subtotal || 0,
+        },
+        include: {
+          detalles: {
+            include: {
+              producto: {
+                include: {
+                  marca: true,
+                  imagenes: true,
+                },
+              },
+            },
+          },
+          paquetePublicado: {
+            include: {
+              paqueteBase: true,
+            },
+          },
+          estado: true,
+        },
+      });
+
+      return pedidoActualizado;
+    });
+
+    return resultado;
+  }
+
+  public async actualizarCantidad(
+    userId: number,
+    pedidoId: number,
+    productoId: number,
+    nuevaCantidad: number
+  ) {
+    const pedido = await this.prisma.pedido.findFirst({
+      where: {
+        id_pedido: pedidoId,
+        usuarioId: userId,
+        estadoId: { in: [1, 2] },
+      },
+      include: {
+        detalles: true,
+        paquetePublicado: {
+          include: {
+            paqueteBase: {
+              include: {
+                productos: {
+                  include: { producto: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!pedido) {
+      throw new CustomError(
+        'Pedido no encontrado o no se puede modificar',
+        404
+      );
+    }
+
+    const detalle = pedido.detalles.find((d) => d.productoId === productoId);
+
+    if (!detalle) {
+      throw new CustomError('Producto no encontrado en el pedido', 404);
+    }
+
+    const producto = pedido.paquetePublicado.paqueteBase.productos.find(
+      (p) => p.productoId === productoId
+    )?.producto;
+
+    if (!producto) {
+      throw new CustomError('Producto no encontrado', 404);
+    }
+
+    if (producto.stock && producto.stock < nuevaCantidad) {
+      throw new CustomError('Stock insuficiente', 400);
+    }
+
+    const descuento = pedido.paquetePublicado.descuento || 0;
+    const precioConDescuento = producto.precio * (1 - descuento / 100);
+    const nuevoSubtotal = precioConDescuento * nuevaCantidad;
+
+    await this.prisma.pedidoDetalle.update({
+      where: { id: detalle.id },
+      data: {
+        cantidad: nuevaCantidad,
+        subtotal: nuevoSubtotal,
+      },
+    });
+
+    const nuevoMontoTotal = await this.prisma.pedidoDetalle.aggregate({
+      where: { pedidoId: pedidoId },
+      _sum: { subtotal: true },
+    });
+
+    const pedidoActualizado = await this.prisma.pedido.update({
+      where: { id_pedido: pedidoId },
+      data: {
+        monto_total: nuevoMontoTotal._sum.subtotal || 0,
+      },
+      include: {
+        detalles: {
+          include: {
+            producto: {
+              include: {
+                marca: true,
+                imagenes: true,
+              },
+            },
+          },
+        },
+        paquetePublicado: {
+          include: {
+            paqueteBase: true,
+          },
+        },
+        estado: true,
+      },
+    });
+
+    return pedidoActualizado;
   }
 }
