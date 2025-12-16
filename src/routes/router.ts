@@ -9,6 +9,7 @@ import { plantillaRouter } from './modules/plantilla.route';
 import marcaRouter from './modules/marca.route';
 import categoriaRouter from './modules/categorias.route';
 import pedidoRouter from './modules/pedido.route';
+import { mercadoPagoRouter } from '../payments/mercadopago/mercadopago.routes';
 
 export class AppRoutes {
   static get routes(): Router {
@@ -24,6 +25,7 @@ export class AppRoutes {
     router.use('/api/marcas', marcaRouter);
     router.use('/api/categorias', categoriaRouter);
     router.use('/api/pedidos', pedidoRouter);
+    router.use('/api/pagos', mercadoPagoRouter);
 
     return router;
   }

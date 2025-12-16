@@ -1,9 +1,13 @@
 import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
 import { SumarseDTO } from '../dtos/pedido/sumarse.dto';
+import { envs } from '../config/envs';
+import { MercadoPagoService } from '../payments/mercadopago/mercadopago.service';
 
 export class PedidoService {
   private prisma = prisma;
+
+  constructor(private readonly mercadoPagoService: MercadoPagoService) {}
 
   public async crearPedido(
     usuarioId: number,
@@ -488,5 +492,78 @@ export class PedidoService {
     });
 
     return pedidoActualizado;
+  }
+
+  public async iniciarPago(pedidoId: number, usuarioId: number) {
+    const pedido = await this.prisma.pedido.findUnique({
+      where: { id_pedido: pedidoId },
+      include: {
+        usuario: true,
+        paquetePublicado: {
+          include: {
+            paqueteBase: true,
+          },
+        },
+        detalles: {
+          include: { producto: true },
+        },
+      },
+    });
+
+    if (!pedido) {
+      throw new CustomError('Pedido no encontrado', 404);
+    }
+
+    if (pedido.usuarioId !== usuarioId) {
+      throw new CustomError('No tienes permiso para pagar este pedido', 403);
+    }
+
+    if (pedido.estadoId !== 1) {
+      throw new CustomError('Este pedido no puede pagarse', 400);
+    }
+
+    const titulo = `Paquete ${pedido.paquetePublicado.paqueteBase.nombre}`;
+    const precioTotal = pedido.monto_total;
+
+    const preference = await this.mercadoPagoService.crearPreferencia({
+      pedidoId,
+      titulo,
+      precioTotal,
+    });
+
+    return preference;
+  }
+
+  public async confirmarPago(paymentId: number) {
+    const pago = await this.mercadoPagoService.obtenerPago(paymentId);
+    console.log('📦 Pago obtenido:', pago);
+
+    const status = pago.status;
+    const pedidoId = Number(pago.external_reference);
+
+    if (!pedidoId) {
+      console.error('No se pudo obtener el pedidoId desde external_reference');
+      return;
+    }
+
+    if (status === 'approved') {
+      await this.prisma.pedido.update({
+        where: { id_pedido: pedidoId },
+        data: {
+          estadoId: 3, // estado de "pagado"
+        },
+      });
+    }
+
+    if (status === 'rejected') {
+      await this.prisma.pedido.update({
+        where: { id_pedido: pedidoId },
+        data: {
+          estadoId: 4, // estado de "rechazado"
+        },
+      });
+    }
+
+    return { pedidoId, status };
   }
 }
