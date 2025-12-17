@@ -41,6 +41,8 @@ model Usuario {
   carrito     Carrito?
   rolId       Int
   rol         Rol        @relation(fields: [rolId], references: [id])
+  localidadId Int?
+  localidad   Localidad? @relation(fields: [localidadId], references: [id_localidad])
 
   pedidos   Pedido[]
   createdAt DateTime @default(now())
@@ -71,6 +73,7 @@ model Localidad {
   nombre        String
   codigo_postal Int
   direcciones   Direccion[]
+  usuarios      Usuario[]
 
   zonas LocalidadZona[]
 }

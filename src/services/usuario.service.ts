@@ -108,6 +108,7 @@ export class UsuarioService {
       where: { id: userId },
       include: {
         rol: { select: { nombre: true } },
+        localidad: true,
         direccion: {
           include: { localidad: true },
         },
@@ -119,7 +120,7 @@ export class UsuarioService {
     userId: number,
     datos: Partial<UsuarioDTO>
   ): Promise<Usuario> {
-    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url } = datos;
+    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url, localidad_id } = datos as UsuarioUpdateDTO;
 
     let contraseñaHash: string | undefined = undefined;
     if (contraseña) {
@@ -135,6 +136,7 @@ export class UsuarioService {
         fecha_nac: fecha_nac ? new Date(fecha_nac) : undefined,
         contraseña: contraseñaHash ?? undefined,
         imagen_url: imagen_url ?? undefined,
+        localidadId: localidad_id ?? undefined,
       },
     });
   }

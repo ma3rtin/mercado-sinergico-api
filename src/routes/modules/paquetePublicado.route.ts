@@ -10,7 +10,14 @@ const service = new PaquetePublicadoService();
 const controller = new PaquetePublicadoController(service);
 
 paquetePublicadoRouter.get('/por-cerrarse', controller.getPorCerrarse.bind(controller));
-paquetePublicadoRouter.get('/usuario', authMiddleware, controller.getByUserZone.bind(controller));
+paquetePublicadoRouter.get('/zona', (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+        authMiddleware(req, res, next);
+    } else {
+        next();
+    }
+}, controller.getByLocation.bind(controller));
 paquetePublicadoRouter.get('/producto/:id', controller.getByProductId.bind(controller));
 paquetePublicadoRouter.get('/', controller.getAll.bind(controller));
 paquetePublicadoRouter.get('/:id', controller.getById.bind(controller));

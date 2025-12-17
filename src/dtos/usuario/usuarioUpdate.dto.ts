@@ -1,4 +1,5 @@
-import { IsDateString, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsDateString, IsEmail, IsNumber, IsOptional, IsString, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class UsuarioUpdateDTO {
     @IsOptional()
@@ -26,4 +27,9 @@ export class UsuarioUpdateDTO {
     @IsOptional()
     @IsString({ message: 'La URL de la imagen debe ser una cadena' })
     imagen_url?: string;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsNumber({}, { message: 'El id de la localidad debe ser un número' })
+    localidad_id?: number;
 }

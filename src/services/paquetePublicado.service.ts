@@ -66,30 +66,56 @@ export class PaquetePublicadoService {
     }
   }
 
-  async getByUserZone(userId: number) {
+  async getByLocation(userId?: number, localidadId?: number) {
     try {
-      const usuario = await this.prisma.usuario.findUnique({
-        where: { id: userId },
-        include: {
-          direccion: {
-            include: {
-              localidad: {
-                include: {
-                  zonas: true
+      let zonaIds: number[] = [];
+
+      // 1. Si se proporciona localidadId explícitamente, usarla
+      if (localidadId) {
+        console.log('🔎 Buscando zonas para localidad ID:', localidadId);
+        const localidad = await this.prisma.localidad.findUnique({
+          where: { id_localidad: localidadId },
+          include: { zonas: true }
+        });
+
+        if (localidad) {
+          zonaIds = localidad.zonas.map(z => z.zonaId);
+        }
+      }
+      // 2. Si no hay localidadId pero hay userId, buscar la del usuario
+      else if (userId) {
+        console.log('🔎 Buscando zonas para usuario ID:', userId);
+        const usuario = await this.prisma.usuario.findUnique({
+          where: { id: userId },
+          include: {
+            localidad: { // Primero revisar preferencia de localidad
+              include: { zonas: true }
+            },
+            direccion: { // Fallback a dirección física
+              include: {
+                localidad: {
+                  include: {
+                    zonas: true
+                  }
                 }
               }
             }
           }
-        }
-      });
+        });
 
-      if (!usuario || !usuario.direccion || !usuario.direccion.localidad) {
-        throw new Error('Usuario o dirección no encontrados');
+        if (usuario) {
+          if (usuario.localidad) {
+            console.log('✅ Usando localidad preferida del usuario');
+            zonaIds = usuario.localidad.zonas.map(z => z.zonaId);
+          } else if (usuario.direccion && usuario.direccion.localidad) {
+            console.log('✅ Usando dirección del usuario');
+            zonaIds = usuario.direccion.localidad.zonas.map(z => z.zonaId);
+          }
+        }
       }
 
-      const zonaIds = usuario.direccion.localidad.zonas.map(z => z.zonaId);
-
       if (zonaIds.length === 0) {
+        console.warn('⚠️ No se encontraron zonas para la ubicación dada.');
         return [];
       }
 
@@ -119,7 +145,7 @@ export class PaquetePublicadoService {
         }
       });
     } catch (error: any) {
-      throw new Error(`Error al obtener paquetes por zona de usuario: ${error.message}`);
+      throw new Error(`Error al obtener paquetes por ubicación: ${error.message}`);
     }
   }
 
