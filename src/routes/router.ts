@@ -9,12 +9,12 @@ import { plantillaRouter } from './modules/plantilla.route';
 import marcaRouter from './modules/marca.route';
 import categoriaRouter from './modules/categorias.route';
 import pedidoRouter from './modules/pedido.route';
-import { carritoRouter } from './modules/carrito.route';
 
 export class AppRoutes {
 
     static get routes(): Router {
         const router = Router();
+
 
         router.use('/api/usuarios', usuarioRouter);
         router.use('/api/productos', productoRouter);
@@ -26,7 +26,6 @@ export class AppRoutes {
         router.use('/api/marcas', marcaRouter);
         router.use('/api/categorias', categoriaRouter);
         router.use('/api/pedidos', pedidoRouter);
-        router.use('/api/carrito', carritoRouter);
 
         return router;
 
