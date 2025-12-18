@@ -1,10 +1,10 @@
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { PaquetePublicadoService } from '../services/paquetePublicado.service';
 import { asyncHandler } from '../utils/asyncHandler';
 import { CustomError } from '../errors/custom.error';
 
 export class PaquetePublicadoController {
-  constructor(private service: PaquetePublicadoService) {}
+  constructor(private service: PaquetePublicadoService) { }
 
   getAll = asyncHandler(async (_req: Request, res: Response) => {
     const paquetes = await this.service.getAll();
@@ -62,11 +62,8 @@ export class PaquetePublicadoController {
     if (!paquetes || paquetes.length === 0)
       throw new CustomError('No hay paquetes por cerrarse', 404);
 
-      res.status(200).json(paquetes);
-    } catch (error) {
-      next(error);
-    }
-  }
+    res.status(200).json(paquetes);
+  });
 
   async getByLocation(req: Request, res: Response, next: NextFunction) {
     try {

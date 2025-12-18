@@ -1,5 +1,6 @@
-import { PaquetePublicadoDTO } from '../dtos/paquetePublicado.dto';
-import { PaquetePublicadoUpdateDTO } from '../dtos/paquetePublicadoUpdate.dto';
+import { PaquetePublicadoDTO } from '../dtos/paquete/paquetePublicado.dto';
+import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdate.dto';
+import { CustomError } from '../errors/custom.error';
 import { PrismaClient } from '@prisma/client';
 
 export class PaquetePublicadoService {
@@ -79,7 +80,7 @@ export class PaquetePublicadoService {
         });
 
         if (localidad) {
-          zonaIds = localidad.zonas.map(z => z.zonaId);
+          zonaIds = localidad.zonas.map((z: any) => z.zonaId);
         }
       }
       // 2. Si no hay localidadId pero hay userId, buscar la del usuario
@@ -106,10 +107,10 @@ export class PaquetePublicadoService {
         if (usuario) {
           if (usuario.localidad) {
             console.log('✅ Usando localidad preferida del usuario');
-            zonaIds = usuario.localidad.zonas.map(z => z.zonaId);
+            zonaIds = usuario.localidad.zonas.map((z: any) => z.zonaId);
           } else if (usuario.direccion && usuario.direccion.localidad) {
             console.log('✅ Usando dirección del usuario');
-            zonaIds = usuario.direccion.localidad.zonas.map(z => z.zonaId);
+            zonaIds = usuario.direccion.localidad.zonas.map((z: any) => z.zonaId);
           }
         }
       }

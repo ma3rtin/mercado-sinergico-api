@@ -3,6 +3,7 @@ import { crearToken } from '../auth/jwt';
 import { DireccionDTO } from '../dtos/direccion/direccion.dto';
 import { LoginDTO } from '../dtos/usuario/login.dto';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto';
+import { UsuarioUpdateDTO } from '../dtos/usuario/usuarioUpdate.dto';
 import type { Direccion, Localidad, Usuario } from '../../prisma/generated/client';
 import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
@@ -70,7 +71,7 @@ export class UsuarioService {
     userId: number,
     direccion: DireccionDTO
   ): Promise<Direccion> {
-    return await this.prismaClient.$transaction(async (tx) => {
+    return await this.prismaClient.$transaction(async (tx: any) => {
       const localidad = await tx.localidad.findUnique({
         where: { id_localidad: direccion.localidad_id },
       });
