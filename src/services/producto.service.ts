@@ -1,208 +1,129 @@
-import { ProductoDTO } from '../dtos/producto.dto';
-import { PrismaClient, Producto } from '@prisma/client';
+import { ProductoDTO } from '../dtos/producto/producto.dto';
+import type { Prisma, Producto } from '../../prisma/generated/client';
+import { prisma } from '../prisma/client';
+import { CustomError } from '../errors/custom.error';
 
 export class ProductoService {
-  private prisma = new PrismaClient();
+  private prisma = prisma;
 
   public async getAll(name?: string, skip = 0, take = 10): Promise<Producto[]> {
-    try {
-      const productos = await this.prisma.producto.findMany({
-        where: name
-          ? {
-              nombre: {
-                contains: name,
-              },
-            }
-          : undefined,
-        include: {
-          categoria: true,
-          marca: true,
-          imagenes: true,
-        },
-        skip,
-        take,
-        orderBy: { id_producto: 'asc' },
-      });
-
-      return productos;
-    } catch (error) {
-      throw error;
-    }
+    return this.prisma.producto.findMany({
+      where: name ? { nombre: { contains: name } } : undefined,
+      include: {
+        categoria: true,
+        marca: true,
+        imagenes: true,
+      },
+      skip,
+      take,
+      orderBy: { id_producto: 'asc' },
+    });
   }
 
-  public async getById(id: number): Promise<Producto | null> {
-    try {
-      const producto = await this.prisma.producto.findUnique({
-        where: { id_producto: id },
-        include: { categoria: true, marca: true, imagenes: true },
-      });
-      return producto;
-    } catch (error) {
-      throw error;
+  public async getById(id: number): Promise<{producto: Producto, cantPaquetes: number} | null> {
+    const paquetesConProducto = await this.prisma.paquetePublicado.findMany({
+      where: { paqueteBase: { productos: { some: { productoId: id } } } },
+    });
+
+    const producto = await this.prisma.producto.findUnique({
+      where: { id_producto: id },
+      include: { categoria: true, marca: true, imagenes: true },
+    });
+
+    if (!producto) {
+      throw new CustomError('Producto no encontrado', 404);
     }
+
+    return {producto, cantPaquetes: paquetesConProducto.length};
   }
 
   public async create(producto: ProductoDTO): Promise<Producto> {
-    const {
-      nombre,
-      descripcion,
-      precio,
-      marca_id,
-      peso,
-      altura,
-      ancho,
-      profundidad,
-      categoria_id,
-      imagen_url,
-      imagenes,
-      stock,
-      plantillaId,
-    } = producto;
+    const { categoria_id, marca_id, imagenes, plantillaId, ...rest } = producto;
 
-    try {
-      const categoria = await this.prisma.categoria.findUnique({
-        where: { id_categoria: categoria_id },
-      });
+    const categoria = await this.prisma.categoria.findUnique({
+      where: { id_categoria: categoria_id },
+    });
 
-      if (!categoria) {
-        throw new Error('Categoria no encontrada');
-      }
-
-      const newProducto = await this.prisma.producto.create({
-        data: {
-          nombre,
-          descripcion,
-          precio,
-          peso,
-          altura,
-          ancho,
-          profundidad,
-          stock,
-          imagen_url,
-          categoria: { connect: { id_categoria: categoria_id } },
-          marca: { connect: { id_marca: marca_id } },
-          plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
-          imagenes: {
-            create: imagenes?.map((url) => ({ url })) || [],
-          },
-        },
-        include: { imagenes: true, categoria: true, marca: true },
-      });
-
-      return newProducto;
-    } catch (error) {
-      throw error;
+    if (!categoria) {
+      throw new CustomError('Categoria no encontrada', 404);
     }
+
+    return this.prisma.producto.create({
+      data: {
+        ...rest,
+        categoria: { connect: { id_categoria: categoria_id } },
+        marca: { connect: { id_marca: marca_id } },
+        plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
+        imagenes: {
+          create: imagenes?.map((url) => ({ url })) || [],
+        },
+      },
+      include: { imagenes: true, categoria: true, marca: true },
+    });
   }
 
   public async update(id: number, producto: ProductoDTO) {
-    try {
-      const {
-        nombre,
-        descripcion,
-        precio,
-        marca_id,
-        peso,
-        altura,
-        ancho,
-        profundidad,
-        categoria_id,
-        imagen_url,
-        imagenes,
-      } = producto;
+    const { categoria_id, marca_id, imagenes, ...rest } = producto;
 
-      const data: any = {
-        nombre,
-        descripcion,
-        precio,
-        peso,
-        altura,
-        ancho,
-        profundidad,
-        imagen_url,
-        categoria: categoria_id
-          ? { connect: { id_categoria: categoria_id } }
-          : undefined,
-        marca: marca_id ? { connect: { id_marca: marca_id } } : undefined,
+    const data: Prisma.ProductoUpdateInput = {
+      ...rest,
+      categoria: categoria_id
+        ? { connect: { id_categoria: categoria_id } }
+        : undefined,
+      marca: marca_id ? { connect: { id_marca: marca_id } } : undefined,
+    };
+
+    if (imagenes) {
+      data.imagenes = {
+        deleteMany: {},
+        create: imagenes.map((url) => ({ url })),
       };
-
-      if (imagenes) {
-        data.imagenes = {
-          deleteMany: {},
-          create: imagenes.map((url) => ({ url })),
-        };
-      }
-
-      const updated = await this.prisma.producto.update({
-        where: { id_producto: id },
-        data,
-        include: { imagenes: true },
-      });
-      return updated;
-    } catch (error) {
-      throw error;
     }
+
+    return this.prisma.producto.update({
+      where: { id_producto: id },
+      data,
+      include: { imagenes: true },
+    });
   }
 
   public async delete(id: number) {
-    try {
-      // Borra registros relacionados y luego el producto en una transacción
-      const deleted = await this.prisma.$transaction(async (tx) => {
-        // Borrar relaciones many-to-many / children que referencian producto
-        await tx.paqueteBaseProducto.deleteMany({
-          where: { productoId: id },
-        });
+    return this.prisma.$transaction(async (tx) => {
+      await tx.paqueteBaseProducto.deleteMany({ where: { productoId: id } });
+      await tx.productoImagen.deleteMany({ where: { productoId: id } });
 
-        await tx.productoImagen.deleteMany({
-          where: { productoId: id },
-        });
-
-        // Finalmente borrar el producto
-        const prodDeleted = await tx.producto.delete({
-          where: { id_producto: id },
-        });
-
-        return prodDeleted;
-      });
-
-      return deleted;
-    } catch (error) {
-      throw error;
-    }
+      return tx.producto.delete({ where: { id_producto: id } });
+    });
   }
+
   public async duplicarProducto(id: number) {
-    try {
-      const producto = await this.prisma.producto.findUnique({
-        where: { id_producto: id },
-        include: { imagenes: true },
-      });
-      if (!producto) {
-        throw new Error('Producto no encontrado');
-      }
+    const producto = await this.prisma.producto.findUnique({
+      where: { id_producto: id },
+      include: { imagenes: true },
+    });
 
-      const duplicado = await this.prisma.producto.create({
-        data: {
-          nombre: `${producto.nombre} (Copia)`,
-          descripcion: producto.descripcion,
-          precio: producto.precio,
-          peso: producto.peso,
-          altura: producto.altura,
-          ancho: producto.ancho,
-          profundidad: producto.profundidad,
-          stock: producto.stock,
-          imagen_url: producto.imagen_url,
-          categoria: { connect: { id_categoria: producto.categoria_id } },
-          marca: { connect: { id_marca: producto.marca_id } },
-          imagenes: {
-            create: producto.imagenes.map((imagen) => ({ url: imagen.url })),
-          },
-        },
-        include: { imagenes: true },
-      });
-
-      return duplicado;
-    } catch (error) {
-      throw error;
+    if (!producto) {
+      throw new CustomError('Producto no encontrado', 404);
     }
+
+    return this.prisma.producto.create({
+      data: {
+        nombre: `${producto.nombre} (Copia)`,
+        descripcion: producto.descripcion,
+        precio: producto.precio,
+        peso: producto.peso,
+        altura: producto.altura,
+        ancho: producto.ancho,
+        profundidad: producto.profundidad,
+        stock: producto.stock,
+        imagen_url: producto.imagen_url,
+        categoria: { connect: { id_categoria: producto.categoria_id } },
+        marca: { connect: { id_marca: producto.marca_id } },
+        imagenes: {
+          create: producto.imagenes.map((img) => ({ url: img.url })),
+        },
+      },
+      include: { imagenes: true },
+    });
   }
 }

@@ -1,9 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma/client';
 
-import { PlantillaDTO } from '../dtos/dtos-plantilla/plantilla.dto';
+import { PlantillaDTO } from '../dtos/plantilla/plantilla.dto';
 
 export class PlantillaService {
-    private prismaClient = new PrismaClient();
+    private prismaClient = prisma;
     constructor() { }
     async crearPlantilla(dto: PlantillaDTO) {
         return this.prismaClient.plantilla.create({

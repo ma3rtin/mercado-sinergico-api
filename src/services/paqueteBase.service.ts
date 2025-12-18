@@ -1,91 +1,85 @@
-import { AgregarProductoPaqueteDTO } from '../dtos/agregarProductoPaquete.dto';
-import { PaqueteBaseDTO } from '../dtos/paqueteBase.dto';
-import { PrismaClient } from '@prisma/client';
+import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaquete.dto';
+import { PaqueteBaseDTO } from '../dtos/paquete/paqueteBase.dto';
+import { prisma } from '../prisma/client';
+import { CustomError } from '../errors/custom.error';
 
 export class PaqueteBaseService {
-  private prisma = new PrismaClient();
+  private prisma = prisma;
 
   public async getAll() {
-    try {
-      const paquetes = await this.prisma.paqueteBase.findMany({
-        include: {
-          productos: {
-            include: { producto: true },
-          },
+    return this.prisma.paqueteBase.findMany({
+      include: {
+        productos: {
+          include: { producto: true },
         },
-      });
-      return paquetes;
-    } catch (error: any) {
-      throw new Error(`Error al obtener paquetes: ${error.message}`);
-    }
+      },
+    });
   }
 
   public async getById(id: number) {
-    try {
-      const paquete = await this.prisma.paqueteBase.findUnique({
-        where: { id_paquete_base: id },
-        include: {
-          productos: {
-            include: { producto: true },
-          },
+    const paquete = await this.prisma.paqueteBase.findUnique({
+      where: { id_paquete_base: id },
+      include: {
+        productos: {
+          include: { producto: true },
         },
-      });
-      return paquete;
-    } catch (error: any) {
-      throw new Error(
-        `Error al obtener paquete con id=${id}: ${error.message}`
-      );
+      },
+    });
+
+    if (!paquete) {
+      throw new CustomError(`Paquete con id=${id} no encontrado`, 404);
     }
+
+    return paquete;
   }
 
   public async create(data: PaqueteBaseDTO) {
-    try {
-      return await this.prisma.$transaction(async (tx) => {
-        const categoria = await tx.categoria.findUnique({
-          where: { id_categoria: data.categoria_id },
-        });
-
-        if (!categoria) {
-          throw new Error('La categoría no existe');
-        }
-
-        const paqueteCreado = await tx.paqueteBase.create({
-          data: {
-            nombre: data.nombre,
-            descripcion: data.descripcion,
-            imagen_url: data.imagen_url,
-            categoria: {
-              connect: { id_categoria: data.categoria_id },
-            },
-          },
-        });
-
-        if (data.productos && data.productos.length > 0) {
-          await tx.paqueteBaseProducto.createMany({
-            data: data.productos.map((productoId) => ({
-              productoId,
-              paqueteBaseId: paqueteCreado.id_paquete_base,
-            })),
-          });
-        }
-
-        return paqueteCreado;
+    return this.prisma.$transaction(async (tx) => {
+      const categoria = await tx.categoria.findUnique({
+        where: { id_categoria: data.categoria_id },
       });
-    } catch (error: any) {
-      throw new Error(`Error al crear paquete: ${error.message}`);
-    }
+
+      if (!categoria) {
+        throw new CustomError('La categoría no existe', 400);
+      }
+
+      const paqueteCreado = await tx.paqueteBase.create({
+        data: {
+          nombre: data.nombre,
+          descripcion: data.descripcion,
+          imagen_url: data.imagen_url,
+          categoria: {
+            connect: { id_categoria: data.categoria_id },
+          },
+        },
+      });
+
+      if (data.productos?.length) {
+        await tx.paqueteBaseProducto.createMany({
+          data: data.productos.map((productoId) => ({
+            productoId,
+            paqueteBaseId: paqueteCreado.id_paquete_base,
+          })),
+        });
+      }
+
+      return paqueteCreado;
+    });
   }
 
   public async update(id: number, data: PaqueteBaseDTO) {
+    if (data.categoria_id) {
+      const categoria = await this.prisma.categoria.findUnique({
+        where: { id_categoria: data.categoria_id },
+      });
+
+      if (!categoria) {
+        throw new CustomError('La categoría no existe', 400);
+      }
+    }
+
     try {
-      if (
-        data.categoria_id &&
-        (await this.prisma.categoria.findUnique({
-          where: { id_categoria: data.categoria_id },
-        })) === null
-      )
-        throw new Error('La categoría no existe');
-      const paquete = await this.prisma.paqueteBase.update({
+      return await this.prisma.paqueteBase.update({
         where: { id_paquete_base: id },
         data: {
           nombre: data.nombre,
@@ -96,46 +90,42 @@ export class PaqueteBaseService {
           },
         },
       });
-      return paquete;
-    } catch (error: any) {
-      throw new Error(
-        `Error al modificar paquete con id=${id}: ${error.message}`
-      );
+    } catch {
+      throw new CustomError(`Paquete con id=${id} no encontrado`, 404);
     }
   }
 
   public async delete(id: number) {
     try {
-      const paquete = await this.prisma.paqueteBase.delete({
+      return await this.prisma.paqueteBase.delete({
         where: { id_paquete_base: id },
       });
-      return paquete;
-    } catch (error: any) {
-      throw new Error(
-        `Error al eliminar paquete con id=${id}: ${error.message}`
-      );
+    } catch {
+      throw new CustomError(`Paquete con id=${id} no encontrado`, 404);
     }
   }
 
   public async agregarProductos(data: AgregarProductoPaqueteDTO) {
-    try {
-      const { paqueteBaseId, productosId } = data;
-      await this.prisma.paqueteBaseProducto.createMany({
-        data: productosId.map((id) => ({ paqueteBaseId, productoId: id })),
-      });
-      const paquete = await this.prisma.paqueteBase.findUnique({
-        where: { id_paquete_base: paqueteBaseId },
-        include: {
-          productos: {
-            include: { producto: true },
-          },
+    await this.prisma.paqueteBaseProducto.createMany({
+      data: data.productosId.map((id) => ({
+        paqueteBaseId: data.paqueteBaseId,
+        productoId: id,
+      })),
+    });
+
+    const paquete = await this.prisma.paqueteBase.findUnique({
+      where: { id_paquete_base: data.paqueteBaseId },
+      include: {
+        productos: {
+          include: { producto: true },
         },
-      });
-      return paquete;
-    } catch (error: any) {
-      throw new Error(
-        `Error al obtener agregar productos al paquete: ${error.message}`
-      );
+      },
+    });
+
+    if (!paquete) {
+      throw new CustomError('Paquete no encontrado', 404);
     }
+
+    return paquete;
   }
 }

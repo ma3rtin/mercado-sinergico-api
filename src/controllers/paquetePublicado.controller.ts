@@ -1,98 +1,66 @@
-import { NextFunction, Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { PaquetePublicadoService } from '../services/paquetePublicado.service';
+import { asyncHandler } from '../utils/asyncHandler';
 import { CustomError } from '../errors/custom.error';
 
 export class PaquetePublicadoController {
-  constructor(private service: PaquetePublicadoService) { }
+  constructor(private service: PaquetePublicadoService) {}
 
-  async getAll(req: Request, res: Response, next: NextFunction) {
-    try {
-      const paquetes = await this.service.getAll();
-      if (paquetes) res.status(200).json(paquetes);
-      else res.status(404).json({ message: 'Paquetes no encontrados' });
-    } catch (error) {
-      next(error);
-    }
-  }
+  getAll = asyncHandler(async (_req: Request, res: Response) => {
+    const paquetes = await this.service.getAll();
+    if (!paquetes) throw new CustomError('Paquetes no encontrados', 404);
+    res.status(200).json(paquetes);
+  });
 
-  async getById(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { id } = req.params;
-      if (!id || id === '')
-        return res
-          .status(400)
-          .json({ message: 'Id de paquete no proporcionado' });
-      else {
-        const paquete = await this.service.getById(Number(id));
-        if (!paquete)
-          return res.status(404).json({ message: 'Paquete no encontrado' });
-        res.status(200).json(paquete);
-      }
-    } catch (error) {
-      next(error);
-    }
-  }
+  getById = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id || id === '')
+      throw new CustomError('Id de paquete no proporcionado', 400);
 
-  async create(req: Request, res: Response, next: NextFunction) {
-    try {
-      const paquetePublicadoDTO = req.body;
-      if (!paquetePublicadoDTO)
-        return res.status(400).json({ message: 'Paquete no proporcionado' });
-      else {
-        const paquetePublicado = await this.service.create(paquetePublicadoDTO);
-        if (!paquetePublicado)
-          return res.status(400).json({ message: 'Error al crear paquete' });
-        else res.status(201).json(paquetePublicado);
-      }
-    } catch (error) {
-      next(error);
-    }
-  }
+    const paquete = await this.service.getById(Number(id));
+    if (!paquete) throw new CustomError('Paquete no encontrado', 404);
 
-  async update(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { id } = req.params;
-      if (!id)
-        return res
-          .status(400)
-          .json({ message: 'Id de paquete no proporcionado' });
-      else {
-        const paquetePublicado = await this.service.update(
-          Number(id),
-          req.body
-        );
-        if (!paquetePublicado)
-          return res
-            .status(400)
-            .json({ message: 'Error al actualizar paquete' });
-        else res.json(paquetePublicado);
-      }
-    } catch (error) {
-      next(error);
-    }
-  }
+    res.status(200).json(paquete);
+  });
 
-  async delete(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { id } = req.params;
-      if (!id || id === '')
-        res.status(400).json({ message: 'Id de paquete no proporcionado' });
-      else {
-        const paquetePublicado = await this.service.delete(Number(id));
-        if (!paquetePublicado)
-          res.status(400).json({ message: 'Error al eliminar paquete' });
-        else res.status(200).json({ message: 'Paquete eliminado' });
-      }
-    } catch (error) {
-      next(error);
-    }
-  }
-  async getPorCerrarse(req: Request, res: Response, next: NextFunction) {
-    try {
-      const paquetes = await this.service.getPorCerrarse();
+  create = asyncHandler(async (req: Request, res: Response) => {
+    const paquetePublicadoDTO = req.body;
+    if (!paquetePublicadoDTO)
+      throw new CustomError('Paquete no proporcionado', 400);
 
-      if (!paquetes || paquetes.length === 0)
-        return res.status(404).json({ message: 'No hay paquetes por cerrarse' });
+    const paquetePublicado = await this.service.create(paquetePublicadoDTO);
+    if (!paquetePublicado) throw new CustomError('Error al crear paquete', 400);
+
+    res.status(201).json(paquetePublicado);
+  });
+
+  update = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
+
+    const paquetePublicado = await this.service.update(Number(id), req.body);
+    if (!paquetePublicado)
+      throw new CustomError('Error al actualizar paquete', 400);
+
+    res.json(paquetePublicado);
+  });
+
+  delete = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id || id === '')
+      throw new CustomError('Id de paquete no proporcionado', 400);
+
+    const paquetePublicado = await this.service.delete(Number(id));
+    if (!paquetePublicado)
+      throw new CustomError('Error al eliminar paquete', 400);
+
+    res.status(200).json({ message: 'Paquete eliminado' });
+  });
+
+  getPorCerrarse = asyncHandler(async (_req: Request, res: Response) => {
+    const paquetes = await this.service.getPorCerrarse();
+    if (!paquetes || paquetes.length === 0)
+      throw new CustomError('No hay paquetes por cerrarse', 404);
 
       res.status(200).json(paquetes);
     } catch (error) {

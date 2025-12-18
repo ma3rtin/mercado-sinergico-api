@@ -1,4 +1,3 @@
-
 import { Router } from 'express';
 import { usuarioRouter } from './modules/usuario.route';
 import productoRouter from './modules/producto.route';
@@ -11,7 +10,6 @@ import marcaRouter from './modules/marca.route';
 import categoriaRouter from './modules/categorias.route';
 import pedidoRouter from './modules/pedido.route';
 import { carritoRouter } from './modules/carrito.route';
-
 
 export class AppRoutes {
 

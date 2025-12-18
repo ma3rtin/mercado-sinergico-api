@@ -178,26 +178,34 @@ export class PaquetePublicadoService {
     }
   }
 
-  async create(paquetePublicadoDTO: PaquetePublicadoDTO) {
-    try {
-      const fecha_inicio = new Date(paquetePublicadoDTO.fecha_inicio);
-      const fecha_fin = new Date(paquetePublicadoDTO.fecha_fin);
+  async create(dto: PaquetePublicadoDTO) {
+    const fecha_inicio = new Date(dto.fecha_inicio);
+    const fecha_fin = new Date(dto.fecha_fin);
 
-      return await this.prisma.paquetePublicado.create({
-        data: {
-          cant_productos: paquetePublicadoDTO.cant_productos,
-          fecha_inicio,
-          fecha_fin,
-          zona: { connect: { id_zona: Number(paquetePublicadoDTO.zonaId) } },
-          paqueteBase: {
-            connect: { id_paquete_base: paquetePublicadoDTO.paqueteBaseId },
-          },
-          estado: { connect: { nombre: 'Activo' } },
-        },
-      });
-    } catch (error: any) {
-      throw error;
-    }
+    // Validar zona
+    const zona = await this.prisma.zona.findUnique({
+      where: { id_zona: Number(dto.zonaId) },
+    });
+
+    if (!zona) throw new CustomError('La zona no existe', 404);
+
+    // Validar paquete base
+    const paqueteBase = await this.prisma.paqueteBase.findUnique({
+      where: { id_paquete_base: dto.paqueteBaseId },
+    });
+
+    if (!paqueteBase) throw new CustomError('El paquete base no existe', 404);
+
+    return this.prisma.paquetePublicado.create({
+      data: {
+        cant_productos: dto.cant_productos,
+        fecha_inicio,
+        fecha_fin,
+        zona: { connect: { id_zona: Number(dto.zonaId) } },
+        paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
+        estado: { connect: { nombre: 'Activo' } },
+      },
+    });
   }
 
   async update(id: number, dto: PaquetePublicadoUpdateDTO) {

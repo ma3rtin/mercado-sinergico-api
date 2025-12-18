@@ -1,8 +1,8 @@
 // test/dtos/plantilla-package.dto.test.ts
 import { validate } from "class-validator";
-import { PlantillaDTO } from '../../src/dtos/dtos-plantilla/plantilla.dto';
-import { CaracteristicaDTO } from '../../src/dtos/dtos-plantilla/caracteristica.dto';
-import { OpcionDTO } from '../../src/dtos/dtos-plantilla/opcion.dto';
+import { PlantillaDTO} from '../../src/dtos/plantilla/plantilla.dto';
+import { CaracteristicaDTO } from '../../src/dtos/plantilla/caracteristica.dto';
+import { OpcionDTO } from '../../src/dtos/plantilla/opcion.dto';
 
 describe("DTOs de Plantilla", () => {
 
