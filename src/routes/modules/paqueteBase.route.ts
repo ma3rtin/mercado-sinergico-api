@@ -18,3 +18,4 @@ paqueteBaseRouter.post('/', procesarSubidaImagen('imagen'), validarDto(PaqueteBa
 paqueteBaseRouter.put('/:id', validarDto(PaqueteBaseDTO), controller.update.bind(controller));
 paqueteBaseRouter.delete('/:id', controller.delete.bind(controller));
 paqueteBaseRouter.post('/agregar-productos', validarDto(AgregarProductoPaqueteDTO), controller.agregarProductos.bind(controller));
+paqueteBaseRouter.get('/:id/productos', controller.getProductosByPaquete.bind(controller));
