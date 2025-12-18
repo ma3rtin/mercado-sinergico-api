@@ -29,6 +29,7 @@ model Opcion {
   caracteristica   Caracteristica @relation(fields: [caracteristicaId], references: [id], onDelete: Cascade)
 }
 
+
 model Usuario {
   id          Int        @id @default(autoincrement())
   email       String     @unique
@@ -40,6 +41,8 @@ model Usuario {
   direccion   Direccion?
   rolId       Int
   rol         Rol        @relation(fields: [rolId], references: [id])
+  localidadId Int?
+  localidad   Localidad? @relation(fields: [localidadId], references: [id_localidad])
 
   pedidos   Pedido[]
   createdAt DateTime @default(now())
@@ -70,7 +73,9 @@ model Localidad {
   nombre        String
   codigo_postal Int
   direcciones   Direccion[]
-  zonas         LocalidadZona[]
+  usuarios      Usuario[]
+
+  zonas LocalidadZona[]
 }
 
 model Zona {

@@ -279,7 +279,7 @@ export class PedidoService {
       throw new CustomError('Este pedido ya no se puede cancelar', 400);
     }
 
-    const resultado = await this.prisma.$transaction(async (prisma) => {
+    const resultado = await this.prisma.$transaction(async (prisma: any) => {
       const totalProductosReservados = pedido.detalles.reduce(
         (sum, detalle) => sum + detalle.cantidad,
         0
@@ -340,7 +340,7 @@ export class PedidoService {
       throw new CustomError('Producto no encontrado en el pedido', 404);
     }
 
-    const resultado = await this.prisma.$transaction(async (prisma) => {
+    const resultado = await this.prisma.$transaction(async (prisma: any) => {
       await prisma.pedidoDetalle.delete({
         where: { id: detalle.id },
       });

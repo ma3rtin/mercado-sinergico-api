@@ -34,7 +34,7 @@ export class PaqueteBaseService {
   }
 
   public async create(data: PaqueteBaseDTO) {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: any) => {
       const categoria = await tx.categoria.findUnique({
         where: { id_categoria: data.categoria_id },
       });

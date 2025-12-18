@@ -20,7 +20,7 @@ export class ProductoService {
     });
   }
 
-  public async getById(id: number): Promise<{producto: Producto, cantPaquetes: number} | null> {
+  public async getById(id: number): Promise<{ producto: Producto, cantPaquetes: number } | null> {
     const paquetesConProducto = await this.prisma.paquetePublicado.findMany({
       where: { paqueteBase: { productos: { some: { productoId: id } } } },
     });
@@ -34,7 +34,7 @@ export class ProductoService {
       throw new CustomError('Producto no encontrado', 404);
     }
 
-    return {producto, cantPaquetes: paquetesConProducto.length};
+    return { producto, cantPaquetes: paquetesConProducto.length };
   }
 
   public async create(producto: ProductoDTO): Promise<Producto> {
@@ -88,7 +88,7 @@ export class ProductoService {
   }
 
   public async delete(id: number) {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: any) => {
       await tx.paqueteBaseProducto.deleteMany({ where: { productoId: id } });
       await tx.productoImagen.deleteMany({ where: { productoId: id } });
 
