@@ -128,4 +128,29 @@ export class PaqueteBaseService {
 
     return paquete;
   }
+
+  public async getProductosByPaquete(id: number) {
+    const paquete = await this.prisma.paqueteBase.findUnique({
+      where: { id_paquete_base: id },
+      include: {
+        productos: {
+          include: {
+            producto: {
+              include: {
+                categoria: true,
+                marca: true,
+                imagenes: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!paquete) {
+      throw new CustomError('Paquete no encontrado', 404);
+    }
+
+    return paquete.productos.map(p => p.producto);
+  }
 }
