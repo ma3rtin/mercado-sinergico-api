@@ -44,8 +44,39 @@ model Usuario {
   localidad   Localidad? @relation(fields: [localidadId], references: [id_localidad])
 
   pedidos   Pedido[]
+  carrito   Carrito?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Carrito {
+  id_carrito Int @id @default(autoincrement())
+  usuarioId  Int @unique
+  usuario    Usuario @relation(fields: [usuarioId], references: [id])
+  
+  paquetes   CarritoPaquetePublicado[]
+  productos  CarritoProducto[]
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model CarritoPaquetePublicado {
+  id_carrito_paquete Int @id @default(autoincrement())
+  carritoId          Int
+  carrito            Carrito @relation(fields: [carritoId], references: [id_carrito])
+  paquetePublicadoId Int
+  paquetePublicado   PaquetePublicado @relation(fields: [paquetePublicadoId], references: [id_paquete_publicado])
+  cantidad           Int
+}
+
+model CarritoProducto {
+  id_carrito_producto Int @id @default(autoincrement())
+  carritoId           Int
+  carrito             Carrito @relation(fields: [carritoId], references: [id_carrito])
+  productoId          Int
+  producto            Producto @relation(fields: [productoId], references: [id_producto])
+  cantidad            Int
 }
 
 model Rol {
@@ -132,6 +163,7 @@ model Producto {
   paquetes     PaqueteBaseProducto[]
   imagenes     ProductoImagen[]
   pedidoDetalles PedidoDetalle[]
+  carritos     CarritoProducto[]
   plantilla    Plantilla?            @relation(fields: [plantillaId], references: [id])
 
   createdAt DateTime @default(now())
@@ -198,6 +230,7 @@ model PaquetePublicado {
   descuento                 Float?
 
   pedidos   Pedido[]
+  carritos  CarritoPaquetePublicado[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

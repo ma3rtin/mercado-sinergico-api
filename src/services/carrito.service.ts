@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma/client';
 
 export class CarritoService {
-  private prisma = new PrismaClient();
+  private prisma = prisma;
 
   async getByUsuario(usuarioId: number) {
     return this.prisma.carrito.findUnique({

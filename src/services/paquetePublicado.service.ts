@@ -1,10 +1,10 @@
 import { PaquetePublicadoDTO } from '../dtos/paquete/paquetePublicado.dto';
 import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdate.dto';
 import { CustomError } from '../errors/custom.error';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma/client';
 
 export class PaquetePublicadoService {
-  private prisma = new PrismaClient();
+  private prisma = prisma;
 
   async getAll() {
     try {
