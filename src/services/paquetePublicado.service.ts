@@ -288,4 +288,72 @@ export class PaquetePublicadoService {
       throw new Error(`Error al obtener paquetes por cerrarse: ${error.message}`);
     }
   }
+
+  async getRelacionados(id: number) {
+    try {
+      // 1. Obtener el paquete actual para contexto
+      const currentPaquete = await this.prisma.paquetePublicado.findUnique({
+        where: { id_paquete_publicado: id },
+        include: {
+          paqueteBase: true
+        }
+      });
+
+      if (!currentPaquete) throw new Error('Paquete no encontrado');
+
+      const currentZonaId = currentPaquete.zonaId;
+      const currentCategoriaId = currentPaquete.paqueteBase?.categoria_id;
+
+      // 2. Buscar candidatos (Activos y no el actual)
+      const candidatos = await this.prisma.paquetePublicado.findMany({
+        where: {
+          id_paquete_publicado: { not: id },
+          estado: { nombre: { in: ['Activo', 'Abierto'] } }
+        },
+        include: {
+          paqueteBase: {
+            include: {
+              marca: true,
+              categoria: true
+            }
+          },
+          zona: true,
+          estado: true,
+          pedidos: true
+        }
+      });
+
+      // 3. Puntuar
+      const scoredPackages = candidatos.map(p => {
+        let score = 0;
+
+        // Criterio 1: Misma Zona (+1000)
+        if (p.zonaId === currentZonaId) {
+          score += 1000;
+        }
+
+        // Criterio 2: FOMO / Hot Packages (>80%) (+500)
+        const capacidad = p.cant_productos || 1;
+        const ocupacion = (p.cant_usuarios_registrados || 0) / capacidad;
+        if (ocupacion >= 0.8) {
+          score += 500;
+        }
+
+        // Criterio 3: Misma Categoría (+200)
+        if (currentCategoriaId && p.paqueteBase?.categoria_id === currentCategoriaId) {
+          score += 200;
+        }
+
+        return { paquete: p, score };
+      });
+
+      // 4. Ordenar y devolver Top 4
+      scoredPackages.sort((a, b) => b.score - a.score);
+
+      return scoredPackages.slice(0, 4).map(x => x.paquete);
+
+    } catch (error: any) {
+      throw new Error(`Error al obtener paquetes relacionados: ${error.message}`);
+    }
+  }
 }
