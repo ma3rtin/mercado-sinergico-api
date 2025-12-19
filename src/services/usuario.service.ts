@@ -3,6 +3,7 @@ import { crearToken } from '../auth/jwt';
 import { DireccionDTO } from '../dtos/direccion/direccion.dto';
 import { LoginDTO } from '../dtos/usuario/login.dto';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto';
+import { UsuarioUpdateDTO } from '../dtos/usuario/usuarioUpdate.dto';
 import type { Direccion, Localidad, Usuario } from '../../prisma/generated/client';
 import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
@@ -70,7 +71,7 @@ export class UsuarioService {
     userId: number,
     direccion: DireccionDTO
   ): Promise<Direccion> {
-    return await this.prismaClient.$transaction(async (tx) => {
+    return await this.prismaClient.$transaction(async (tx: any) => {
       const localidad = await tx.localidad.findUnique({
         where: { id_localidad: direccion.localidad_id },
       });
@@ -106,29 +107,24 @@ export class UsuarioService {
     });
   }
 
-  public async obtenerUsuario(userId: number): Promise<
-  | (Usuario & {
-      rol: { nombre: string };
-      direccion: (Direccion & { localidad: Localidad }) | null;
-    })
-  | null
-> {
-  return await this.prismaClient.usuario.findUnique({
-    where: { id: userId },
-    include: {
-      rol: { select: { nombre: true } },
-      direccion: { include: { localidad: true } },
-    },
-  });
-}
-
+  public async obtenerUsuario(userId: number): Promise<any> {
+    return await this.prismaClient.usuario.findUnique({
+      where: { id: userId },
+      include: {
+        rol: { select: { nombre: true } },
+        localidad: true,
+        direccion: {
+          include: { localidad: true },
+        },
+      },
+    });
+  }
 
   public async actualizarUsuario(
     userId: number,
     datos: Partial<UsuarioDTO>
   ): Promise<Usuario> {
-    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url } =
-      datos;
+    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url, localidad_id } = datos as UsuarioUpdateDTO;
 
     let contraseñaHash: string | undefined = undefined;
     if (contraseña) {
@@ -144,6 +140,7 @@ export class UsuarioService {
         fecha_nac: fecha_nac ? new Date(fecha_nac) : undefined,
         contraseña: contraseñaHash ?? undefined,
         imagen_url: imagen_url ?? undefined,
+        localidadId: localidad_id ?? undefined,
       },
     });
   }

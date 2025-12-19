@@ -1,4 +1,5 @@
 import { prisma } from '../prisma/client';
+import type { Prisma } from '../../prisma/generated/client';
 
 import { PlantillaDTO } from '../dtos/plantilla/plantilla.dto';
 
@@ -22,7 +23,7 @@ export class PlantillaService {
         });
     }
     async actualizarPlantilla(id: number, dto: PlantillaDTO) {
-        return this.prismaClient.$transaction(async (tx) => {
+        return this.prismaClient.$transaction(async (tx: Prisma.TransactionClient) => {
             // 1. Actualizo nombre de la plantilla
             await tx.plantilla.update({
                 where: { id },

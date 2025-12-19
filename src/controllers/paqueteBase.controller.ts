@@ -125,4 +125,14 @@ export class PaqueteController {
 
     res.status(200).json(paquete);
   });
+
+    public getProductosByPaquete = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
+
+    const productos = await this.paqueteService.getProductosByPaquete(Number(id));
+
+    res.status(200).json(productos);
+  });
 }

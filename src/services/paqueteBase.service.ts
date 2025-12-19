@@ -34,7 +34,7 @@ export class PaqueteBaseService {
   }
 
   public async create(data: PaqueteBaseDTO) {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: any) => {
       const categoria = await tx.categoria.findUnique({
         where: { id_categoria: data.categoria_id },
       });
@@ -127,5 +127,30 @@ export class PaqueteBaseService {
     }
 
     return paquete;
+  }
+
+  public async getProductosByPaquete(id: number) {
+    const paquete = await this.prisma.paqueteBase.findUnique({
+      where: { id_paquete_base: id },
+      include: {
+        productos: {
+          include: {
+            producto: {
+              include: {
+                categoria: true,
+                marca: true,
+                imagenes: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!paquete) {
+      throw new CustomError('Paquete no encontrado', 404);
+    }
+
+    return paquete.productos.map(p => p.producto);
   }
 }
