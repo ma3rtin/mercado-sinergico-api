@@ -99,4 +99,14 @@ export class PaquetePublicadoController {
       next(error);
     }
   }
+
+  getRelacionados = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
+
+    const paquetes = await this.service.getRelacionados(Number(id));
+    if (!paquetes) throw new CustomError('No se pudieron obtener paquetes relacionados', 500);
+
+    res.status(200).json(paquetes);
+  });
 }
