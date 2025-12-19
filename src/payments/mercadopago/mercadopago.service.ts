@@ -16,7 +16,6 @@ export class MercadoPagoService {
     precioTotal: number;
   }) {
     const preference = new Preference(this.client);
-    console.log('📦 Pedido a pagar:', pedido);
 
     const result = await preference.create({
       body: {

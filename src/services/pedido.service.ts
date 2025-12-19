@@ -536,7 +536,6 @@ export class PedidoService {
 
   public async confirmarPago(paymentId: number) {
     const pago = await this.mercadoPagoService.obtenerPago(paymentId);
-    console.log('📦 Pago obtenido:', pago);
 
     const status = pago.status;
     const pedidoId = Number(pago.external_reference);
