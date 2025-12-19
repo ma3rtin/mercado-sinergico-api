@@ -535,34 +535,64 @@ export class PedidoService {
   }
 
   public async confirmarPago(paymentId: number) {
-    const pago = await this.mercadoPagoService.obtenerPago(paymentId);
+  const pago = await this.mercadoPagoService.obtenerPago(paymentId);
 
-    const status = pago.status;
-    const pedidoId = Number(pago.external_reference);
+  const status = pago.status;
+  const pedidoId = Number(pago.external_reference);
 
-    if (!pedidoId) {
-      console.error('No se pudo obtener el pedidoId desde external_reference');
-      return;
-    }
-
-    if (status === 'approved') {
-      await this.prisma.pedido.update({
-        where: { id_pedido: pedidoId },
-        data: {
-          estadoId: 3, // estado de "pagado"
-        },
-      });
-    }
-
-    if (status === 'rejected') {
-      await this.prisma.pedido.update({
-        where: { id_pedido: pedidoId },
-        data: {
-          estadoId: 4, // estado de "rechazado"
-        },
-      });
-    }
-
-    return { pedidoId, status };
+  if (!pedidoId) {
+    console.error('No se pudo obtener el pedidoId desde external_reference');
+    return;
   }
+
+  if (status === 'approved') {
+    const pedido = await this.prisma.pedido.findUnique({
+      where: { id_pedido: pedidoId },
+      include: {
+        detalles: true
+      }
+    });
+
+    if (!pedido) {
+      throw new Error('Pedido no encontrado');
+    }
+
+    const totalProductos = pedido.detalles.reduce((sum, detalle) => sum + detalle.cantidad, 0);
+
+    await this.prisma.paquetePublicado.update({
+      where: { id_paquete_publicado: pedido.paquetePublicadoId },
+      data: {
+        cant_usuarios_registrados: { increment: 1 },
+        cant_productos_reservados: { increment: totalProductos }
+      }
+    });
+
+    await this.prisma.pedido.update({
+      where: { id_pedido: pedidoId },
+      data: {
+        estadoId: 3, // pagado
+      },
+    });
+  }
+
+  if (status === 'rejected') {
+    await this.prisma.pedido.update({
+      where: { id_pedido: pedidoId },
+      data: {
+        estadoId: 4, // rechazado
+      },
+    });
+  }
+
+  if (status === 'pending') {
+    await this.prisma.pedido.update({
+      where: { id_pedido: pedidoId },
+      data: {
+        estadoId: 2, // pendiente
+      },
+    });
+  }
+
+  return { pedidoId, status };
+}
 }
