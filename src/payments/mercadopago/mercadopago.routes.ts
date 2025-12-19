@@ -17,20 +17,20 @@ mercadoPagoRouter.post(
 mercadoPagoRouter.get("/success", (req, res) => {
   const { payment_id, external_reference, status } = req.query;
   res.redirect(
-    `http://localhost:4200/pago/success?payment_id=${payment_id}&external_reference=${external_reference}&status=${status}`
+    `http://localhost:4200/mis-pedidos`
   );
 });
 
 mercadoPagoRouter.get("/failure", (req, res) => {
   const { payment_id, external_reference, status } = req.query;
   res.redirect(
-    `http://localhost:4200/pago/failure?payment_id=${payment_id}&external_reference=${external_reference}&status=${status}`
+    `http://localhost:4200/mis-pedidos`
   );
 });
 
 mercadoPagoRouter.get("/pending", (req, res) => {
   const { payment_id, external_reference, status } = req.query;
   res.redirect(
-    `http://localhost:4200/pago/pending?payment_id=${payment_id}&external_reference=${external_reference}&status=${status}`
+    `http://localhost:4200/mis-pedidos`
   );
 });
