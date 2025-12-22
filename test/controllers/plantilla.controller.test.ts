@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { PlantillaDTO } from "../../src/dtos/dtos-plantilla/plantilla.dto";
+import { PlantillaDTO } from "../../src/dtos/plantilla/plantilla.dto";
 import { CustomError } from "../../src/errors/custom.error";
 import { PlantillaController } from "../../src/controllers/ControladoresPlantilla/plantilla.controller";
 

@@ -1,36 +1,54 @@
 import { Request, Response } from 'express';
 import { LocalidadService } from '../services/localidad.service';
-
-const service = new LocalidadService();
+import { CustomError } from '../errors/custom.error';
+import { asyncHandler } from '../utils/asyncHandler';
 
 export class LocalidadController {
-  async getAll(req: Request, res: Response) {
-    const localidades = await service.getAll();
-    res.json(localidades);
-  }
-  async getAllByZona(req: Request, res: Response) {
-    const { id } = req.params; // id = id de zona
-    const localidades = await service.getAllByZona(Number(id));
-    res.json(localidades);
-  }
+  constructor(private service: LocalidadService) { }
 
-  async create(req: Request, res: Response) {
-    try {
-      // const { id } = req.params; // id de zona
-      // const localidad = await service.create(Number(id), req.body);
-      // res.status(201).json(localidad);
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
-    }
-  }
+  getAll = asyncHandler(async (_req: Request, res: Response): Promise<void> => {
+    const localidades = await this.service.getAll();
+    res.status(200).json(localidades);
+  });
 
-  async delete(req: Request, res: Response) {
-    try {
-      // const { id, localidadId } = req.params; // id = zonaId, localidadId = id_localidad
-      // await service.delete(Number(id), Number(localidadId));
-      // res.status(204).send();
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
+  getAllByZona = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const { id } = req.params;
+
+      if (!id) {
+        throw new CustomError('Id de zona no proporcionado', 400);
+      }
+
+      const localidades = await this.service.getAllByZona(Number(id));
+      res.status(200).json(localidades);
     }
-  }
+  );
+
+  create = asyncHandler(
+    async (_req: Request, _res: Response): Promise<void> => {
+      // try {
+      //   const { id } = req.params; // id de zona
+      //   const localidad = await service.create(Number(id), req.body);
+      //   res.status(201).json(localidad);
+      // } catch (err) {
+      //   next(err);
+      // }
+
+      throw new CustomError('Método no implementado', 501);
+    }
+  );
+
+  delete = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      // try {
+      //   const { id, localidadId } = req.params; 
+      //   await service.delete(Number(id), Number(localidadId));
+      //   res.status(204).send();
+      // } catch (err) {
+      //   next(err);
+      // }
+
+      throw new CustomError('Método no implementado', 501);
+    }
+  );
 }

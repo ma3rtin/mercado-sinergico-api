@@ -2,11 +2,24 @@ import { Router } from 'express';
 import { ProductoController } from '../../controllers/producto.controller';
 import { ProductoService } from '../../services/producto.service';
 import { validarDto } from '../../middlewares/validateDTO.middleware';
-import { ProductoDTO } from '../../dtos/producto.dto';
+import { ProductoDTO } from '../../dtos/producto/producto.dto';
 import { procesarSubidaImagen } from '../../middlewares/uploadFiles.middleware';
 import { ImagenService } from '../../services/imagen.service';
 
-const productoService = new ProductoService();
+import { PrismaProductoRepository, PrismaCategoriaRepository, PrismaMarcaRepository } from '../../repositories/prisma/PrismaCatalogRepository';
+import { PrismaPaquetePublicadoRepository } from '../../repositories/prisma/PrismaPaquetePublicadoRepository';
+
+const productoRepository = new PrismaProductoRepository();
+const categoriaRepository = new PrismaCategoriaRepository();
+const marcaRepository = new PrismaMarcaRepository();
+const paqueteRepository = new PrismaPaquetePublicadoRepository();
+
+const productoService = new ProductoService(
+  productoRepository,
+  categoriaRepository,
+  marcaRepository,
+  paqueteRepository
+);
 const imagenService = new ImagenService();
 const productoController = new ProductoController(
   productoService,

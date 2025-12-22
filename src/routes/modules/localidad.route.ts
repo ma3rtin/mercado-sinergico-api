@@ -10,6 +10,13 @@ import { LocalidadController } from '../../controllers/localidad.controller';
 // localidadRouter.delete("/:localidadId", controller.delete.bind(controller));
 
 // rutas globales bajo /api/localidades
+import { LocalidadService } from '../../services/localidad.service';
+import { PrismaLocalidadRepository, PrismaLocalidadZonaRepository } from '../../repositories/prisma/PrismaLocationRepository';
+
+// rutas globales bajo /api/localidades
 export const localidadRouter = Router();
-const controller = new LocalidadController();
+const localidadRepository = new PrismaLocalidadRepository();
+const localidadZonaRepository = new PrismaLocalidadZonaRepository();
+const service = new LocalidadService(localidadRepository, localidadZonaRepository);
+const controller = new LocalidadController(service);
 localidadRouter.get('/', controller.getAll.bind(controller));

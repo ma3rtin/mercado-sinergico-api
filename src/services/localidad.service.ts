@@ -1,17 +1,17 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { ILocalidadRepository, ILocalidadZonaRepository } from '../repositories/interfaces/ILocationRepository';
 
 export class LocalidadService {
+  constructor(
+    private localidadRepository: ILocalidadRepository,
+    private localidadZonaRepository: ILocalidadZonaRepository
+  ) { }
+
   async getAll() {
-    return prisma.localidad.findMany();
+    return this.localidadRepository.getAll();
   }
-  
+
   async getAllByZona(zonaId: number) {
-    return prisma.localidadZona.findMany({
-      where: { zonaId },
-      include: { localidad: true },
-    });
+    return this.localidadZonaRepository.findByZonaId(zonaId);
   }
 
   // async create(zonaId: number, data: { nombre: string }) {

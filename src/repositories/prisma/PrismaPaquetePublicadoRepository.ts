@@ -1,7 +1,7 @@
 import { PrismaClient, PaquetePublicado } from '@prisma/client';
 import { IPaquetePublicadoRepository } from '../interfaces/IPaquetePublicadoRepository';
-import { PaquetePublicadoDTO } from '../../dtos/paquetePublicado.dto';
-import { PaquetePublicadoUpdateDTO } from '../../dtos/paquetePublicadoUpdate.dto';
+import { PaquetePublicadoDTO } from '../../dtos/paquete/paquetePublicado.dto';
+import { PaquetePublicadoUpdateDTO } from '../../dtos/paquete/paquetePublicadoUpdate.dto';
 
 export class PrismaPaquetePublicadoRepository implements IPaquetePublicadoRepository {
     private prisma = new PrismaClient();

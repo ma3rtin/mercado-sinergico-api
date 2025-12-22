@@ -1,34 +1,40 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../prisma/client';
+import { CustomError } from '../errors/custom.error';
 
 export class CategoriaService {
-    private client = new PrismaClient();
+  private client = prisma;
 
-    public async getAll() {
-        try {
-            const categorias = await this.client.categoria.findMany();
-            return categorias;
-        } catch (error) {
-            throw error;
-        }
+  public async getAll() {
+    return this.client.categoria.findMany();
+  }
+
+  public async getById(id: number) {
+    const categoria = await this.client.categoria.findUnique({
+      where: { id_categoria: id },
+    });
+
+    return categoria;
+  }
+
+  public async create(nombre: string) {
+    if (!nombre || nombre.trim().length === 0) {
+      throw new CustomError('El nombre de la categoría es obligatorio', 400);
     }
 
-    public async getById(id: number) {
-        try {
-            const categoria = await this.client.categoria.findUnique({
-                where: { id_categoria: id },
-            });
-            return categoria;
-        } catch (error) {
-            throw error;
-        }
-    }
+    try {
+      return await this.client.categoria.create({
+        data: { nombre },
+      });
+    } catch (error: unknown) {
+      const err = error as { code?: string };
 
-    public async create(categoria: string) {
-        try {
-            const nuevaCategoria = await this.client.categoria.create({ data: {nombre: categoria} });
-            return nuevaCategoria;
-        } catch (error) {
-            throw error;
-        }
+      if (err.code === 'P2002') {
+        throw new CustomError('La categoría ya existe', 409, { cause: error });
+      }
+
+      throw new CustomError('Error al crear la categoría', 500, {
+        cause: error,
+      });
     }
+  }
 }

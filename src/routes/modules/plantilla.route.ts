@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PlantillaController } from '../../controllers/ControladoresPlantilla/plantilla.controller';
-import { PlantillaDTO } from '../../dtos/dtos-plantilla/plantilla.dto';
+import { PlantillaDTO } from '../../dtos/plantilla/plantilla.dto';
 import { validarDto } from '../../middlewares/validateDTO.middleware';
 import { PlantillaService } from '../../services/plantilla.service';
 

@@ -12,6 +12,9 @@ import { IBaseRepository } from './IBaseRepository';
 export interface IProductoRepository extends IBaseRepository<Producto> {
     findByCategory(categoryId: number): Promise<Producto[]>;
     findByBrand(brandId: number): Promise<Producto[]>;
+    findAll(params?: { name?: string, skip?: number, take?: number }): Promise<Producto[]>;
+    deleteWithRelations(id: number): Promise<Producto>;
+    duplicate(id: number): Promise<Producto>;
 }
 
 export interface IMarcaRepository extends IBaseRepository<Marca> {

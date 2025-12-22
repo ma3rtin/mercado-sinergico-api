@@ -1,5 +1,5 @@
-import { PaquetePublicadoDTO } from '../../dtos/paquetePublicado.dto';
-import { PaquetePublicadoUpdateDTO } from '../../dtos/paquetePublicadoUpdate.dto';
+import { PaquetePublicadoDTO } from '../../dtos/paquete/paquetePublicado.dto';
+import { PaquetePublicadoUpdateDTO } from '../../dtos/paquete/paquetePublicadoUpdate.dto';
 import { PaquetePublicado } from '@prisma/client';
 import { IBaseRepository } from './IBaseRepository';
 

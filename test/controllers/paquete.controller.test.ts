@@ -8,6 +8,7 @@ describe("PaqueteController", () => {
   let imagenService: ImagenService;
   let req: any;
   let res: any;
+  let next: jest.Mock;
 
   beforeEach(() => {
     service = {
@@ -42,10 +43,12 @@ describe("PaqueteController", () => {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
     };
+
+    next = jest.fn();
   });
 
   it.skip("deberia crear un paquete y devolver estado 201 con el paquete creado", async () => {
-    await controller.create(req, res);
+    await controller.create(req, res, next);
     
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ id_paquete: 1 }));

@@ -7,6 +7,8 @@ export interface ILocalidadRepository extends IBaseRepository<Localidad> {
 
 export interface IZonaRepository extends IBaseRepository<Zona> {
     findByName(name: string): Promise<Zona | null>;
+    findAllWithRelations(): Promise<any[]>;
+    getByIdWithRelations(id: number): Promise<any>;
 }
 
 export interface ILocalidadZonaRepository extends IBaseRepository<LocalidadZona> {
