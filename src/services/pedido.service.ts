@@ -1,8 +1,8 @@
 import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
 import { SumarseDTO } from '../dtos/pedido/sumarse.dto';
-import { envs } from '../config/envs';
 import { MercadoPagoService } from '../payments/mercadopago/mercadopago.service';
+import { Prisma } from '../../prisma/generated/client';
 
 export class PedidoService {
   private prisma = prisma;
@@ -283,7 +283,7 @@ export class PedidoService {
       throw new CustomError('Este pedido ya no se puede cancelar', 400);
     }
 
-    const resultado = await this.prisma.$transaction(async (prisma: any) => {
+    const resultado = await this.prisma.$transaction(async (prisma: Prisma.TransactionClient) => {
       const totalProductosReservados = pedido.detalles.reduce(
         (sum, detalle) => sum + detalle.cantidad,
         0
@@ -344,7 +344,7 @@ export class PedidoService {
       throw new CustomError('Producto no encontrado en el pedido', 404);
     }
 
-    const resultado = await this.prisma.$transaction(async (prisma: any) => {
+    const resultado = await this.prisma.$transaction(async (prisma: Prisma.TransactionClient) => {
       await prisma.pedidoDetalle.delete({
         where: { id: detalle.id },
       });

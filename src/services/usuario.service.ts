@@ -4,7 +4,7 @@ import { DireccionDTO } from '../dtos/direccion/direccion.dto';
 import { LoginDTO } from '../dtos/usuario/login.dto';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto';
 import { UsuarioUpdateDTO } from '../dtos/usuario/usuarioUpdate.dto';
-import type { Direccion, Localidad, Usuario } from '../../prisma/generated/client';
+import type { Direccion, Localidad, Prisma, Usuario } from '../../prisma/generated/client';
 import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
 import { FirebaseUser } from '../middlewares/firebaseAuth.middleware';
@@ -71,7 +71,7 @@ export class UsuarioService {
     userId: number,
     direccion: DireccionDTO
   ): Promise<Direccion> {
-    return await this.prismaClient.$transaction(async (tx: any) => {
+    return await this.prismaClient.$transaction(async (tx: Prisma.TransactionClient) => {
       const localidad = await tx.localidad.findUnique({
         where: { id_localidad: direccion.localidad_id },
       });
@@ -107,7 +107,7 @@ export class UsuarioService {
     });
   }
 
-  public async obtenerUsuario(userId: number): Promise<any> {
+  public async obtenerUsuario(userId: number): Promise<Usuario | null> {
     return await this.prismaClient.usuario.findUnique({
       where: { id: userId },
       include: {

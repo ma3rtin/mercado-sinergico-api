@@ -2,6 +2,7 @@ import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaque
 import { PaqueteBaseDTO } from '../dtos/paquete/paqueteBase.dto';
 import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
+import { Prisma } from '../../prisma/generated/client';
 
 export class PaqueteBaseService {
   private prisma = prisma;
@@ -34,7 +35,7 @@ export class PaqueteBaseService {
   }
 
   public async create(data: PaqueteBaseDTO) {
-    return this.prisma.$transaction(async (tx: any) => {
+    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const categoria = await tx.categoria.findUnique({
         where: { id_categoria: data.categoria_id },
       });
