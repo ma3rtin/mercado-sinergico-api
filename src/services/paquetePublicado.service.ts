@@ -7,176 +7,164 @@ export class PaquetePublicadoService {
   private prisma = prisma;
 
   async getAll() {
-    try {
-      console.log('obteniendo todos los paquetes');
-      return await this.prisma.paquetePublicado.findMany({
-        include: {
-          paqueteBase: {
-            include: {
-              marca: true,
-              categoria: true
-            }
+    console.log('obteniendo todos los paquetes');
+    return await this.prisma.paquetePublicado.findMany({
+      include: {
+        paqueteBase: {
+          include: {
+            marca: true,
+            categoria: true,
           },
-          zona: true,
-          estado: true,
-          pedidos: true
-        }
-      });
-    } catch (error: any) {
-      throw new Error(`Error al obtener paquetes: ${error.message}`);
-    }
+        },
+        zona: true,
+        estado: true,
+        pedidos: true,
+      },
+    });
   }
 
   async getById(id: number) {
-    try {
-      const paquete = await this.prisma.paquetePublicado.findUnique({
-        where: { id_paquete_publicado: id },
-        include: {
-          paqueteBase: {
-            include: {
-              marca: true,
-              categoria: true,
-              productos: {
-                include: {
-                  producto: {
-                    include: {
-                      imagenes: true
-                    }
-                  }
-                }
-              }
-            }
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: {
+        paqueteBase: {
+          include: {
+            marca: true,
+            categoria: true,
+            productos: {
+              include: {
+                producto: {
+                  include: {
+                    imagenes: true,
+                  },
+                },
+              },
+            },
           },
-          zona: true,
-          estado: true,
-          pedidos: true
-        }
-      });
+        },
+        zona: true,
+        estado: true,
+        pedidos: true,
+      },
+    });
 
-      if (paquete) {
-        return {
-          ...paquete,
-          descuento: 10 // Descuento fijo del 10%
-        };
-      }
-      return null;
-    } catch (error: any) {
-      throw new Error(
-        `Error al obtener paquete con id=${id}: ${error.message}`
-      );
+    if (paquete) {
+      return {
+        ...paquete,
+        descuento: 10, // Descuento fijo del 10%
+      };
     }
+    return null;
   }
 
   async getByLocation(userId?: number, localidadId?: number) {
-    try {
-      let zonaIds: number[] = [];
+    let zonaIds: number[] = [];
 
-      // 1. Si se proporciona localidadId explícitamente, usarla
-      if (localidadId) {
-        console.log('🔎 Buscando zonas para localidad ID:', localidadId);
-        const localidad = await this.prisma.localidad.findUnique({
-          where: { id_localidad: localidadId },
-          include: { zonas: true }
-        });
-
-        if (localidad) {
-          zonaIds = localidad.zonas.map((z: any) => z.zonaId);
-        }
-      }
-      // 2. Si no hay localidadId pero hay userId, buscar la del usuario
-      else if (userId) {
-        console.log('🔎 Buscando zonas para usuario ID:', userId);
-        const usuario = await this.prisma.usuario.findUnique({
-          where: { id: userId },
-          include: {
-            localidad: { // Primero revisar preferencia de localidad
-              include: { zonas: true }
-            },
-            direccion: { // Fallback a dirección física
-              include: {
-                localidad: {
-                  include: {
-                    zonas: true
-                  }
-                }
-              }
-            }
-          }
-        });
-
-        if (usuario) {
-          if (usuario.localidad) {
-            console.log('✅ Usando localidad preferida del usuario');
-            zonaIds = usuario.localidad.zonas.map((z: any) => z.zonaId);
-          } else if (usuario.direccion && usuario.direccion.localidad) {
-            console.log('✅ Usando dirección del usuario');
-            zonaIds = usuario.direccion.localidad.zonas.map((z: any) => z.zonaId);
-          }
-        }
-      }
-
-      if (zonaIds.length === 0) {
-        console.warn('⚠️ No se encontraron zonas para la ubicación dada.');
-        return [];
-      }
-
-      return await this.prisma.paquetePublicado.findMany({
-        where: {
-          zonaId: { in: zonaIds },
-          estado: { nombre: 'Activo' }
-        },
-        include: {
-          paqueteBase: {
-            include: {
-              marca: true,
-              categoria: true,
-              productos: {
-                include: {
-                  producto: {
-                    include: {
-                      imagenes: true
-                    }
-                  }
-                }
-              }
-            }
-          },
-          zona: true,
-          estado: true
-        }
+    // 1. Si se proporciona localidadId explícitamente, usarla
+    if (localidadId) {
+      console.log('🔎 Buscando zonas para localidad ID:', localidadId);
+      const localidad = await this.prisma.localidad.findUnique({
+        where: { id_localidad: localidadId },
+        include: { zonas: true },
       });
-    } catch (error: any) {
-      throw new Error(`Error al obtener paquetes por ubicación: ${error.message}`);
+
+      if (localidad) {
+        zonaIds = localidad.zonas.map((z: { id: number; localidadId: number; zonaId: number }) => z.zonaId);
+      }
     }
+    // 2. Si no hay localidadId pero hay userId, buscar la del usuario
+    else if (userId) {
+      console.log('🔎 Buscando zonas para usuario ID:', userId);
+      const usuario = await this.prisma.usuario.findUnique({
+        where: { id: userId },
+        include: {
+          localidad: {
+            // Primero revisar preferencia de localidad
+            include: { zonas: true },
+          },
+          direccion: {
+            // Fallback a dirección física
+            include: {
+              localidad: {
+                include: {
+                  zonas: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (usuario) {
+        if (usuario.localidad) {
+          console.log('✅ Usando localidad preferida del usuario');
+          zonaIds = usuario.localidad.zonas.map(
+            (z: { id: number; localidadId: number; zonaId: number }) => z.zonaId
+          );
+        } else if (usuario.direccion && usuario.direccion.localidad) {
+          console.log('✅ Usando dirección del usuario');
+          zonaIds = usuario.direccion.localidad.zonas.map(
+            (z: { id: number; localidadId: number; zonaId: number }) => z.zonaId
+          );
+        }
+      }
+    }
+
+    if (zonaIds.length === 0) {
+      console.warn('⚠️ No se encontraron zonas para la ubicación dada.');
+      return [];
+    }
+
+    return await this.prisma.paquetePublicado.findMany({
+      where: {
+        zonaId: { in: zonaIds },
+        estado: { nombre: 'Activo' },
+      },
+      include: {
+        paqueteBase: {
+          include: {
+            marca: true,
+            categoria: true,
+            productos: {
+              include: {
+                producto: {
+                  include: {
+                    imagenes: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        zona: true,
+        estado: true,
+      },
+    });
   }
 
   async getByProductId(productId: number) {
-    try {
-      return await this.prisma.paquetePublicado.findMany({
-        where: {
-          paqueteBase: {
-            productos: {
-              some: {
-                productoId: productId
-              }
-            }
+    return await this.prisma.paquetePublicado.findMany({
+      where: {
+        paqueteBase: {
+          productos: {
+            some: {
+              productoId: productId,
+            },
           },
-          estado: { nombre: 'Activo' }
         },
-        include: {
-          paqueteBase: {
-            include: {
-              marca: true,
-              categoria: true
-            }
+        estado: { nombre: 'Activo' },
+      },
+      include: {
+        paqueteBase: {
+          include: {
+            marca: true,
+            categoria: true,
           },
-          zona: true,
-          estado: true
-        }
-      });
-    } catch (error: any) {
-      throw new Error(`Error al obtener paquetes por producto: ${error.message}`);
-    }
+        },
+        zona: true,
+        estado: true,
+      },
+    });
   }
 
   async create(dto: PaquetePublicadoDTO) {
@@ -210,29 +198,23 @@ export class PaquetePublicadoService {
   }
 
   async update(id: number, dto: PaquetePublicadoUpdateDTO) {
-    try {
-      return await this.prisma.paquetePublicado.update({
-        where: { id_paquete_publicado: id },
-        data: {
-          cant_productos: dto.cant_productos,
-          fecha_inicio: dto.fecha_inicio,
-          fecha_fin: dto.fecha_fin,
-          zona: {
-            connect: { id_zona: dto.zonaId },
-          },
-          paqueteBase: {
-            connect: { id_paquete_base: dto.paqueteBaseId },
-          },
-          ...(dto.estadoNombre && {
-            estado: { connect: { nombre: dto.estadoNombre } },
-          }),
+    return await this.prisma.paquetePublicado.update({
+      where: { id_paquete_publicado: id },
+      data: {
+        cant_productos: dto.cant_productos,
+        fecha_inicio: dto.fecha_inicio,
+        fecha_fin: dto.fecha_fin,
+        zona: {
+          connect: { id_zona: dto.zonaId },
         },
-      });
-    } catch (error: any) {
-      throw new Error(
-        `Error al actualizar paquete publicado: ${error.message}`
-      );
-    }
+        paqueteBase: {
+          connect: { id_paquete_base: dto.paqueteBaseId },
+        },
+        ...(dto.estadoNombre && {
+          estado: { connect: { nombre: dto.estadoNombre } },
+        }),
+      },
+    });
   }
 
   delete(id: number) {
@@ -244,116 +226,109 @@ export class PaquetePublicadoService {
 
   // 🔥 ESTE ES EL MÉTODO QUE NECESITA ARREGLARSE sisi, eso....
   async getPorCerrarse() {
-    try {
-      const hoy = new Date();
-      const dentroDexDias = new Date(hoy);
-      dentroDexDias.setDate(hoy.getDate() + 30);
+    const hoy = new Date();
+    const dentroDexDias = new Date(hoy);
+    dentroDexDias.setDate(hoy.getDate() + 30);
 
-      console.log('🔎 Buscando paquetes entre:', hoy, 'y', dentroDexDias);
+    console.log('🔎 Buscando paquetes entre:', hoy, 'y', dentroDexDias);
 
-      // ✅ CAMBIO IMPORTANTE: Agregar el include de paqueteBase
-      const paquetes = await this.prisma.paquetePublicado.findMany({
-        where: {
-          estado: {
-            nombre: { in: ['Activo', 'Pendiente'] }
-          },
-          fecha_fin: {
-            gte: hoy,
-            lte: dentroDexDias
-          }
+    // ✅ CAMBIO IMPORTANTE: Agregar el include de paqueteBase
+    const paquetes = await this.prisma.paquetePublicado.findMany({
+      where: {
+        estado: {
+          nombre: { in: ['Activo', 'Pendiente'] },
         },
-        include: {
-          // ✅ ESTO FALTABA - Ahora trae la info de paqueteBase
-          paqueteBase: {
-            include: {
-              marca: true,      // ✅ Trae la marca
-              categoria: true   // ✅ Trae la categoría
-            }
-          },
-          zona: {
-            select: { nombre: true, id_zona: true }
-          },
-          estado: {
-            select: { nombre: true, id_estado: true }
-          },
-          pedidos: true
+        fecha_fin: {
+          gte: hoy,
+          lte: dentroDexDias,
         },
-        orderBy: { fecha_fin: 'asc' }
-      });
+      },
+      include: {
+        // ✅ ESTO FALTABA - Ahora trae la info de paqueteBase
+        paqueteBase: {
+          include: {
+            marca: true, // ✅ Trae la marca
+            categoria: true, // ✅ Trae la categoría
+          },
+        },
+        zona: {
+          select: { nombre: true, id_zona: true },
+        },
+        estado: {
+          select: { nombre: true, id_estado: true },
+        },
+        pedidos: true,
+      },
+      orderBy: { fecha_fin: 'asc' },
+    });
 
-      console.log(`✅ ${paquetes.length} paquetes encontrados`);
-      return paquetes;
-    } catch (error: any) {
-      console.error('💥 Error en getPorCerrarse:', error);
-      throw new Error(`Error al obtener paquetes por cerrarse: ${error.message}`);
-    }
+    console.log(`✅ ${paquetes.length} paquetes encontrados`);
+    return paquetes;
   }
 
   async getRelacionados(id: number) {
-    try {
-      // 1. Obtener el paquete actual para contexto
-      const currentPaquete = await this.prisma.paquetePublicado.findUnique({
-        where: { id_paquete_publicado: id },
-        include: {
-          paqueteBase: true
-        }
-      });
+    // 1. Obtener el paquete actual para contexto
+    const currentPaquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: {
+        paqueteBase: true,
+      },
+    });
 
-      if (!currentPaquete) throw new Error('Paquete no encontrado');
+    if (!currentPaquete) throw new Error('Paquete no encontrado');
 
-      const currentZonaId = currentPaquete.zonaId;
-      const currentCategoriaId = currentPaquete.paqueteBase?.categoria_id;
+    const currentZonaId = currentPaquete.zonaId;
+    const currentCategoriaId = currentPaquete.paqueteBase?.categoria_id;
 
-      // 2. Buscar candidatos (Activos y no el actual)
-      const candidatos = await this.prisma.paquetePublicado.findMany({
-        where: {
-          id_paquete_publicado: { not: id },
-          estado: { nombre: { in: ['Activo', 'Abierto'] } }
-        },
-        include: {
-          paqueteBase: {
-            include: {
-              marca: true,
-              categoria: true
-            }
+    // 2. Buscar candidatos (Activos y no el actual)
+    const candidatos = await this.prisma.paquetePublicado.findMany({
+      where: {
+        id_paquete_publicado: { not: id },
+        estado: { nombre: { in: ['Activo', 'Abierto'] } },
+      },
+      include: {
+        paqueteBase: {
+          include: {
+            marca: true,
+            categoria: true,
           },
-          zona: true,
-          estado: true,
-          pedidos: true
-        }
-      });
+        },
+        zona: true,
+        estado: true,
+        pedidos: true,
+      },
+    });
 
-      // 3. Puntuar
-      const scoredPackages = candidatos.map(p => {
-        let score = 0;
+    // 3. Puntuar
+    const scoredPackages = candidatos.map((p) => {
+      let score = 0;
 
-        // Criterio 1: Misma Zona (+1000)
-        if (p.zonaId === currentZonaId) {
-          score += 1000;
-        }
+      // Criterio 1: Misma Zona (+1000)
+      if (p.zonaId === currentZonaId) {
+        score += 1000;
+      }
 
-        // Criterio 2: FOMO / Hot Packages (>80%) (+500)
-        const capacidad = p.cant_productos || 1;
-        const ocupacion = (p.cant_usuarios_registrados || 0) / capacidad;
-        if (ocupacion >= 0.8) {
-          score += 500;
-        }
+      // Criterio 2: FOMO / Hot Packages (>80%) (+500)
+      const capacidad = p.cant_productos || 1;
+      const ocupacion = (p.cant_usuarios_registrados || 0) / capacidad;
+      if (ocupacion >= 0.8) {
+        score += 500;
+      }
 
-        // Criterio 3: Misma Categoría (+200)
-        if (currentCategoriaId && p.paqueteBase?.categoria_id === currentCategoriaId) {
-          score += 200;
-        }
+      // Criterio 3: Misma Categoría (+200)
+      if (
+        currentCategoriaId &&
+        p.paqueteBase?.categoria_id === currentCategoriaId
+      ) {
+        score += 200;
+      }
 
-        return { paquete: p, score };
-      });
+      return { paquete: p, score };
+    });
 
-      // 4. Ordenar y devolver Top 4
-      scoredPackages.sort((a, b) => b.score - a.score);
+    // 4. Ordenar y devolver Top 4
+    scoredPackages.sort((a, b) => b.score - a.score);
 
-      return scoredPackages.slice(0, 4).map(x => x.paquete);
-
-    } catch (error: any) {
-      throw new Error(`Error al obtener paquetes relacionados: ${error.message}`);
-    }
+    return scoredPackages.slice(0, 4).map((x) => x.paquete);
   }
 }

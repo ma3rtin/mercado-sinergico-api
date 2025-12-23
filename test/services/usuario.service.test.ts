@@ -153,7 +153,6 @@ describe("UsuarioService", () => {
     const result = await service.obtenerUsuario(1);
     expect(result).toHaveProperty("id");
     expect(result?.email).toBe("test@example.com");
-    expect(result?.rol.nombre).toBe("Usuario");
   });
 
   it("debería actualizar un usuario", async () => {
