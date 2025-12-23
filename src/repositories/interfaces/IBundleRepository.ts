@@ -1,6 +1,5 @@
-import { PaqueteBase, PaqueteBaseProducto, PaquetePublicado, EstadoPaquetePublicado } from '@prisma/client';
+import { PaqueteBase, PaqueteBaseProducto, EstadoPaquetePublicado } from '@prisma/client';
 import { IBaseRepository } from './IBaseRepository';
-import { IPaquetePublicadoRepository } from './IPaquetePublicadoRepository';
 
 export interface IPaqueteBaseRepository extends IBaseRepository<PaqueteBase> {
     findByCategory(categoryId: number): Promise<PaqueteBase[]>;

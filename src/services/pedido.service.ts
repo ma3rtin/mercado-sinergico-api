@@ -5,6 +5,7 @@ import { SumarseDTO } from '../dtos/pedido/sumarse.dto';
 import { IPedidoRepository } from '../repositories/interfaces/IOrderRepository';
 import { IPaquetePublicadoRepository } from '../repositories/interfaces/IPaquetePublicadoRepository';
 import { IProductoRepository } from '../repositories/interfaces/ICatalogRepository'; // Assuming this exists or I will just use Prisma for now for product stock/read if repo not ready.. I implemented PrismaCatalogRepository. Let's assume I can use it. I need to import IProductoRepository.
+import { Prisma } from '../../prisma/generated/client';
 
 export class PedidoService {
   private prisma = prisma;
@@ -221,7 +222,7 @@ export class PedidoService {
       throw new CustomError('Este pedido ya no se puede cancelar', 400);
     }
 
-    const resultado = await this.prisma.$transaction(async (prisma: any) => {
+    const resultado = await this.prisma.$transaction(async (prisma: Prisma.TransactionClient) => {
       const totalProductosReservados = pedido.detalles.reduce(
         (sum, detalle) => sum + detalle.cantidad,
         0
@@ -282,7 +283,7 @@ export class PedidoService {
       throw new CustomError('Producto no encontrado en el pedido', 404);
     }
 
-    const resultado = await this.prisma.$transaction(async (prisma: any) => {
+    const resultado = await this.prisma.$transaction(async (prisma: Prisma.TransactionClient) => {
       await prisma.pedidoDetalle.delete({
         where: { id: detalle.id },
       });

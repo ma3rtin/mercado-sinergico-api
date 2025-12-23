@@ -83,7 +83,7 @@ export class UsuarioService {
     return await this.usuarioRepository.findByEmailWithRole(email);
   }
 
-  public async obtenerUsuario(userId: number): Promise<any> {
+  public async obtenerUsuario(userId: number): Promise<Usuario> {
     return await this.usuarioRepository.getByIdWithDetails(userId);
   }
 
