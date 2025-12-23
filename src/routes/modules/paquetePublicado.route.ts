@@ -12,6 +12,7 @@ const service = new PaquetePublicadoService(repository);
 const controller = new PaquetePublicadoController(service);
 
 paquetePublicadoRouter.get('/por-cerrarse', controller.getPorCerrarse.bind(controller));
+paquetePublicadoRouter.get('/relacionados/:id', controller.getRelacionados.bind(controller));
 paquetePublicadoRouter.get('/zona', (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (authHeader) {
