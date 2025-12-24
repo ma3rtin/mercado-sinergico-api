@@ -15,21 +15,18 @@ mercadoPagoRouter.post(
 );
 
 mercadoPagoRouter.get('/success', (req, res) => {
-  const { payment_id, external_reference, status } = req.query;
   res.redirect(
     'http://localhost:4200/mis-pedidos'
   );
 });
 
 mercadoPagoRouter.get('/failure', (req, res) => {
-  const { payment_id, external_reference, status } = req.query;
   res.redirect(
     'http://localhost:4200/mis-pedidos'
   );
 });
 
 mercadoPagoRouter.get('/pending', (req, res) => {
-  const { payment_id, external_reference, status } = req.query;
   res.redirect(
     'http://localhost:4200/mis-pedidos'
   );
