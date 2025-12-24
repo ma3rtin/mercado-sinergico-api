@@ -599,10 +599,6 @@ export class PedidoService {
           },
         });
       });
-
-      console.log(`✅ Pago confirmado para pedido ${pedidoId}`);
-      console.log(`   - Productos reservados: +${totalProductos}`);
-      console.log(`   - Usuario nuevo en paquete: ${!yaPagoAntes ? 'SÍ' : 'NO'}`);
     }
 
     if (status === 'rejected') {
@@ -612,7 +608,6 @@ export class PedidoService {
           estadoId: 4, // rechazado
         },
       });
-      console.log(`❌ Pago rechazado para pedido ${pedidoId}`);
     }
 
     if (status === 'pending') {
@@ -622,7 +617,6 @@ export class PedidoService {
           estadoId: 2, // pendiente
         },
       });
-      console.log(`⏳ Pago pendiente para pedido ${pedidoId}`);
     }
 
     return { pedidoId, status };
