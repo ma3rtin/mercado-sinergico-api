@@ -9,7 +9,7 @@ import { Server } from './server/server';
 
 function main() {
   const server = new Server({
-    port: envs.PORT || 3000,
+    port: Number(process.env.PORT) || 3000,
     routes: AppRoutes.routes,
   });
   server.start();
