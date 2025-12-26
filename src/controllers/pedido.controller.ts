@@ -3,9 +3,10 @@ import { PedidoService } from '../services/pedido.service';
 import { asyncHandler } from '../utils/asyncHandler';
 import { CustomError } from '../errors/custom.error';
 
-const pedidoService = new PedidoService();
 
 export class PedidoController {
+  constructor(private pedidoService: PedidoService) {}
+
   public crearPedido = asyncHandler(async (req: Request, res: Response) => {
     const user = req.user;
     const { paqueteId } = req.params;
@@ -13,7 +14,7 @@ export class PedidoController {
 
     const { productoId, cantidad } = req.body;
 
-    const pedido = await pedidoService.crearPedido(
+    const pedido = await this.pedidoService.crearPedido(
       user!.id,
       Number(paqueteId),
       {
@@ -26,7 +27,7 @@ export class PedidoController {
 
   public getAll = asyncHandler(async (req: Request, res: Response) => {
     const user = req.user;
-    const pedidos = await pedidoService.getAll(user!.id);
+    const pedidos = await this.pedidoService.getAll(user!.id);
     res.status(200).json(pedidos);
   });
 
@@ -36,15 +37,15 @@ export class PedidoController {
 
     if (!id) throw new CustomError('ID de pedido requerido', 400);
 
-    const pedido = await pedidoService.getById(Number(id), user!.id);
+    const pedido = await this.pedidoService.getById(Number(id), user!.id);
     res.status(200).json(pedido);
   });
 
   public bajarse = asyncHandler(async (req: Request, res: Response) => {
     const user = req.user;
     const { paqueteId } = req.params;
-    const pedido = await pedidoService.bajarse(user!.id, Number(paqueteId));
-    res.status(200).json({pedidoEliminado: pedido});
+    const pedido = await this.pedidoService.bajarse(user!.id, Number(paqueteId));
+    res.status(200).json({ pedidoEliminado: pedido });
   });
 
   public eliminarProducto = asyncHandler(
@@ -52,13 +53,13 @@ export class PedidoController {
       const user = req.user;
       const { pedidoId, productoId } = req.params;
 
-      const pedido = await pedidoService.eliminarProducto(
+      const pedido = await this.pedidoService.eliminarProducto(
         user!.id,
         Number(pedidoId),
         Number(productoId)
       );
 
-      res.status(200).json({pedidoActualizado: pedido});
+      res.status(200).json({ pedidoActualizado: pedido });
     }
   );
 
@@ -68,14 +69,26 @@ export class PedidoController {
       const { pedidoId, productoId } = req.params;
       const { cantidad } = req.body;
 
-      const pedido = await pedidoService.actualizarCantidad(
+      const pedido = await this.pedidoService.actualizarCantidad(
         user!.id,
         Number(pedidoId),
         Number(productoId),
         Number(cantidad)
       );
 
-      res.status(200).json({pedidoActualizado: pedido});
+      res.status(200).json({ pedidoActualizado: pedido });
     }
   );
+
+  public iniciarPago = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.id;
+    const { pedidoId } = req.params;
+
+    const checkoutUrl = await this.pedidoService.iniciarPago(
+      Number(pedidoId),
+      userId
+    );
+
+    res.status(200).json({ checkoutUrl });
+  });
 }

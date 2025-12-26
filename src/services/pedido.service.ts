@@ -1,10 +1,13 @@
 import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
 import { SumarseDTO } from '../dtos/pedido/sumarse.dto';
+import { MercadoPagoService } from '../payments/mercadopago/mercadopago.service';
 import { Prisma } from '../../prisma/generated/client';
 
 export class PedidoService {
   private prisma = prisma;
+
+  constructor(private readonly mercadoPagoService: MercadoPagoService) {}
 
   public async crearPedido(
     usuarioId: number,
@@ -139,27 +142,6 @@ export class PedidoService {
       });
     }
 
-    // si hacemos que pague al sumarse tenemos que actualizar el stock y la cantidad de productos reservados, sino se maneja cuando se pague
-    // await this.prisma.paquetePublicado.update({
-    //   where: { id_paquete_publicado: paqueteId },
-    //   data: {
-    //     cant_productos_reservados: {
-    //       increment: productoAComprar.cantidad,
-    //     },
-    //   },
-    // });
-
-    // if (producto.stock) {
-    //   await this.prisma.producto.update({
-    //     where: { id_producto: productoAComprar.productoId },
-    //     data: {
-    //       stock: {
-    //         decrement: productoAComprar.cantidad,
-    //       },
-    //     },
-    //   });
-    // }
-
     return pedido;
   }
 
@@ -281,20 +263,6 @@ export class PedidoService {
     }
 
     const resultado = await this.prisma.$transaction(async (prisma: Prisma.TransactionClient) => {
-      const totalProductosReservados = pedido.detalles.reduce(
-        (sum, detalle) => sum + detalle.cantidad,
-        0
-      );
-
-      await prisma.paquetePublicado.update({
-        where: { id_paquete_publicado: paqueteId },
-        data: {
-          cant_productos_reservados: {
-            decrement: totalProductosReservados,
-          },
-        },
-      });
-
       await prisma.pedidoDetalle.deleteMany({
         where: { pedidoId: pedido.id_pedido },
       });
@@ -489,5 +457,168 @@ export class PedidoService {
     });
 
     return pedidoActualizado;
+  }
+  
+  public async iniciarPago(pedidoId: number, usuarioId: number) {
+    const pedido = await this.prisma.pedido.findUnique({
+      where: { id_pedido: pedidoId },
+      include: {
+        usuario: true,
+        paquetePublicado: {
+          include: {
+            paqueteBase: {
+              include: {
+                productos: {
+                  include: { producto: true },
+                },
+              },
+            },
+          },
+        },
+        detalles: {
+          include: { producto: true },
+        },
+      },
+    });
+
+    if (!pedido) {
+      throw new CustomError('Pedido no encontrado', 404);
+    }
+
+    if (pedido.usuarioId !== usuarioId) {
+      throw new CustomError('No tienes permiso para pagar este pedido', 403);
+    }
+
+    if (pedido.estadoId !== 1) {
+      throw new CustomError('Este pedido no puede pagarse', 400);
+    }
+
+    const paquete = pedido.paquetePublicado;
+    const capacidadTotal = paquete.cant_productos || 0;
+    const yaReservados = paquete.cant_productos_reservados || 0;
+    
+    const productosDelPedido = pedido.detalles.reduce(
+      (total, detalle) => total + detalle.cantidad,
+      0
+    );
+    
+    const disponibles = capacidadTotal - yaReservados;
+    
+    if (productosDelPedido > disponibles) {
+      throw new CustomError(
+        `No hay suficiente capacidad en el paquete. Disponibles: ${disponibles}, solicitados: ${productosDelPedido}`,
+        400
+      );
+    }
+
+    for (const detalle of pedido.detalles) {
+      const productoInfo = paquete.paqueteBase.productos.find(
+        (p) => p.productoId === detalle.productoId
+      )?.producto;
+
+      if (!productoInfo) {
+        throw new CustomError(
+          `Producto ${detalle.producto.nombre} no encontrado en el paquete`,
+          400
+        );
+      }
+
+      if (productoInfo.stock && productoInfo.stock < detalle.cantidad) {
+        throw new CustomError(
+          `Stock insuficiente para ${detalle.producto.nombre}. Disponible: ${productoInfo.stock}, solicitado: ${detalle.cantidad}`,
+          400
+        );
+      }
+    }
+
+    const titulo = `Paquete ${pedido.paquetePublicado.paqueteBase.nombre}`;
+    const precioTotal = pedido.monto_total;
+
+    const preference = await this.mercadoPagoService.crearPreferencia({
+      pedidoId,
+      titulo,
+      precioTotal,
+    });
+
+    return preference;
+  }
+
+  public async confirmarPago(paymentId: number) {
+    const pago = await this.mercadoPagoService.obtenerPago(paymentId);
+
+    const status = pago.status;
+    const pedidoId = Number(pago.external_reference);
+
+    if (!pedidoId) {
+      console.error('No se pudo obtener el pedidoId desde external_reference');
+      return;
+    }
+
+    const pedido = await this.prisma.pedido.findUnique({
+      where: { id_pedido: pedidoId },
+      include: {
+        detalles: true,
+        paquetePublicado: true,
+      },
+    });
+
+    if (!pedido) {
+      throw new Error('Pedido no encontrado');
+    }
+
+    if (status === 'approved') {
+      const totalProductos = pedido.detalles.reduce(
+        (sum, detalle) => sum + detalle.cantidad,
+        0
+      );
+
+      const yaPagoAntes = await this.prisma.pedido.findFirst({
+        where: {
+          usuarioId: pedido.usuarioId,
+          paquetePublicadoId: pedido.paquetePublicadoId,
+          id_pedido: { not: pedidoId },
+        },
+      });
+
+      await this.prisma.$transaction(async (prisma) => {
+        await prisma.paquetePublicado.update({
+          where: { id_paquete_publicado: pedido.paquetePublicadoId },
+          data: {
+            cant_usuarios_registrados: yaPagoAntes
+              ? undefined
+              : { increment: 1 },
+            
+            cant_productos_reservados: { increment: totalProductos },
+          },
+        });
+
+        await prisma.pedido.update({
+          where: { id_pedido: pedidoId },
+          data: {
+            estadoId: 3, // pagado
+          },
+        });
+      });
+    }
+
+    if (status === 'rejected') {
+      await this.prisma.pedido.update({
+        where: { id_pedido: pedidoId },
+        data: {
+          estadoId: 4, // rechazado
+        },
+      });
+    }
+
+    if (status === 'pending') {
+      await this.prisma.pedido.update({
+        where: { id_pedido: pedidoId },
+        data: {
+          estadoId: 2, // pendiente
+        },
+      });
+    }
+
+    return { pedidoId, status };
   }
 }
