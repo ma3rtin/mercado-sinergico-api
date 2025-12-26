@@ -5,7 +5,7 @@
     "emitDecoratorMetadata": true,
     "module": "ESNext",
     "moduleResolution": "Node",
-    "rootDir": ".",
+    "rootDir": "src",
     "outDir": "dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -13,8 +13,7 @@
     "skipLibCheck": true
   },
   "include": [
-    "src/**/*",
-    "prisma/generated/**/*"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",

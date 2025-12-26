@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import 'dotenv/config';
-import { PrismaClient } from '../../prisma/generated/client';
+import { PrismaClient } from '@prisma/client';
 
 function buildHelpMessage(err: unknown) {
 	const lines = [

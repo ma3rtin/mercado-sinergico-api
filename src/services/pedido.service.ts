@@ -2,7 +2,7 @@ import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
 import { SumarseDTO } from '../dtos/pedido/sumarse.dto';
 import { MercadoPagoService } from '../payments/mercadopago/mercadopago.service';
-import { Prisma } from '../../prisma/generated/client';
+import { Prisma } from '@prisma/client';
 
 export class PedidoService {
   private prisma = prisma;

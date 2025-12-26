@@ -1,5 +1,5 @@
 import { ProductoDTO } from '../dtos/producto/producto.dto';
-import type { Prisma, Producto } from '../../prisma/generated/client';
+import type { Prisma, Producto } from '@prisma/client';
 import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
 

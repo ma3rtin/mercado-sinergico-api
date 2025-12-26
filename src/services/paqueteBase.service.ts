@@ -2,7 +2,7 @@ import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaque
 import { PaqueteBaseDTO } from '../dtos/paquete/paqueteBase.dto';
 import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
-import { Prisma } from '../../prisma/generated/client';
+import { Prisma } from '@prisma/client';
 
 export class PaqueteBaseService {
   private prisma = prisma;
