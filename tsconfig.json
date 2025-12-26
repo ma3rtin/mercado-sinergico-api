@@ -5,13 +5,21 @@
     "emitDecoratorMetadata": true,
     "module": "ESNext",
     "moduleResolution": "Node",
-    "rootDir": ".",
-    "outDir": "./dist",
+    "rootDir": "src",
+    "outDir": "dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*", "prisma/generated/**/*"],
-  "exclude": ["node_modules", "dist", "test", "**/*.test.ts", "**/*.spec.ts"]
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "prisma",
+    "prisma.config.ts",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
 }
