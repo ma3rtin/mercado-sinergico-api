@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { PaqueteController } from '../../controllers/paqueteBase.controller';
-import { PaqueteBaseService } from '../../services/paqueteBase.service';
-import { validarDto } from '../../middlewares/validateDTO.middleware';
-import { PaqueteBaseDTO } from '../../dtos/paquete/paqueteBase.dto';
-import { AgregarProductoPaqueteDTO } from '../../dtos/producto/agregarProductoPaquete.dto';
-import { ImagenService } from './../../services/imagen.service';
-import { procesarSubidaImagen } from '../../middlewares/uploadFiles.middleware';
+import { PaqueteController } from '../../controllers/paqueteBase.controller.js';
+import { PaqueteBaseService } from '../../services/paqueteBase.service.js';
+import { validarDto } from '../../middlewares/validateDTO.middleware.js';
+import { PaqueteBaseDTO } from '../../dtos/paquete/paqueteBase.dto.js';
+import { AgregarProductoPaqueteDTO } from '../../dtos/producto/agregarProductoPaquete.dto.js';
+import { ImagenService } from './../../services/imagen.service.js';
+import { procesarSubidaImagen } from '../../middlewares/uploadFiles.middleware.js';
 
 export const paqueteBaseRouter = Router();
 const paqueteService = new PaqueteBaseService();

@@ -1,13 +1,13 @@
 import { Router } from 'express';
-import { prisma } from '../../prisma/client';
-import { rolMiddleware } from '../../middlewares/auth.middleware';
-import { validarDto } from '../../middlewares/validateDTO.middleware';
-import { PaqueteBaseDTO } from '../../dtos/paquete/paqueteBase.dto';
-import { ProductoService } from '../../services/producto.service';
-import { PaqueteBaseService } from '../../services/paqueteBase.service';
-import { AdminController } from '../../controllers/admin.controller';
-import { ProductoDTO } from '../../dtos/producto/producto.dto';
-import { AgregarProductoPaqueteDTO } from '../../dtos/producto/agregarProductoPaquete.dto';
+import { prisma } from '../../prisma/client.js';
+import { rolMiddleware } from '../../middlewares/auth.middleware.js';
+import { validarDto } from '../../middlewares/validateDTO.middleware.js';
+import { PaqueteBaseDTO } from '../../dtos/paquete/paqueteBase.dto.js';
+import { ProductoService } from '../../services/producto.service.js';
+import { PaqueteBaseService } from '../../services/paqueteBase.service.js';
+import { AdminController } from '../../controllers/admin.controller.js';
+import { ProductoDTO } from '../../dtos/producto/producto.dto.js';
+import { AgregarProductoPaqueteDTO } from '../../dtos/producto/agregarProductoPaquete.dto.js';
 
 const router = Router();
 const productoService = new ProductoService();

@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { ZonaController } from '../../controllers/zona.controller';
-import { localidadRouter } from './localidad.route';
-import { validarDto } from './../../middlewares/validateDTO.middleware';
-import { ZonaDTO } from '../../dtos/direccion/zona.dto';
-import { ZonaService } from '../../services/zona.service';
-import { rolMiddleware } from '../../middlewares/auth.middleware';
+import { ZonaController } from '../../controllers/zona.controller.js';
+import { localidadRouter } from './localidad.route.js';
+import { validarDto } from './../../middlewares/validateDTO.middleware.js';
+import { ZonaDTO } from '../../dtos/direccion/zona.dto.js';
+import { ZonaService } from '../../services/zona.service.js';
+import { rolMiddleware } from '../../middlewares/auth.middleware.js';
 
 export const zonaRouter = Router();
 const service = new ZonaService();

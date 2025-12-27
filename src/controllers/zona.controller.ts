@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { ZonaService } from '../services/zona.service';
-import { ZonaDTO } from '../dtos/direccion/zona.dto';
-import { asyncHandler } from '../utils/asyncHandler';
+import { ZonaService } from '../services/zona.service.js';
+import { ZonaDTO } from '../dtos/direccion/zona.dto.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 export class ZonaController {
   constructor(private service: ZonaService) {}

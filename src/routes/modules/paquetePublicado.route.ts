@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { PaquetePublicadoService } from '../../services/paquetePublicado.service';
-import { PaquetePublicadoController } from '../../controllers/paquetePublicado.controller';
+import { PaquetePublicadoService } from '../../services/paquetePublicado.service.js';
+import { PaquetePublicadoController } from '../../controllers/paquetePublicado.controller.js';
 
-import { authMiddleware } from '../../middlewares/auth.middleware';
+import { authMiddleware } from '../../middlewares/auth.middleware.js';
 
 export const paquetePublicadoRouter = Router();
 

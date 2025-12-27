@@ -1,7 +1,7 @@
-import { prisma } from '../prisma/client';
-import { CustomError } from '../errors/custom.error';
-import { SumarseDTO } from '../dtos/pedido/sumarse.dto';
-import { MercadoPagoService } from '../payments/mercadopago/mercadopago.service';
+import { prisma } from '../prisma/client.js';
+import { CustomError } from '../errors/custom.error.js';
+import { SumarseDTO } from '../dtos/pedido/sumarse.dto.js';
+import { MercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
 import { Prisma } from '@prisma/client';
 
 export class PedidoService {

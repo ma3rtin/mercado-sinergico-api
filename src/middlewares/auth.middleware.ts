@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { DatosEncriptados, decodificarToken } from '../auth/jwt';
+import { DatosEncriptados, decodificarToken } from '../auth/jwt.js';
 
 declare global {
   namespace Express {

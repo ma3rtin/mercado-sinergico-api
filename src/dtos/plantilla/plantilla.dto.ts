@@ -1,4 +1,4 @@
-import { CaracteristicaDTO } from './caracteristica.dto';
+import { CaracteristicaDTO } from './caracteristica.dto.js';
 import { ArrayMinSize, IsArray, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 export class PlantillaDTO {
     @IsOptional()

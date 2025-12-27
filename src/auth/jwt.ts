@@ -1,4 +1,4 @@
-import { envs } from '../config/envs';
+import { envs } from '../config/envs.js';
 import jwt from 'jsonwebtoken';
 
 export interface DatosEncriptados {

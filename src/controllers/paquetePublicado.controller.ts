@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
-import { PaquetePublicadoService } from '../services/paquetePublicado.service';
-import { asyncHandler } from '../utils/asyncHandler';
-import { CustomError } from '../errors/custom.error';
+import { PaquetePublicadoService } from '../services/paquetePublicado.service.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { CustomError } from '../errors/custom.error.js';
 
 export class PaquetePublicadoController {
   constructor(private service: PaquetePublicadoService) { }

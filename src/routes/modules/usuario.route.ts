@@ -1,15 +1,15 @@
 import { Router } from 'express';
-import { UsuarioService } from '../../services/usuario.service';
-import { UsuarioController } from '../../controllers/usuario.controller';
-import { validarDto } from '../../middlewares/validateDTO.middleware';
-import { UsuarioDTO } from '../../dtos/usuario/usuario.dto';
-import { LoginDTO } from '../../dtos/usuario/login.dto';
-import { DireccionDTO } from '../../dtos/direccion/direccion.dto';
-import { authMiddleware } from '../../middlewares/auth.middleware';
-import { firebaseAuthMiddleware } from '../../middlewares/firebaseAuth.middleware';
-import { UsuarioUpdateDTO } from '../../dtos/usuario/usuarioUpdate.dto';
-import { procesarSubidaImagen } from './../../middlewares/uploadFiles.middleware';
-import { ImagenService } from '../../services/imagen.service';
+import { UsuarioService } from '../../services/usuario.service.js';
+import { UsuarioController } from '../../controllers/usuario.controller.js';
+import { validarDto } from '../../middlewares/validateDTO.middleware.js';
+import { UsuarioDTO } from '../../dtos/usuario/usuario.dto.js';
+import { LoginDTO } from '../../dtos/usuario/login.dto.js';
+import { DireccionDTO } from '../../dtos/direccion/direccion.dto.js';
+import { authMiddleware } from '../../middlewares/auth.middleware.js';
+import { firebaseAuthMiddleware } from '../../middlewares/firebaseAuth.middleware.js';
+import { UsuarioUpdateDTO } from '../../dtos/usuario/usuarioUpdate.dto.js';
+import { procesarSubidaImagen } from './../../middlewares/uploadFiles.middleware.js';
+import { ImagenService } from '../../services/imagen.service.js';
 import multer from 'multer';
 
 const upload = multer();

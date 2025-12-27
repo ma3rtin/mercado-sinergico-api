@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { MarcaController } from '../../controllers/marca.controller';
-import { MarcaService } from '../../services/marca.service';
+import { MarcaController } from '../../controllers/marca.controller.js';
+import { MarcaService } from '../../services/marca.service.js';
 
 const marcaRouter = Router();
 const service = new MarcaService();

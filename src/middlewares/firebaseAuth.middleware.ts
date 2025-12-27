@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { auth } from '../auth/firebase-admin';
-import { CustomError } from '../errors/custom.error';
+import { auth } from '../auth/firebase-admin.js';
+import { CustomError } from '../errors/custom.error.js';
 
 export interface FirebaseUser {
   uid: string;

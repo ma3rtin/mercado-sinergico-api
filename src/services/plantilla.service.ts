@@ -1,7 +1,7 @@
-import { prisma } from '../prisma/client';
+import { prisma } from '../prisma/client.js';
 import type { Prisma } from '@prisma/client';
 
-import { PlantillaDTO } from '../dtos/plantilla/plantilla.dto';
+import { PlantillaDTO } from '../dtos/plantilla/plantilla.dto.js';
 
 export class PlantillaService {
     private prismaClient = prisma;

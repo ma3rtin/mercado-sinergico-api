@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { MercadoPagoController } from './mercadopago.controller';
-import { PedidoService } from '../../services/pedido.service';
-import { MercadoPagoService } from './mercadopago.service';
+import { MercadoPagoController } from './mercadopago.controller.js';
+import { PedidoService } from '../../services/pedido.service.js';
+import { MercadoPagoService } from './mercadopago.service.js';
 
 export const mercadoPagoRouter = Router();
 

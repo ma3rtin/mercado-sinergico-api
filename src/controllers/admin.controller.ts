@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { PaqueteBaseService } from '../services/paqueteBase.service';
-import { ProductoService } from '../services/producto.service';
-import { ProductoDTO } from '../dtos/producto/producto.dto';
-import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaquete.dto';
-import { asyncHandler } from '../utils/asyncHandler';
+import { PaqueteBaseService } from '../services/paqueteBase.service.js';
+import { ProductoService } from '../services/producto.service.js';
+import { ProductoDTO } from '../dtos/producto/producto.dto.js';
+import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaquete.dto.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 export class AdminController {
   constructor(

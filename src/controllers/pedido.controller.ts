@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { PedidoService } from '../services/pedido.service';
-import { asyncHandler } from '../utils/asyncHandler';
-import { CustomError } from '../errors/custom.error';
+import { PedidoService } from '../services/pedido.service.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { CustomError } from '../errors/custom.error.js';
 
 
 export class PedidoController {

@@ -1,15 +1,15 @@
 import { Router } from 'express';
-import { usuarioRouter } from './modules/usuario.route';
-import productoRouter from './modules/producto.route';
-import { paqueteBaseRouter } from './modules/paqueteBase.route';
-import { zonaRouter } from './modules/zona.route';
-import { localidadRouter } from './modules/localidad.route';
-import { paquetePublicadoRouter } from './modules/paquetePublicado.route';
-import { plantillaRouter } from './modules/plantilla.route';
-import marcaRouter from './modules/marca.route';
-import categoriaRouter from './modules/categorias.route';
-import pedidoRouter from './modules/pedido.route';
-import { mercadoPagoRouter } from '../payments/mercadopago/mercadopago.routes';
+import { usuarioRouter } from './modules/usuario.route.js';
+import productoRouter from './modules/producto.route.js';
+import { paqueteBaseRouter } from './modules/paqueteBase.route.js';
+import { zonaRouter } from './modules/zona.route.js';
+import { localidadRouter } from './modules/localidad.route.js';
+import { paquetePublicadoRouter } from './modules/paquetePublicado.route.js';
+import { plantillaRouter } from './modules/plantilla.route.js';
+import marcaRouter from './modules/marca.route.js';
+import categoriaRouter from './modules/categorias.route.js';
+import pedidoRouter from './modules/pedido.route.js';
+import { mercadoPagoRouter } from '../payments/mercadopago/mercadopago.routes.js';
 
 export class AppRoutes {
   static get routes(): Router {

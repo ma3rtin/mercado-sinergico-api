@@ -1,7 +1,7 @@
-import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaquete.dto';
-import { PaqueteBaseDTO } from '../dtos/paquete/paqueteBase.dto';
-import { prisma } from '../prisma/client';
-import { CustomError } from '../errors/custom.error';
+import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaquete.dto.js';
+import { PaqueteBaseDTO } from '../dtos/paquete/paqueteBase.dto.js';
+import { prisma } from '../prisma/client.js';
+import { CustomError } from '../errors/custom.error.js';
 import { Prisma } from '@prisma/client';
 
 export class PaqueteBaseService {

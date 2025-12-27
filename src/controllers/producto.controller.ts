@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import { ProductoService } from '../services/producto.service';
-import { ProductoDTO } from '../dtos/producto/producto.dto';
-import { ImagenService } from '../services/imagen.service';
-import { asyncHandler } from '../utils/asyncHandler';
+import { ProductoService } from '../services/producto.service.js';
+import { ProductoDTO } from '../dtos/producto/producto.dto.js';
+import { ImagenService } from '../services/imagen.service.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 export class ProductoController {
   constructor(

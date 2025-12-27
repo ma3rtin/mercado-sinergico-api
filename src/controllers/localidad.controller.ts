@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { LocalidadService } from '../services/localidad.service';
-import { CustomError } from '../errors/custom.error';
-import { asyncHandler } from '../utils/asyncHandler';
+import { LocalidadService } from '../services/localidad.service.js';
+import { CustomError } from '../errors/custom.error.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 const service = new LocalidadService();
 

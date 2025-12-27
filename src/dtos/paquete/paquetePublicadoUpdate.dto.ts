@@ -1,5 +1,5 @@
 import { IsOptional, IsString } from 'class-validator';
-import { PaquetePublicadoDTO } from './paquetePublicado.dto';
+import { PaquetePublicadoDTO } from './paquetePublicado.dto.js';
 
 export class PaquetePublicadoUpdateDTO extends PaquetePublicadoDTO {
   @IsOptional()

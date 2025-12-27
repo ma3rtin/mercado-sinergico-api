@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { PlantillaController } from '../../controllers/ControladoresPlantilla/plantilla.controller';
-import { PlantillaDTO } from '../../dtos/plantilla/plantilla.dto';
-import { validarDto } from '../../middlewares/validateDTO.middleware';
-import { PlantillaService } from '../../services/plantilla.service';
+import { PlantillaController } from '../../controllers/ControladoresPlantilla/plantilla.controller.js';
+import { PlantillaDTO } from '../../dtos/plantilla/plantilla.dto.js';
+import { validarDto } from '../../middlewares/validateDTO.middleware.js';
+import { PlantillaService } from '../../services/plantilla.service.js';
 
 
 

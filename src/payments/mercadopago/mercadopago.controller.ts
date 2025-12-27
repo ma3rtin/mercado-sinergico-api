@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PedidoService } from '../../services/pedido.service';
+import { PedidoService } from '../../services/pedido.service.js';
 
 export class MercadoPagoController {
   constructor(private pedidoService: PedidoService) {}

@@ -1,6 +1,6 @@
 import express, { Router } from 'express';
 import cors from 'cors';
-import { errorHandler } from '../middlewares/errorHandler.middleware';
+import { errorHandler } from '../middlewares/errorHandler.middleware.js';
 
 interface Options {
   port: number;

@@ -1,5 +1,5 @@
-import { prisma } from '../prisma/client';
-import { CustomError } from '../errors/custom.error';
+import { prisma } from '../prisma/client.js';
+import { CustomError } from '../errors/custom.error.js';
 
 export class CategoriaService {
   private client = prisma;

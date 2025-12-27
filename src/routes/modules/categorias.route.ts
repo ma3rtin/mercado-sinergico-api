@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { CategoriaController } from '../../controllers/categoria.controller';
-import { CategoriaService } from '../../services/categoria.service';
+import { CategoriaController } from '../../controllers/categoria.controller.js';
+import { CategoriaService } from '../../services/categoria.service.js';
 
 export const categoriaRouter = Router();
 const service = new CategoriaService();

@@ -1,7 +1,7 @@
 import 'reflect-metadata';
-import { envs } from './config/envs';
-import { AppRoutes } from './routes/router';
-import { Server } from './server/server';
+import { envs } from './config/envs.js';
+import { AppRoutes } from './routes/router.js';
+import { Server } from './server/server.js';
 
 (async () => {
   main();

@@ -1,7 +1,7 @@
-import { MarcaService } from '../services/marca.service';
+import { MarcaService } from '../services/marca.service.js';
 import { Request, Response, NextFunction } from 'express';
-import { CustomError } from '../errors/custom.error';
-import { asyncHandler } from '../utils/asyncHandler';
+import { CustomError } from '../errors/custom.error.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 export class MarcaController {
   constructor(private service: MarcaService) {}

@@ -1,5 +1,5 @@
 import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
-import { envs } from '../../config/envs';
+import { envs } from '../../config/envs.js';
 
 export class MercadoPagoService {
   private client: MercadoPagoConfig;

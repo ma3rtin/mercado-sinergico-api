@@ -1,6 +1,6 @@
-import { ZonaDTO } from '../dtos/direccion/zona.dto';
-import { CustomError } from '../errors/custom.error';
-import { prisma } from '../prisma/client';
+import { ZonaDTO } from '../dtos/direccion/zona.dto.js';
+import { CustomError } from '../errors/custom.error.js';
+import { prisma } from '../prisma/client.js';
 
 export class ZonaService {
   private prisma = prisma;

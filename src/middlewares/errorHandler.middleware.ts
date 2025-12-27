@@ -1,4 +1,4 @@
-import { CustomError } from '../errors/custom.error';
+import { CustomError } from '../errors/custom.error.js';
 import { NextFunction, Request, Response } from 'express';
 
 export function errorHandler(err: unknown, req: Request, res: Response, next: NextFunction) {

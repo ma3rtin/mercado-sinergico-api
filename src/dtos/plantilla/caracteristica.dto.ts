@@ -1,5 +1,5 @@
 import { ArrayMinSize, IsArray, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { OpcionDTO } from './opcion.dto';
+import { OpcionDTO } from './opcion.dto.js';
 export class CaracteristicaDTO{
     
     @IsOptional()

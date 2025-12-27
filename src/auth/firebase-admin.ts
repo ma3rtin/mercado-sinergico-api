@@ -1,5 +1,5 @@
 import admin from 'firebase-admin';
-import { envs } from '../config/envs';
+import { envs } from '../config/envs.js';
 
 // Configuración de Firebase Admin
 const firebaseConfig = {

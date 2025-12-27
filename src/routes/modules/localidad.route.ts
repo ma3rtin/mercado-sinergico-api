@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { LocalidadController } from '../../controllers/localidad.controller';
+import { LocalidadController } from '../../controllers/localidad.controller.js';
 
 // export const localidadRouter = Router({ mergeParams: true });
 // const controller = new LocalidadController();

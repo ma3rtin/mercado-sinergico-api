@@ -1,7 +1,7 @@
-import { CategoriaService } from '../services/categoria.service';
+import { CategoriaService } from '../services/categoria.service.js';
 import { Request, Response } from 'express';
-import { CustomError } from '../errors/custom.error';
-import { asyncHandler } from '../utils/asyncHandler';
+import { CustomError } from '../errors/custom.error.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 export class CategoriaController {
   constructor(private service: CategoriaService) {}

@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { PedidoController } from '../../controllers/pedido.controller';
-import { authMiddleware } from '../../middlewares/auth.middleware';
-import { validarDto } from '../../middlewares/validateDTO.middleware';
-import { SumarseDTO } from '../../dtos/pedido/sumarse.dto';
-import { ActualizarCantidadDTO } from '../../dtos/pedido/actualizar-cantidad.dto';
-import { PedidoService } from '../../services/pedido.service';
-import { MercadoPagoService } from '../../payments/mercadopago/mercadopago.service';
+import { PedidoController } from '../../controllers/pedido.controller.js';
+import { authMiddleware } from '../../middlewares/auth.middleware.js';
+import { validarDto } from '../../middlewares/validateDTO.middleware.js';
+import { SumarseDTO } from '../../dtos/pedido/sumarse.dto.js';
+import { ActualizarCantidadDTO } from '../../dtos/pedido/actualizar-cantidad.dto.js';
+import { PedidoService } from '../../services/pedido.service.js';
+import { MercadoPagoService } from '../../payments/mercadopago/mercadopago.service.js';
 
 const router = Router();
 const mercadoPagoService = new MercadoPagoService();

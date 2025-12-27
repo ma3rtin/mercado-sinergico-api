@@ -1,15 +1,15 @@
-import { cifrarContraseña, compararContraseñas } from '../auth/bcrypt';
-import { crearToken } from '../auth/jwt';
-import { DireccionDTO } from '../dtos/direccion/direccion.dto';
-import { LoginDTO } from '../dtos/usuario/login.dto';
-import { UsuarioDTO } from '../dtos/usuario/usuario.dto';
-import { UsuarioUpdateDTO } from '../dtos/usuario/usuarioUpdate.dto';
+import { cifrarContraseña, compararContraseñas } from '../auth/bcrypt.js';
+import { crearToken } from '../auth/jwt.js';
+import { DireccionDTO } from '../dtos/direccion/direccion.dto.js';
+import { LoginDTO } from '../dtos/usuario/login.dto.js';
+import { UsuarioDTO } from '../dtos/usuario/usuario.dto.js';
+import { UsuarioUpdateDTO } from '../dtos/usuario/usuarioUpdate.dto.js';
 import type { Direccion, Localidad, Prisma, Usuario } from '@prisma/client';
-import { prisma } from '../prisma/client';
-import { CustomError } from '../errors/custom.error';
-import { FirebaseUser } from '../middlewares/firebaseAuth.middleware';
-import { ImagenService } from '../services/imagen.service';
-import { generarAvatar } from '../utils/avatar';
+import { prisma } from '../prisma/client.js';
+import { CustomError } from '../errors/custom.error.js';
+import { FirebaseUser } from '../middlewares/firebaseAuth.middleware.js';
+import { ImagenService } from '../services/imagen.service.js';
+import { generarAvatar } from '../utils/avatar.js';
 
 export class UsuarioService {
   private prismaClient = prisma;
