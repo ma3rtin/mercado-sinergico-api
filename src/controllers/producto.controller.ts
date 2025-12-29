@@ -97,8 +97,6 @@ export class ProductoController {
   });
 
   public deleteProducto = asyncHandler(async (req: Request, res: Response) => {
-    console.log('Entró al deleteProducto con id:', req.params.id);
-
     const id: number = parseInt(req.params.id, 10);
     const deleted = await this.productoService.delete(id);
 

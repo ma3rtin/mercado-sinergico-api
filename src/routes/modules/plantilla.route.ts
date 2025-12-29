@@ -3,12 +3,17 @@ import { PlantillaController } from '../../controllers/ControladoresPlantilla/pl
 import { PlantillaDTO } from '../../dtos/plantilla/plantilla.dto';
 import { validarDto } from '../../middlewares/validateDTO.middleware';
 import { PlantillaService } from '../../services/plantilla.service';
-
+import { PlantillaRepository } from '../../repositories/plantilla.repository';
+import { ProductoRepository } from '../../repositories/producto.repository';
 
 
 const router = Router();
+//Repositories
+const plantillaRepository = new PlantillaRepository();
+const productoRepository = new ProductoRepository();
+
 //Plantillas
-const plantillaService = new PlantillaService();
+const plantillaService = new PlantillaService(plantillaRepository, productoRepository);
 const plantillaController = new PlantillaController(plantillaService);
 
 router.get('/', plantillaController.getPlantillas.bind(plantillaController));

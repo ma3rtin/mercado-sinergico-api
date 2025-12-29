@@ -16,7 +16,6 @@ export async function authMiddleware(
 ) {
   try {
     const authHeader = req.headers.authorization;
-    console.log('🔎 Header recibido:', authHeader);
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res.status(401).json({ message: 'Token no proporcionado' });
@@ -24,9 +23,7 @@ export async function authMiddleware(
     }
 
     const token = authHeader.split(' ')[1];
-    console.log('🧩 Token a verificar:', token);
     const user = await decodificarToken(token);
-    console.log('✅ Token decodificado:', user);
 
     req.user = user;
 

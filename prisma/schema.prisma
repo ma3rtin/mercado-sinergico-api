@@ -126,7 +126,7 @@ model Producto {
   ancho        Float?
   profundidad  Float?
   peso         Float?
-  stock        Int?
+  stock        Int                   @default(0)
   plantillaId  Int?
   categoria_id Int
   categoria    Categoria             @relation(fields: [categoria_id], references: [id_categoria])

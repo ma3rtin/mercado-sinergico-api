@@ -5,9 +5,13 @@ import { validarDto } from './../../middlewares/validateDTO.middleware';
 import { ZonaDTO } from '../../dtos/direccion/zona.dto';
 import { ZonaService } from '../../services/zona.service';
 import { rolMiddleware } from '../../middlewares/auth.middleware';
+import { ZonaRepository } from '../../repositories/zona.repository';
 
 export const zonaRouter = Router();
-const service = new ZonaService();
+
+// Repo, Service, Controller
+const zonaRepository = new ZonaRepository();
+const service = new ZonaService(zonaRepository);
 const controller = new ZonaController(service);
 
 

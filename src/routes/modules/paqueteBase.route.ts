@@ -6,10 +6,20 @@ import { PaqueteBaseDTO } from '../../dtos/paquete/paqueteBase.dto';
 import { AgregarProductoPaqueteDTO } from '../../dtos/producto/agregarProductoPaquete.dto';
 import { ImagenService } from './../../services/imagen.service';
 import { procesarSubidaImagen } from '../../middlewares/uploadFiles.middleware';
+import { PaqueteBaseRepository } from '../../repositories/paqueteBase.repository';
+import { CategoriaRepository } from '../../repositories/categoria.repository';
 
 export const paqueteBaseRouter = Router();
-const paqueteService = new PaqueteBaseService();
+
+// Repositories
+const paqueteBaseRepository = new PaqueteBaseRepository();
+const categoriaRepository = new CategoriaRepository();
+
+// Services
+const paqueteService = new PaqueteBaseService(paqueteBaseRepository, categoriaRepository);
 const imagenService = new ImagenService();
+
+// Controller
 const controller = new PaqueteController(paqueteService, imagenService);
 
 paqueteBaseRouter.get('/', controller.getAll.bind(controller));

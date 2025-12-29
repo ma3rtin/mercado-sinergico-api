@@ -1,21 +1,17 @@
-import { prisma } from '../prisma/client';
+import { IMarcaRepository } from '../interfaces/IMarcaRepository';
 
 export class MarcaService {
-  private client = prisma;
+  constructor(private marcaRepository: IMarcaRepository) { }
 
   public async getAll() {
-    return this.client.marca.findMany();
+    return this.marcaRepository.getAll();
   }
 
   public async getById(id: number) {
-    return this.client.marca.findUnique({
-      where: { id_marca: id },
-    });
+    return this.marcaRepository.getById(id);
   }
 
   public async create(nombre: string) {
-    return this.client.marca.create({
-      data: { nombre },
-    });
+    return this.marcaRepository.create({ nombre });
   }
 }

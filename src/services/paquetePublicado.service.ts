@@ -1,52 +1,28 @@
 import { PaquetePublicadoDTO } from '../dtos/paquete/paquetePublicado.dto';
 import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdate.dto';
 import { CustomError } from '../errors/custom.error';
-import { prisma } from '../prisma/client';
+import { IPaquetePublicadoRepository } from '../interfaces/IPaquetePublicadoRepository';
+import { ILocalidadRepository } from '../interfaces/ILocalidadRepository';
+import { IUsuarioRepository } from '../interfaces/IUsuarioRepository';
+import { IZonaRepository } from '../interfaces/IZonaRepository';
+import { IPaqueteBaseRepository } from '../interfaces/IPaqueteBaseRepository';
+import { Prisma } from '../../prisma/generated/client';
 
 export class PaquetePublicadoService {
-  private prisma = prisma;
+  constructor(
+    private paquetePublicadoRepository: IPaquetePublicadoRepository,
+    private localidadRepository: ILocalidadRepository,
+    private usuarioRepository: IUsuarioRepository,
+    private zonaRepository: IZonaRepository,
+    private paqueteBaseRepository: IPaqueteBaseRepository
+  ) { }
 
   async getAll() {
-    console.log('obteniendo todos los paquetes');
-    return await this.prisma.paquetePublicado.findMany({
-      include: {
-        paqueteBase: {
-          include: {
-            marca: true,
-            categoria: true,
-          },
-        },
-        zona: true,
-        estado: true,
-        pedidos: true,
-      },
-    });
+    return await this.paquetePublicadoRepository.getAll();
   }
 
   async getById(id: number) {
-    const paquete = await this.prisma.paquetePublicado.findUnique({
-      where: { id_paquete_publicado: id },
-      include: {
-        paqueteBase: {
-          include: {
-            marca: true,
-            categoria: true,
-            productos: {
-              include: {
-                producto: {
-                  include: {
-                    imagenes: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        zona: true,
-        estado: true,
-        pedidos: true,
-      },
-    });
+    const paquete = await this.paquetePublicadoRepository.getById(id);
 
     if (paquete) {
       return {
@@ -62,50 +38,29 @@ export class PaquetePublicadoService {
 
     // 1. Si se proporciona localidadId explícitamente, usarla
     if (localidadId) {
-      console.log('🔎 Buscando zonas para localidad ID:', localidadId);
-      const localidad = await this.prisma.localidad.findUnique({
-        where: { id_localidad: localidadId },
-        include: { zonas: true },
-      });
+      const localidad = await this.localidadRepository.getById(localidadId);
 
-      if (localidad) {
-        zonaIds = localidad.zonas.map((z: { id: number; localidadId: number; zonaId: number }) => z.zonaId);
+      // Localidad repository includes zonas
+      if (localidad && (localidad as any).zonas) {
+        zonaIds = (localidad as any).zonas.map((z: any) => z.zonaId);
       }
     }
     // 2. Si no hay localidadId pero hay userId, buscar la del usuario
     else if (userId) {
-      console.log('🔎 Buscando zonas para usuario ID:', userId);
-      const usuario = await this.prisma.usuario.findUnique({
-        where: { id: userId },
-        include: {
-          localidad: {
-            // Primero revisar preferencia de localidad
-            include: { zonas: true },
-          },
-          direccion: {
-            // Fallback a dirección física
-            include: {
-              localidad: {
-                include: {
-                  zonas: true,
-                },
-              },
-            },
-          },
-        },
-      });
+      const usuario = await this.usuarioRepository.getById(userId);
 
       if (usuario) {
-        if (usuario.localidad) {
-          console.log('✅ Usando localidad preferida del usuario');
-          zonaIds = usuario.localidad.zonas.map(
-            (z: { id: number; localidadId: number; zonaId: number }) => z.zonaId
-          );
-        } else if (usuario.direccion && usuario.direccion.localidad) {
-          console.log('✅ Usando dirección del usuario');
-          zonaIds = usuario.direccion.localidad.zonas.map(
-            (z: { id: number; localidadId: number; zonaId: number }) => z.zonaId
-          );
+        const userWithRelations = usuario as any;
+        if (userWithRelations.localidad) {
+          const loc = userWithRelations.localidad;
+          if (loc.zonas) {
+            zonaIds = loc.zonas.map((z: any) => z.zonaId);
+          }
+        } else if (userWithRelations.direccion && userWithRelations.direccion.localidad) {
+          const loc = userWithRelations.direccion.localidad;
+          if (loc.zonas) {
+            zonaIds = loc.zonas.map((z: any) => z.zonaId);
+          }
         }
       }
     }
@@ -115,56 +70,11 @@ export class PaquetePublicadoService {
       return [];
     }
 
-    return await this.prisma.paquetePublicado.findMany({
-      where: {
-        zonaId: { in: zonaIds },
-        estado: { nombre: 'Activo' },
-      },
-      include: {
-        paqueteBase: {
-          include: {
-            marca: true,
-            categoria: true,
-            productos: {
-              include: {
-                producto: {
-                  include: {
-                    imagenes: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        zona: true,
-        estado: true,
-      },
-    });
+    return await this.paquetePublicadoRepository.getByZonas(zonaIds);
   }
 
   async getByProductId(productId: number) {
-    return await this.prisma.paquetePublicado.findMany({
-      where: {
-        paqueteBase: {
-          productos: {
-            some: {
-              productoId: productId,
-            },
-          },
-        },
-        estado: { nombre: 'Activo' },
-      },
-      include: {
-        paqueteBase: {
-          include: {
-            marca: true,
-            categoria: true,
-          },
-        },
-        zona: true,
-        estado: true,
-      },
-    });
+    return await this.paquetePublicadoRepository.getByProductId(productId);
   }
 
   async create(dto: PaquetePublicadoDTO) {
@@ -172,132 +82,66 @@ export class PaquetePublicadoService {
     const fecha_fin = new Date(dto.fecha_fin);
 
     // Validar zona
-    const zona = await this.prisma.zona.findUnique({
-      where: { id_zona: Number(dto.zonaId) },
-    });
+    const zona = await this.zonaRepository.getById(Number(dto.zonaId));
 
     if (!zona) throw new CustomError('La zona no existe', 404);
 
     // Validar paquete base
-    const paqueteBase = await this.prisma.paqueteBase.findUnique({
-      where: { id_paquete_base: dto.paqueteBaseId },
-    });
+    const paqueteBase = await this.paqueteBaseRepository.getById(dto.paqueteBaseId);
 
     if (!paqueteBase) throw new CustomError('El paquete base no existe', 404);
 
-    return this.prisma.paquetePublicado.create({
-      data: {
-        cant_productos: dto.cant_productos,
-        fecha_inicio,
-        fecha_fin,
-        zona: { connect: { id_zona: Number(dto.zonaId) } },
-        paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
-        estado: { connect: { nombre: 'Activo' } },
-      },
-    });
+    const data: Prisma.PaquetePublicadoCreateInput = {
+      cant_productos: dto.cant_productos,
+      fecha_inicio,
+      fecha_fin,
+      zona: { connect: { id_zona: Number(dto.zonaId) } },
+      paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
+      estado: { connect: { nombre: 'Activo' } },
+    }
+
+    return this.paquetePublicadoRepository.create(data);
   }
 
   async update(id: number, dto: PaquetePublicadoUpdateDTO) {
-    return await this.prisma.paquetePublicado.update({
-      where: { id_paquete_publicado: id },
-      data: {
-        cant_productos: dto.cant_productos,
-        fecha_inicio: dto.fecha_inicio,
-        fecha_fin: dto.fecha_fin,
-        zona: {
-          connect: { id_zona: dto.zonaId },
-        },
-        paqueteBase: {
-          connect: { id_paquete_base: dto.paqueteBaseId },
-        },
-        ...(dto.estadoNombre && {
-          estado: { connect: { nombre: dto.estadoNombre } },
-        }),
-      },
-    });
+    const data: Prisma.PaquetePublicadoUpdateInput = {
+      cant_productos: dto.cant_productos,
+      fecha_inicio: dto.fecha_inicio,
+      fecha_fin: dto.fecha_fin,
+      zona: dto.zonaId ? { connect: { id_zona: dto.zonaId } } : undefined,
+      paqueteBase: dto.paqueteBaseId ? { connect: { id_paquete_base: dto.paqueteBaseId } } : undefined,
+      ...(dto.estadoNombre && {
+        estado: { connect: { nombre: dto.estadoNombre } },
+      }),
+    };
+    return await this.paquetePublicadoRepository.update(id, data);
   }
 
   delete(id: number) {
-    return this.prisma.paquetePublicado.update({
-      where: { id_paquete_publicado: id },
-      data: { estado: { connect: { nombre: 'Eliminado' } } },
-    });
+    return this.paquetePublicadoRepository.update(id, { estado: { connect: { nombre: 'Eliminado' } } });
   }
 
-  // 🔥 ESTE ES EL MÉTODO QUE NECESITA ARREGLARSE sisi, eso....
   async getPorCerrarse() {
     const hoy = new Date();
     const dentroDexDias = new Date(hoy);
     dentroDexDias.setDate(hoy.getDate() + 30);
 
-    console.log('🔎 Buscando paquetes entre:', hoy, 'y', dentroDexDias);
-
-    // ✅ CAMBIO IMPORTANTE: Agregar el include de paqueteBase
-    const paquetes = await this.prisma.paquetePublicado.findMany({
-      where: {
-        estado: {
-          nombre: { in: ['Activo', 'Pendiente'] },
-        },
-        fecha_fin: {
-          gte: hoy,
-          lte: dentroDexDias,
-        },
-      },
-      include: {
-        // ✅ ESTO FALTABA - Ahora trae la info de paqueteBase
-        paqueteBase: {
-          include: {
-            marca: true, // ✅ Trae la marca
-            categoria: true, // ✅ Trae la categoría
-          },
-        },
-        zona: {
-          select: { nombre: true, id_zona: true },
-        },
-        estado: {
-          select: { nombre: true, id_estado: true },
-        },
-        pedidos: true,
-      },
-      orderBy: { fecha_fin: 'asc' },
-    });
-
-    console.log(`✅ ${paquetes.length} paquetes encontrados`);
-    return paquetes;
+    return this.paquetePublicadoRepository.getPorCerrarse(hoy, dentroDexDias);
   }
 
   async getRelacionados(id: number) {
     // 1. Obtener el paquete actual para contexto
-    const currentPaquete = await this.prisma.paquetePublicado.findUnique({
-      where: { id_paquete_publicado: id },
-      include: {
-        paqueteBase: true,
-      },
-    });
+    const currentPaquete = await this.paquetePublicadoRepository.getById(id);
 
     if (!currentPaquete) throw new Error('Paquete no encontrado');
 
     const currentZonaId = currentPaquete.zonaId;
-    const currentCategoriaId = currentPaquete.paqueteBase?.categoria_id;
+
+    // @ts-ignore
+    const currentCategoriaId = (currentPaquete.paqueteBase as any)?.categoria_id;
 
     // 2. Buscar candidatos (Activos y no el actual)
-    const candidatos = await this.prisma.paquetePublicado.findMany({
-      where: {
-        id_paquete_publicado: { not: id },
-        estado: { nombre: { in: ['Activo', 'Abierto'] } },
-      },
-      include: {
-        paqueteBase: {
-          include: {
-            marca: true,
-            categoria: true,
-          },
-        },
-        zona: true,
-        estado: true,
-        pedidos: true,
-      },
-    });
+    const candidatos = await this.paquetePublicadoRepository.getCandidates(id);
 
     // 3. Puntuar
     const scoredPackages = candidatos.map((p) => {
@@ -318,7 +162,8 @@ export class PaquetePublicadoService {
       // Criterio 3: Misma Categoría (+200)
       if (
         currentCategoriaId &&
-        p.paqueteBase?.categoria_id === currentCategoriaId
+        // @ts-ignore
+        (p.paqueteBase as any)?.categoria_id === currentCategoriaId
       ) {
         score += 200;
       }

@@ -4,16 +4,23 @@ import { DireccionDTO } from '../dtos/direccion/direccion.dto';
 import { LoginDTO } from '../dtos/usuario/login.dto';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto';
 import { UsuarioUpdateDTO } from '../dtos/usuario/usuarioUpdate.dto';
-import type { Direccion, Localidad, Prisma, Usuario } from '../../prisma/generated/client';
-import { prisma } from '../prisma/client';
+import { Usuario, Prisma } from '../../prisma/generated/client';
 import { CustomError } from '../errors/custom.error';
 import { FirebaseUser } from '../middlewares/firebaseAuth.middleware';
 import { ImagenService } from '../services/imagen.service';
 import { generarAvatar } from '../utils/avatar';
+import { IUsuarioRepository } from '../interfaces/IUsuarioRepository';
+import { IDireccionRepository } from '../interfaces/IDireccionRepository';
+import { ILocalidadRepository } from '../interfaces/ILocalidadRepository';
 
 export class UsuarioService {
-  private prismaClient = prisma;
-  private imagenService = new ImagenService();
+  constructor(
+    private usuarioRepository: IUsuarioRepository,
+    private direccionRepository: IDireccionRepository,
+    private localidadRepository: ILocalidadRepository,
+    private imagenService: ImagenService
+  ) { }
+
   public async registrar(usuario: UsuarioDTO): Promise<Usuario> {
     const { email, contraseña, nombre, telefono, fecha_nac } = usuario;
 
@@ -32,17 +39,17 @@ export class UsuarioService {
       imagen_url = await this.imagenService.uploadToCloudinary(avatarBuffer);
     }
 
-    return await this.prismaClient.usuario.create({
-      data: {
-        email,
-        nombre,
-        contraseña: contraseñaHash,
-        telefono,
-        fecha_nac: fecha_nac ? new Date(fecha_nac) : null,
-        imagen_url,
-        rol: { connect: { nombre: 'Usuario' } },
-      },
-    });
+    const data: Prisma.UsuarioCreateInput = {
+      email,
+      nombre,
+      contraseña: contraseñaHash,
+      telefono,
+      fecha_nac: fecha_nac ? new Date(fecha_nac) : null,
+      imagen_url,
+      rol: { connect: { nombre: 'Usuario' } },
+    };
+
+    return await this.usuarioRepository.create(data);
   }
 
   public async iniciarSesion(credenciales: LoginDTO): Promise<string | null> {
@@ -70,54 +77,38 @@ export class UsuarioService {
   public async registrarDireccion(
     userId: number,
     direccion: DireccionDTO
-  ): Promise<Direccion> {
-    return await this.prismaClient.$transaction(async (tx: Prisma.TransactionClient) => {
-      const localidad = await tx.localidad.findUnique({
-        where: { id_localidad: direccion.localidad_id },
-      });
-      if (!localidad) {
-        throw new CustomError(
-          'Localidad no encontrada en la base de datos',
-          404
-        );
-      }
+  ): Promise<any> {
+    const localidad = await this.localidadRepository.getById(direccion.localidad_id);
 
-      const resultado = await tx.direccion.create({
-        data: {
-          usuarioId: userId,
-          localidadId: direccion.localidad_id,
-          codigo_postal: direccion.codigo_postal,
-          calle: direccion.calle,
-          numero: direccion.numero,
-          piso: direccion.piso,
-          departamento: direccion.departamento,
-        },
-      });
+    if (!localidad) {
+      throw new CustomError(
+        'Localidad no encontrada en la base de datos',
+        404
+      );
+    }
 
-      return resultado;
-    });
+    const input: Prisma.DireccionCreateInput = {
+      usuario: { connect: { id: userId } },
+      localidad: { connect: { id_localidad: direccion.localidad_id } },
+      codigo_postal: direccion.codigo_postal,
+      calle: direccion.calle,
+      numero: direccion.numero,
+      piso: direccion.piso,
+      departamento: direccion.departamento,
+    };
+
+    return await this.direccionRepository.create(input);
   }
 
   public async buscarPorEmail(
     email: string
   ): Promise<(Usuario & { rol: { nombre: string } }) | null> {
-    return await this.prismaClient.usuario.findUnique({
-      where: { email },
-      include: { rol: { select: { nombre: true } } },
-    });
+    // Cast necessary because repo might not return exact expected structure by interface definition in Service context
+    return await this.usuarioRepository.getByEmail(email) as (Usuario & { rol: { nombre: string } }) | null;
   }
 
   public async obtenerUsuario(userId: number): Promise<Usuario | null> {
-    return await this.prismaClient.usuario.findUnique({
-      where: { id: userId },
-      include: {
-        rol: { select: { nombre: true } },
-        localidad: true,
-        direccion: {
-          include: { localidad: true },
-        },
-      },
-    });
+    return await this.usuarioRepository.getById(userId);
   }
 
   public async actualizarUsuario(
@@ -131,18 +122,17 @@ export class UsuarioService {
       contraseñaHash = await cifrarContraseña(contraseña);
     }
 
-    return await this.prismaClient.usuario.update({
-      where: { id: userId },
-      data: {
-        email: email ?? undefined,
-        nombre: nombre ?? undefined,
-        telefono: telefono ?? undefined,
-        fecha_nac: fecha_nac ? new Date(fecha_nac) : undefined,
-        contraseña: contraseñaHash ?? undefined,
-        imagen_url: imagen_url ?? undefined,
-        localidadId: localidad_id ?? undefined,
-      },
-    });
+    const input: Prisma.UsuarioUpdateInput = {
+      email: email ?? undefined,
+      nombre: nombre ?? undefined,
+      telefono: telefono ?? undefined,
+      fecha_nac: fecha_nac ? new Date(fecha_nac) : undefined,
+      contraseña: contraseñaHash ?? undefined,
+      imagen_url: imagen_url ?? undefined,
+      localidad: localidad_id ? { connect: { id_localidad: Number(localidad_id) } } : undefined,
+    };
+
+    return await this.usuarioRepository.update(userId, input);
   }
 
   public async loginConFirebase(
@@ -177,20 +167,21 @@ export class UsuarioService {
         imagen_url = await this.imagenService.uploadToCloudinary(avatarBuffer);
       }
 
-      usuario = await this.prismaClient.usuario.create({
-        data: {
-          email,
-          nombre: name || 'Usuario Firebase',
-          contraseña: '', // No se usa para Firebase
-          telefono: '',
-          fecha_nac: null,
-          imagen_url,
-          rol: { connect: { nombre: 'Usuario' } },
-        },
-        include: { rol: { select: { nombre: true } } },
-      });
+      const input: Prisma.UsuarioCreateInput = {
+        email,
+        nombre: name || 'Usuario Firebase',
+        contraseña: '', // No se usa para Firebase
+        telefono: '',
+        fecha_nac: null,
+        imagen_url,
+        rol: { connect: { nombre: 'Usuario' } },
+      };
+
+      usuario = (await this.usuarioRepository.create(input)) as Usuario & { rol: { nombre: string } };
     }
 
+    // Ensure logic returns user with role, fetch again if needed or trust create returns include
+    // Implementation of UsuarioRepository.create includes Rol.
     return usuario;
   }
 

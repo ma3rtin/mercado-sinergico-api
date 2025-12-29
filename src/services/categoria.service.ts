@@ -1,19 +1,15 @@
-import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
+import { ICategoriaRepository } from '../interfaces/ICategoriaRepository';
 
 export class CategoriaService {
-  private client = prisma;
+  constructor(private categoriaRepository: ICategoriaRepository) { }
 
   public async getAll() {
-    return this.client.categoria.findMany();
+    return this.categoriaRepository.getAll();
   }
 
   public async getById(id: number) {
-    const categoria = await this.client.categoria.findUnique({
-      where: { id_categoria: id },
-    });
-
-    return categoria;
+    return this.categoriaRepository.getById(id);
   }
 
   public async create(nombre: string) {
@@ -22,9 +18,7 @@ export class CategoriaService {
     }
 
     try {
-      return await this.client.categoria.create({
-        data: { nombre },
-      });
+      return await this.categoriaRepository.create({ nombre });
     } catch (error: unknown) {
       const err = error as { code?: string };
 

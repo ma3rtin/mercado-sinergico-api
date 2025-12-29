@@ -6,7 +6,19 @@ import { ProductoDTO } from '../../dtos/producto/producto.dto';
 import { procesarSubidaImagen } from '../../middlewares/uploadFiles.middleware';
 import { ImagenService } from '../../services/imagen.service';
 
-const productoService = new ProductoService();
+import { ProductoRepository } from '../../repositories/producto.repository';
+import { PaquetePublicadoRepository } from '../../repositories/paquetePublicado.repository';
+import { CategoriaRepository } from '../../repositories/categoria.repository';
+
+const productoRepository = new ProductoRepository();
+const paquetePublicadoRepository = new PaquetePublicadoRepository();
+const categoriaRepository = new CategoriaRepository();
+
+const productoService = new ProductoService(
+  productoRepository,
+  paquetePublicadoRepository,
+  categoriaRepository
+);
 const imagenService = new ImagenService();
 const productoController = new ProductoController(
   productoService,

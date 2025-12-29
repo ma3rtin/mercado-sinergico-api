@@ -1,15 +1,14 @@
 import { Router } from 'express';
 import { LocalidadController } from '../../controllers/localidad.controller';
-
-// export const localidadRouter = Router({ mergeParams: true });
-// const controller = new LocalidadController();
-
-// rutas bajo /api/zonas/:id/localidades
-// localidadRouter.get("/", controller.getAllByZona.bind(controller));
-// localidadRouter.post("/", controller.create.bind(controller));
-// localidadRouter.delete("/:localidadId", controller.delete.bind(controller));
+import { LocalidadRepository } from '../../repositories/localidad.repository';
+import { LocalidadService } from '../../services/localidad.service';
 
 // rutas globales bajo /api/localidades
 export const localidadRouter = Router();
-const controller = new LocalidadController();
+
+// Repo, Service, Controller
+const localidadRepository = new LocalidadRepository();
+const service = new LocalidadService(localidadRepository);
+const controller = new LocalidadController(service);
+
 localidadRouter.get('/', controller.getAll.bind(controller));

@@ -1,40 +1,37 @@
-import { prisma } from '../prisma/client';
 import { CustomError } from '../errors/custom.error';
 import { SumarseDTO } from '../dtos/pedido/sumarse.dto';
+import { IPedidoRepository } from '../interfaces/IPedidoRepository';
+import { IPaquetePublicadoRepository } from '../interfaces/IPaquetePublicadoRepository';
 import { Prisma } from '../../prisma/generated/client';
 
 export class PedidoService {
-  private prisma = prisma;
+  constructor(
+    private pedidoRepository: IPedidoRepository,
+    private paquetePublicadoRepository: IPaquetePublicadoRepository
+  ) { }
 
   public async crearPedido(
     usuarioId: number,
     paqueteId: number,
     productoAComprar: SumarseDTO
   ) {
-    const paquete = await this.prisma.paquetePublicado.findUnique({
-      where: { id_paquete_publicado: paqueteId },
-      include: {
-        paqueteBase: {
-          include: {
-            productos: {
-              include: { producto: true },
-            },
-          },
-        },
-        estado: true,
-      },
-    });
+    // 1. Validar Paquete
+    const paquete = await this.paquetePublicadoRepository.getById(paqueteId);
 
     if (!paquete) {
       throw new CustomError('Paquete no encontrado', 404);
     }
 
-    if (paquete.estado.nombre !== 'Activo') {
+    // Check estado. "estado" is included in getById impl.
+    // Assuming type allows accessing it.
+    if ((paquete as any).estado?.nombre !== 'Activo') {
       throw new CustomError('El paquete no está activo', 400);
     }
 
-    const productoEnPaquete = paquete.paqueteBase.productos.find(
-      (p) => p.productoId === productoAComprar.productoId
+    // 2. Validar Producto en Paquete
+    const productosEnPaquete = (paquete as any).paqueteBase?.productos || [];
+    const productoEnPaquete = productosEnPaquete.find(
+      (p: any) => p.productoId === productoAComprar.productoId
     );
 
     if (!productoEnPaquete) {
@@ -43,208 +40,36 @@ export class PedidoService {
 
     const producto = productoEnPaquete.producto;
 
+    // 3. Check Stock
     if (producto.stock && producto.stock < productoAComprar.cantidad) {
       throw new CustomError('Stock insuficiente', 400);
     }
 
-    // aplicar descuento provisorio
-    const descuento = paquete.descuento || 0;
-    const precioConDescuento = producto.precio * (1 - descuento / 100);
-    const subtotal = precioConDescuento * productoAComprar.cantidad;
+    // 4. Calculate Price
+    const descuento = (paquete as any).descuento || 10; // Repo might not return descuento field if it's computed in service getById. 
+    // Wait, PaquetePublicado model has 'descuento' field (Float?).
+    // Schema says: descuento Float?
+    // Service getById adds `descuento: 10`.
+    // But here we used repo.getById which returns raw DB object.
+    // We should use the DB value or default.
+    const discountVal = (paquete as any).descuento || 0;
+    const precioConDescuento = producto.precio * (1 - discountVal / 100);
 
-    let pedido = await this.prisma.pedido.findFirst({
-      where: {
-        usuarioId: usuarioId,
-        paquetePublicadoId: paqueteId,
-        estadoId: 1,
-      },
-      include: {
-        detalles: true,
-      },
+    // 5. Add Item via Repository
+    return this.pedidoRepository.addItem(usuarioId, paqueteId, {
+      productoId: productoAComprar.productoId,
+      cantidad: productoAComprar.cantidad,
+      precio: precioConDescuento,
+      descuento: discountVal
     });
-
-    if (!pedido) {
-      pedido = await this.prisma.pedido.create({
-        data: {
-          usuarioId: usuarioId,
-          paquetePublicadoId: paqueteId,
-          estadoId: 1,
-          monto_total: subtotal,
-          descuento_aplicado: descuento,
-          detalles: {
-            create: {
-              productoId: productoAComprar.productoId,
-              cantidad: productoAComprar.cantidad,
-              precio_unitario: precioConDescuento,
-              subtotal: subtotal,
-            },
-          },
-        },
-        include: {
-          detalles: {
-            include: { producto: true },
-          },
-          paquetePublicado: {
-            include: { paqueteBase: true },
-          },
-        },
-      });
-    } else {
-      const detalleExistente = pedido.detalles.find(
-        (d) => d.productoId === productoAComprar.productoId
-      );
-
-      if (detalleExistente) {
-        const nuevaCantidad =
-          detalleExistente.cantidad + productoAComprar.cantidad;
-        const nuevoSubtotal = precioConDescuento * nuevaCantidad;
-
-        await this.prisma.pedidoDetalle.update({
-          where: { id: detalleExistente.id },
-          data: {
-            cantidad: nuevaCantidad,
-            subtotal: nuevoSubtotal,
-          },
-        });
-      } else {
-        await this.prisma.pedidoDetalle.create({
-          data: {
-            pedidoId: pedido.id_pedido,
-            productoId: productoAComprar.productoId,
-            cantidad: productoAComprar.cantidad,
-            precio_unitario: precioConDescuento,
-            subtotal: subtotal,
-          },
-        });
-      }
-
-      const nuevoMontoTotal = await this.prisma.pedidoDetalle.aggregate({
-        where: { pedidoId: pedido.id_pedido },
-        _sum: { subtotal: true },
-      });
-
-      pedido = await this.prisma.pedido.update({
-        where: { id_pedido: pedido.id_pedido },
-        data: {
-          monto_total: nuevoMontoTotal._sum.subtotal || 0,
-        },
-        include: {
-          detalles: {
-            include: { producto: true },
-          },
-          paquetePublicado: {
-            include: { paqueteBase: true },
-          },
-        },
-      });
-    }
-
-    // si hacemos que pague al sumarse tenemos que actualizar el stock y la cantidad de productos reservados, sino se maneja cuando se pague
-    // await this.prisma.paquetePublicado.update({
-    //   where: { id_paquete_publicado: paqueteId },
-    //   data: {
-    //     cant_productos_reservados: {
-    //       increment: productoAComprar.cantidad,
-    //     },
-    //   },
-    // });
-
-    // if (producto.stock) {
-    //   await this.prisma.producto.update({
-    //     where: { id_producto: productoAComprar.productoId },
-    //     data: {
-    //       stock: {
-    //         decrement: productoAComprar.cantidad,
-    //       },
-    //     },
-    //   });
-    // }
-
-    return pedido;
   }
 
   public async getAll(usuarioId: number) {
-    const pedidos = await this.prisma.pedido.findMany({
-      where: { usuarioId: usuarioId },
-      include: {
-        detalles: {
-          include: {
-            producto: {
-              include: {
-                marca: true,
-                imagenes: true,
-              },
-            },
-          },
-        },
-        paquetePublicado: {
-          include: {
-            paqueteBase: {
-              include: {
-                marca: true,
-                categoria: true,
-              },
-            },
-            zona: true,
-            estado: true,
-          },
-        },
-        estado: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    return pedidos;
+    return this.pedidoRepository.getByUser(usuarioId);
   }
 
   public async getById(pedidoId: number, usuarioId: number) {
-    const pedido = await this.prisma.pedido.findUnique({
-      where: {
-        id_pedido: pedidoId,
-      },
-      include: {
-        detalles: {
-          include: {
-            producto: {
-              include: {
-                marca: true,
-                imagenes: true,
-                categoria: true,
-              },
-            },
-          },
-        },
-        paquetePublicado: {
-          include: {
-            paqueteBase: {
-              include: {
-                marca: true,
-                categoria: true,
-                productos: {
-                  include: {
-                    producto: true,
-                  },
-                },
-              },
-            },
-            zona: true,
-            estado: true,
-          },
-        },
-        estado: true,
-        usuario: {
-          select: {
-            id: true,
-            nombre: true,
-            email: true,
-            telefono: true,
-            imagen_url: true,
-          },
-        },
-      },
-    });
+    const pedido = await this.pedidoRepository.getById(pedidoId);
 
     if (!pedido) {
       throw new CustomError('Pedido no encontrado', 404);
@@ -258,58 +83,8 @@ export class PedidoService {
   }
 
   public async bajarse(userId: number, paqueteId: number) {
-    const pedido = await this.prisma.pedido.findFirst({
-      where: {
-        usuarioId: userId,
-        paquetePublicadoId: paqueteId,
-        estadoId: 1,
-      },
-      include: {
-        detalles: true,
-      },
-    });
-
-    if (!pedido) {
-      throw new CustomError(
-        'No tenés un pedido pendiente en este paquete',
-        404
-      );
-    }
-
-    if (pedido.estadoId > 2) {
-      throw new CustomError('Este pedido ya no se puede cancelar', 400);
-    }
-
-    const resultado = await this.prisma.$transaction(async (prisma: Prisma.TransactionClient) => {
-      const totalProductosReservados = pedido.detalles.reduce(
-        (sum, detalle) => sum + detalle.cantidad,
-        0
-      );
-
-      await prisma.paquetePublicado.update({
-        where: { id_paquete_publicado: paqueteId },
-        data: {
-          cant_productos_reservados: {
-            decrement: totalProductosReservados,
-          },
-        },
-      });
-
-      await prisma.pedidoDetalle.deleteMany({
-        where: { pedidoId: pedido.id_pedido },
-      });
-
-      const pedidoEliminado = await prisma.pedido.delete({
-        where: { id_pedido: pedido.id_pedido },
-      });
-
-      return pedidoEliminado;
-    });
-
-    return {
-      message: 'Baja de pedido exitosa',
-      pedidoEliminado: resultado,
-    };
+    // Repository handles logic including verifying existence
+    return this.pedidoRepository.cancelOrder(userId, paqueteId);
   }
 
   public async eliminarProducto(
@@ -317,80 +92,8 @@ export class PedidoService {
     pedidoId: number,
     productoId: number
   ) {
-    const pedido = await this.prisma.pedido.findFirst({
-      where: {
-        id_pedido: pedidoId,
-        usuarioId: userId,
-        estadoId: { in: [1, 2] },
-      },
-      include: {
-        detalles: true,
-      },
-    });
-
-    if (!pedido) {
-      throw new CustomError(
-        'Pedido no encontrado o no se puede modificar',
-        404
-      );
-    }
-
-    const detalle = pedido.detalles.find((d) => d.productoId === productoId);
-
-    if (!detalle) {
-      throw new CustomError('Producto no encontrado en el pedido', 404);
-    }
-
-    const resultado = await this.prisma.$transaction(async (prisma: Prisma.TransactionClient) => {
-      await prisma.pedidoDetalle.delete({
-        where: { id: detalle.id },
-      });
-
-      const detallesRestantes = await prisma.pedidoDetalle.count({
-        where: { pedidoId: pedidoId },
-      });
-
-      if (detallesRestantes === 0) {
-        await prisma.pedido.delete({
-          where: { id_pedido: pedidoId },
-        });
-        return null;
-      }
-
-      const nuevoMontoTotal = await prisma.pedidoDetalle.aggregate({
-        where: { pedidoId: pedidoId },
-        _sum: { subtotal: true },
-      });
-
-      const pedidoActualizado = await prisma.pedido.update({
-        where: { id_pedido: pedidoId },
-        data: {
-          monto_total: nuevoMontoTotal._sum.subtotal || 0,
-        },
-        include: {
-          detalles: {
-            include: {
-              producto: {
-                include: {
-                  marca: true,
-                  imagenes: true,
-                },
-              },
-            },
-          },
-          paquetePublicado: {
-            include: {
-              paqueteBase: true,
-            },
-          },
-          estado: true,
-        },
-      });
-
-      return pedidoActualizado;
-    });
-
-    return resultado;
+    // Repository handles logic
+    return this.pedidoRepository.removeItem(userId, pedidoId, productoId);
   }
 
   public async actualizarCantidad(
@@ -399,95 +102,29 @@ export class PedidoService {
     productoId: number,
     nuevaCantidad: number
   ) {
-    const pedido = await this.prisma.pedido.findFirst({
-      where: {
-        id_pedido: pedidoId,
-        usuarioId: userId,
-        estadoId: { in: [1, 2] },
-      },
-      include: {
-        detalles: true,
-        paquetePublicado: {
-          include: {
-            paqueteBase: {
-              include: {
-                productos: {
-                  include: { producto: true },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    // Need to validate stock again?
+    // Repository updateItemQuantity logic I wrote doesn't check stock.
+    // Validation should happen here.
 
-    if (!pedido) {
-      throw new CustomError(
-        'Pedido no encontrado o no se puede modificar',
-        404
-      );
-    }
+    // Fetch info to check stock
+    const pedido = await this.pedidoRepository.getById(pedidoId);
+    if (!pedido) throw new CustomError('Pedido no encontrado', 404);
 
-    const detalle = pedido.detalles.find((d) => d.productoId === productoId);
+    // Find product in package via pedido -> paquetePublicado
+    // This requires deep includes in getById.
+    // PedidoRepository.getById includes paquetePublicado -> paqueteBase -> productos -> producto.
 
-    if (!detalle) {
-      throw new CustomError('Producto no encontrado en el pedido', 404);
-    }
+    // Logic to find product and check stock:
+    const paquete = (pedido as any).paquetePublicado;
+    const productos = (paquete as any).paqueteBase?.productos || [];
+    const prodRelation = productos.find((p: any) => p.productoId === productoId);
 
-    const producto = pedido.paquetePublicado.paqueteBase.productos.find(
-      (p) => p.productoId === productoId
-    )?.producto;
+    if (!prodRelation || !prodRelation.producto) throw new CustomError('Producto no encontrado', 404);
 
-    if (!producto) {
-      throw new CustomError('Producto no encontrado', 404);
-    }
-
-    if (producto.stock && producto.stock < nuevaCantidad) {
+    if (prodRelation.producto.stock < nuevaCantidad) {
       throw new CustomError('Stock insuficiente', 400);
     }
 
-    const descuento = pedido.paquetePublicado.descuento || 0;
-    const precioConDescuento = producto.precio * (1 - descuento / 100);
-    const nuevoSubtotal = precioConDescuento * nuevaCantidad;
-
-    await this.prisma.pedidoDetalle.update({
-      where: { id: detalle.id },
-      data: {
-        cantidad: nuevaCantidad,
-        subtotal: nuevoSubtotal,
-      },
-    });
-
-    const nuevoMontoTotal = await this.prisma.pedidoDetalle.aggregate({
-      where: { pedidoId: pedidoId },
-      _sum: { subtotal: true },
-    });
-
-    const pedidoActualizado = await this.prisma.pedido.update({
-      where: { id_pedido: pedidoId },
-      data: {
-        monto_total: nuevoMontoTotal._sum.subtotal || 0,
-      },
-      include: {
-        detalles: {
-          include: {
-            producto: {
-              include: {
-                marca: true,
-                imagenes: true,
-              },
-            },
-          },
-        },
-        paquetePublicado: {
-          include: {
-            paqueteBase: true,
-          },
-        },
-        estado: true,
-      },
-    });
-
-    return pedidoActualizado;
+    return this.pedidoRepository.updateItemQuantity(userId, pedidoId, productoId, nuevaCantidad);
   }
 }

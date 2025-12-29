@@ -1,65 +1,53 @@
 import { ProductoDTO } from '../dtos/producto/producto.dto';
-import type { Prisma, Producto } from '../../prisma/generated/client';
-import { prisma } from '../prisma/client';
+import { Producto, Prisma } from '../../prisma/generated/client';
 import { CustomError } from '../errors/custom.error';
+import { IProductoRepository } from '../interfaces/IProductoRepository';
+import { IPaquetePublicadoRepository } from '../interfaces/IPaquetePublicadoRepository';
+import { ICategoriaRepository } from '../interfaces/ICategoriaRepository';
 
 export class ProductoService {
-  private prisma = prisma;
+  constructor(
+    private productoRepository: IProductoRepository,
+    private paquetePublicadoRepository: IPaquetePublicadoRepository,
+    private categoriaRepository: ICategoriaRepository
+  ) { }
 
   public async getAll(name?: string, skip = 0, take = 10): Promise<Producto[]> {
-    return this.prisma.producto.findMany({
-      where: name ? { nombre: { contains: name } } : undefined,
-      include: {
-        categoria: true,
-        marca: true,
-        imagenes: true,
-      },
-      skip,
-      take,
-      orderBy: { id_producto: 'asc' },
-    });
+    return this.productoRepository.getAll(name, skip, take);
   }
 
   public async getById(id: number): Promise<{ producto: Producto, cantPaquetes: number } | null> {
-    const paquetesConProducto = await this.prisma.paquetePublicado.findMany({
-      where: { paqueteBase: { productos: { some: { productoId: id } } } },
-    });
+    const cantPaquetes = await this.paquetePublicadoRepository.countByProductId(id);
 
-    const producto = await this.prisma.producto.findUnique({
-      where: { id_producto: id },
-      include: { categoria: true, marca: true, imagenes: true },
-    });
+    const producto = await this.productoRepository.getById(id);
 
     if (!producto) {
       throw new CustomError('Producto no encontrado', 404);
     }
 
-    return { producto, cantPaquetes: paquetesConProducto.length };
+    return { producto, cantPaquetes };
   }
 
   public async create(producto: ProductoDTO): Promise<Producto> {
     const { categoria_id, marca_id, imagenes, plantillaId, ...rest } = producto;
 
-    const categoria = await this.prisma.categoria.findUnique({
-      where: { id_categoria: categoria_id },
-    });
+    const categoria = await this.categoriaRepository.getById(categoria_id);
 
     if (!categoria) {
       throw new CustomError('Categoria no encontrada', 404);
     }
 
-    return this.prisma.producto.create({
-      data: {
-        ...rest,
-        categoria: { connect: { id_categoria: categoria_id } },
-        marca: { connect: { id_marca: marca_id } },
-        plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
-        imagenes: {
-          create: imagenes?.map((url) => ({ url })) || [],
-        },
+    const data: Prisma.ProductoCreateInput = {
+      ...rest,
+      categoria: { connect: { id_categoria: categoria_id } },
+      marca: { connect: { id_marca: marca_id } },
+      plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
+      imagenes: {
+        create: imagenes?.map((url) => ({ url })) || [],
       },
-      include: { imagenes: true, categoria: true, marca: true },
-    });
+    };
+
+    return this.productoRepository.create(data);
   }
 
   public async update(id: number, producto: ProductoDTO) {
@@ -80,50 +68,41 @@ export class ProductoService {
       };
     }
 
-    return this.prisma.producto.update({
-      where: { id_producto: id },
-      data,
-      include: { imagenes: true },
-    });
+    return this.productoRepository.update(id, data);
   }
 
   public async delete(id: number) {
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.paqueteBaseProducto.deleteMany({ where: { productoId: id } });
-      await tx.productoImagen.deleteMany({ where: { productoId: id } });
-
-      return tx.producto.delete({ where: { id_producto: id } });
-    });
+    return this.productoRepository.delete(id);
   }
 
   public async duplicarProducto(id: number) {
-    const producto = await this.prisma.producto.findUnique({
-      where: { id_producto: id },
-      include: { imagenes: true },
-    });
+    const producto = await this.productoRepository.getById(id);
 
     if (!producto) {
       throw new CustomError('Producto no encontrado', 404);
     }
 
-    return this.prisma.producto.create({
-      data: {
-        nombre: `${producto.nombre} (Copia)`,
-        descripcion: producto.descripcion,
-        precio: producto.precio,
-        peso: producto.peso,
-        altura: producto.altura,
-        ancho: producto.ancho,
-        profundidad: producto.profundidad,
-        stock: producto.stock,
-        imagen_url: producto.imagen_url,
-        categoria: { connect: { id_categoria: producto.categoria_id } },
-        marca: { connect: { id_marca: producto.marca_id } },
-        imagenes: {
-          create: producto.imagenes.map((img) => ({ url: img.url })),
-        },
+    // Explicitly casting to expected type with relations
+    const productoWithRelations = producto as Producto & { imagenes: { url: string }[] };
+    const imagenes = productoWithRelations.imagenes || [];
+
+    const data: Prisma.ProductoCreateInput = {
+      nombre: `${producto.nombre} (Copia)`,
+      descripcion: producto.descripcion,
+      precio: producto.precio,
+      peso: producto.peso,
+      altura: producto.altura,
+      ancho: producto.ancho,
+      profundidad: producto.profundidad,
+      stock: producto.stock,
+      imagen_url: producto.imagen_url,
+      categoria: { connect: { id_categoria: producto.categoria_id } },
+      marca: { connect: { id_marca: producto.marca_id } },
+      imagenes: {
+        create: imagenes.map((img) => ({ url: img.url })),
       },
-      include: { imagenes: true },
-    });
+    };
+
+    return this.productoRepository.create(data);
   }
 }

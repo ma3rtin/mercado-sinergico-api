@@ -1,12 +1,32 @@
 import { Router } from 'express';
 import { PaquetePublicadoService } from '../../services/paquetePublicado.service';
 import { PaquetePublicadoController } from '../../controllers/paquetePublicado.controller';
-
 import { authMiddleware } from '../../middlewares/auth.middleware';
+import { PaquetePublicadoRepository } from '../../repositories/paquetePublicado.repository';
+import { LocalidadRepository } from '../../repositories/localidad.repository';
+import { UsuarioRepository } from '../../repositories/usuario.repository';
+import { ZonaRepository } from '../../repositories/zona.repository';
+import { PaqueteBaseRepository } from '../../repositories/paqueteBase.repository';
 
 export const paquetePublicadoRouter = Router();
 
-const service = new PaquetePublicadoService();
+// Repositories
+const paquetePublicadoRepository = new PaquetePublicadoRepository();
+const localidadRepository = new LocalidadRepository();
+const usuarioRepository = new UsuarioRepository();
+const zonaRepository = new ZonaRepository();
+const paqueteBaseRepository = new PaqueteBaseRepository();
+
+// Service
+const service = new PaquetePublicadoService(
+    paquetePublicadoRepository,
+    localidadRepository,
+    usuarioRepository,
+    zonaRepository,
+    paqueteBaseRepository
+);
+
+// Controller
 const controller = new PaquetePublicadoController(service);
 
 paquetePublicadoRouter.get('/por-cerrarse', controller.getPorCerrarse.bind(controller));
