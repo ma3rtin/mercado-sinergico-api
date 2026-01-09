@@ -1,6 +1,6 @@
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
-import { SumarseDTO } from '../dtos/pedido/sumarse.dto.js';
+import { CrearPedidoDTO } from '../dtos/pedido/crearPedido.dto.js';
 import { MercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
 import { Prisma } from '@prisma/client';
 
@@ -12,7 +12,7 @@ export class PedidoService {
   public async crearPedido(
     usuarioId: number,
     paqueteId: number,
-    productoAComprar: SumarseDTO
+    productoAComprar: CrearPedidoDTO
   ) {
     const paquete = await this.prisma.paquetePublicado.findUnique({
       where: { id_paquete_publicado: paqueteId },

@@ -8,4 +8,8 @@ export class OpcionDTO {
     @IsNotEmpty({ message: 'El nombre es obligatorio' })
     nombre!: string;
 
+    constructor(data: any) {
+        this.id = data.id;
+        this.nombre = data.nombre;
+    }
 }

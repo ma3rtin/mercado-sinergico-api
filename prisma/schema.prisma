@@ -6,19 +6,31 @@ datasource db {
   provider = "mysql"
 }
 
-model Caracteristica {
-  id          Int       @id @default(autoincrement())
-  nombre      String
-  opciones    Opcion[]
-  plantillaId Int
-  plantilla   Plantilla @relation(fields: [plantillaId], references: [id], onDelete: Cascade)
-}
+// ============================================
+// VARIANTES Y PLANTILLAS
+// ============================================
 
 model Plantilla {
   id              Int              @id @default(autoincrement())
   nombre          String
   caracteristicas Caracteristica[]
   productos       Producto[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Caracteristica {
+  id          Int       @id @default(autoincrement())
+  nombre      String
+  plantillaId Int
+  plantilla   Plantilla @relation(fields: [plantillaId], references: [id], onDelete: Cascade)
+
+  opciones          Opcion[]
+  variantesOpciones ProductoVarianteOpcion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Opcion {
@@ -26,14 +38,76 @@ model Opcion {
   nombre           String
   caracteristicaId Int
   caracteristica   Caracteristica @relation(fields: [caracteristicaId], references: [id], onDelete: Cascade)
+
+  variantesOpciones ProductoVarianteOpcion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
+model ProductoVariante {
+  id         Int      @id @default(autoincrement())
+  productoId Int
+  producto   Producto @relation(fields: [productoId], references: [id_producto], onDelete: Cascade)
+  sku        String?  @unique
+
+  // Stock físico global (null = sinérgico sin control, número = energético con control)
+  stockFisico Int?
+
+  precioExtra Float?  @default(0)
+  activo      Boolean @default(true)
+
+  // Relaciones
+  opciones                 ProductoVarianteOpcion[]
+  pedidoDetalles           PedidoDetalle[]
+  disponibilidadEnPaquetes DisponibilidadVariantePaquete[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productoId])
+  @@index([activo])
+}
+
+model ProductoVarianteOpcion {
+  id               Int              @id @default(autoincrement())
+  varianteId       Int
+  variante         ProductoVariante @relation(fields: [varianteId], references: [id], onDelete: Cascade)
+  caracteristicaId Int
+  caracteristica   Caracteristica   @relation(fields: [caracteristicaId], references: [id])
+  opcionId         Int
+  opcion           Opcion           @relation(fields: [opcionId], references: [id])
+
+  @@unique([varianteId, caracteristicaId])
+  @@index([varianteId])
+}
+
+model DisponibilidadVariantePaquete {
+  id                 Int              @id @default(autoincrement())
+  varianteId         Int
+  variante           ProductoVariante @relation(fields: [varianteId], references: [id], onDelete: Cascade)
+  paquetePublicadoId Int
+  paquetePublicado   PaquetePublicado @relation(fields: [paquetePublicadoId], references: [id_paquete_publicado], onDelete: Cascade)
+
+  activo Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([varianteId, paquetePublicadoId])
+  @@index([paquetePublicadoId])
+  @@index([varianteId])
+}
+
+// ============================================
+// USUARIOS Y AUTENTICACIÓN
+// ============================================
 
 model Usuario {
   id          Int        @id @default(autoincrement())
   email       String     @unique
   nombre      String
-  contraseña  String
+  contraseña String
   telefono    String
   fecha_nac   DateTime?
   imagen_url  String?
@@ -67,20 +141,23 @@ model Direccion {
   departamento  String?
 }
 
+// ============================================
+// GEOGRAFÍA
+// ============================================
+
 model Localidad {
-  id_localidad  Int         @id @default(autoincrement())
+  id_localidad  Int             @id @default(autoincrement())
   nombre        String
   codigo_postal Int
   direcciones   Direccion[]
   usuarios      Usuario[]
-
-  zonas LocalidadZona[]
+  zonas         LocalidadZona[]
 }
 
 model Zona {
-  id_zona  Int                @id @default(autoincrement())
-  nombre   String             @unique
-  paquetes PaquetePublicado[]
+  id_zona     Int                @id @default(autoincrement())
+  nombre      String             @unique
+  paquetes    PaquetePublicado[]
   localidades LocalidadZona[]
 
   createdAt DateTime @default(now())
@@ -94,7 +171,13 @@ model LocalidadZona {
 
   localidad Localidad @relation(fields: [localidadId], references: [id_localidad])
   zona      Zona      @relation(fields: [zonaId], references: [id_zona])
+
+  @@unique([localidadId, zonaId])
 }
+
+// ============================================
+// CATÁLOGO
+// ============================================
 
 model Categoria {
   id_categoria Int           @id @default(autoincrement())
@@ -114,28 +197,42 @@ model Marca {
 }
 
 model Producto {
-  id_producto  Int                   @id @default(autoincrement())
-  nombre       String
-  descripcion  String
-  precio       Float
-  imagen_url   String?
-  marca        Marca                 @relation(fields: [marca_id], references: [id_marca])
-  marca_id     Int
-  altura       Float?
-  ancho        Float?
-  profundidad  Float?
-  peso         Float?
-  stock        Int?
+  id_producto Int     @id @default(autoincrement())
+  nombre      String
+  descripcion String
+  precio      Float
+  imagen_url  String?
+  marca       Marca   @relation(fields: [marca_id], references: [id_marca])
+  marca_id    Int
+  altura      Float?
+  ancho       Float?
+  profundidad Float?
+  peso        Float?
+
+  // Stock solo para productos SIN variantes (plantillaId = null)
+  stock Int?
+
+  // Tipo de producto: ENERGETICO (con stock) o SINERGICO (bajo pedido)
+  tipo TipoPaquete? @default(POR_DEFINIR)
+
   plantillaId  Int?
+  plantilla    Plantilla? @relation(fields: [plantillaId], references: [id])
   categoria_id Int
-  categoria    Categoria             @relation(fields: [categoria_id], references: [id_categoria])
-  paquetes     PaqueteBaseProducto[]
-  imagenes     ProductoImagen[]
+  categoria    Categoria  @relation(fields: [categoria_id], references: [id_categoria])
+
+  // Relaciones
+  paquetes       PaqueteBaseProducto[]
+  imagenes       ProductoImagen[]
   pedidoDetalles PedidoDetalle[]
-  plantilla    Plantilla?            @relation(fields: [plantillaId], references: [id])
+  variantes      ProductoVariante[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([plantillaId])
+  @@index([categoria_id])
+  @@index([marca_id])
+  @@index([tipo])
 }
 
 model ProductoImagen {
@@ -147,6 +244,10 @@ model ProductoImagen {
   createdAt DateTime @default(now())
 }
 
+// ============================================
+// PAQUETES
+// ============================================
+
 model PaqueteBase {
   id_paquete_base Int       @id @default(autoincrement())
   nombre          String
@@ -154,9 +255,8 @@ model PaqueteBase {
   imagen_url      String?
   categoria_id    Int
   categoria       Categoria @relation(fields: [categoria_id], references: [id_categoria])
-
-  marcaId Int?
-  marca   Marca? @relation(fields: [marcaId], references: [id_marca])
+  marcaId         Int?
+  marca           Marca?    @relation(fields: [marcaId], references: [id_marca])
 
   productos  PaqueteBaseProducto[]
   publicados PaquetePublicado[]
@@ -170,13 +270,15 @@ model PaqueteBaseProducto {
   productoId    Int
   paqueteBaseId Int
   producto      Producto    @relation(fields: [productoId], references: [id_producto], onDelete: Cascade)
-  paqueteBase   PaqueteBase @relation(fields: [paqueteBaseId], references: [id_paquete_base])
+  paqueteBase   PaqueteBase @relation(fields: [paqueteBaseId], references: [id_paquete_base], onDelete: Cascade)
+
+  @@unique([productoId, paqueteBaseId])
 }
 
 enum TipoPaquete {
   SINERGICO
   ENERGETICO
-  POR_DEFINIR  
+  POR_DEFINIR
 }
 
 model PaquetePublicado {
@@ -194,12 +296,18 @@ model PaquetePublicado {
   cant_usuarios_registrados Int                    @default(0)
   monto_total               Float?
   imagen_url                String?
-  tipoPaquete               TipoPaquete            @default(POR_DEFINIR)
+  tipo                      TipoPaquete            @default(POR_DEFINIR)
   descuento                 Float?
 
-  pedidos   Pedido[]
+  pedidos              Pedido[]
+  variantesDisponibles DisponibilidadVariantePaquete[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([estadoId])
+  @@index([zonaId])
+  @@index([tipo])
 }
 
 model EstadoPaquetePublicado {
@@ -207,6 +315,10 @@ model EstadoPaquetePublicado {
   nombre    String             @unique
   paquetes  PaquetePublicado[]
 }
+
+// ============================================
+// PEDIDOS
+// ============================================
 
 model Pedido {
   id_pedido          Int              @id @default(autoincrement())
@@ -219,21 +331,34 @@ model Pedido {
   monto_total        Float
   descuento_aplicado Float?
   fecha              DateTime         @default(now())
-  
+
   detalles  PedidoDetalle[]
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
+
+  @@index([usuarioId])
+  @@index([paquetePublicadoId])
+  @@index([estadoId])
 }
 
 model PedidoDetalle {
-  id              Int      @id @default(autoincrement())
-  pedidoId        Int
-  pedido          Pedido   @relation(fields: [pedidoId], references: [id_pedido], onDelete: Cascade)
-  productoId      Int
-  producto        Producto @relation(fields: [productoId], references: [id_producto])
+  id         Int      @id @default(autoincrement())
+  pedidoId   Int
+  pedido     Pedido   @relation(fields: [pedidoId], references: [id_pedido], onDelete: Cascade)
+  productoId Int
+  producto   Producto @relation(fields: [productoId], references: [id_producto])
+
+  // Nueva referencia a variante (null si el producto no tiene variantes)
+  varianteId Int?
+  variante   ProductoVariante? @relation(fields: [varianteId], references: [id])
+
   cantidad        Int
   precio_unitario Float
   subtotal        Float
+
+  @@index([pedidoId])
+  @@index([productoId])
+  @@index([varianteId])
 }
 
 model EstadoPedido {

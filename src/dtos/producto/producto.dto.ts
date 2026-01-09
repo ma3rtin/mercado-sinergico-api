@@ -1,11 +1,19 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsEnum,
   IsNumber,
   IsOptional,
   IsPositive,
   IsString,
+  ValidateIf,
 } from 'class-validator';
+
+export enum TipoProducto {
+  SINERGICO = 'SINERGICO',
+  ENERGETICO = 'ENERGETICO',
+  POR_DEFINIR = 'POR_DEFINIR',
+}
 
 export class ProductoDTO {
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
@@ -19,33 +27,37 @@ export class ProductoDTO {
   @Type(() => Number)
   precio!: number;
 
-  @IsNumber({}, { message: 'El id de la marca debe ser una un numero' })
-  @IsPositive({ message: 'El precio debe ser un número positivo' })
+  @IsNumber({}, { message: 'El id de la marca debe ser un numero' })
+  @IsPositive({ message: 'El id de la marca debe ser un número positivo' })
   @Type(() => Number)
   marca_id!: number;
 
   @IsNumber({}, { message: 'El peso debe ser un número' })
   @IsPositive({ message: 'El peso debe ser un número positivo' })
+  @IsOptional()
   @Type(() => Number)
-  peso!: number;
+  peso?: number;
 
   @IsNumber({}, { message: 'El alto debe ser un número' })
   @IsPositive({ message: 'El alto debe ser un número positivo' })
+  @IsOptional()
   @Type(() => Number)
-  altura!: number;
+  altura?: number;
 
   @IsNumber({}, { message: 'El ancho debe ser un número' })
   @IsPositive({ message: 'El ancho debe ser un número positivo' })
+  @IsOptional()
   @Type(() => Number)
-  ancho!: number;
+  ancho?: number;
 
   @IsNumber({}, { message: 'La profundidad debe ser un número' })
   @IsPositive({ message: 'La profundidad debe ser un número positivo' })
+  @IsOptional()
   @Type(() => Number)
-  profundidad!: number;
+  profundidad?: number;
 
   @IsNumber({}, { message: 'El id de la categoría debe ser un número' })
-  @IsPositive({ message: 'La profundidad debe ser un número positivo' })
+  @IsPositive({ message: 'El id de la categoría debe ser un número positivo' })
   @Type(() => Number)
   categoria_id!: number;
 
@@ -58,9 +70,10 @@ export class ProductoDTO {
   @IsOptional()
   imagenes?: string[];
 
+  @ValidateIf((o) => !o.plantillaId)
   @IsNumber({}, { message: 'El stock debe ser un número' })
   @IsPositive({ message: 'El stock debe ser un número positivo' })
-    @IsOptional()
+  @IsOptional()
   @Type(() => Number)
   stock?: number;
 
@@ -69,4 +82,11 @@ export class ProductoDTO {
   @IsOptional()
   @Type(() => Number)
   plantillaId?: number;
+
+  @IsEnum(TipoProducto, { message: 'El tipo debe ser SINERGICO, ENERGETICO o POR_DEFINIR' })
+  @IsOptional()
+  tipo?: TipoProducto;
+
+  @IsOptional()
+  opcionesDisponibles?: Record<string, number[]>;
 }

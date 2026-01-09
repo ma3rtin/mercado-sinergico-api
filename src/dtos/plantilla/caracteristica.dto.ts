@@ -14,4 +14,10 @@ export class CaracteristicaDTO{
     @IsNotEmpty({ message: 'Las opciones no deben estar vacías' })
     @ArrayMinSize(1, { message: 'Las opciones no deben estar vacías' })
     opciones!: OpcionDTO[];
+
+    constructor(data: any) {
+        this.id = data.id;
+        this.nombre = data.nombre;
+        this.opciones = data.opciones.map((o: any) => new OpcionDTO(o));
+    }
 }

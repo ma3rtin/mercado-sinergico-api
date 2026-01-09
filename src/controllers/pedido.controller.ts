@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PedidoService } from '../services/pedido.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { CustomError } from '../errors/custom.error.js';
+import { CrearPedidoDTO } from '../dtos/pedido/crearPedido.dto.js';
 
 
 export class PedidoController {
@@ -12,15 +13,12 @@ export class PedidoController {
     const { paqueteId } = req.params;
     if (!paqueteId) throw new CustomError('Paquete no encontrado', 404);
 
-    const { productoId, cantidad } = req.body;
+    const nuevoPedido = req.body as CrearPedidoDTO;
 
     const pedido = await this.pedidoService.crearPedido(
       user!.id,
       Number(paqueteId),
-      {
-        productoId: Number(productoId),
-        cantidad: Number(cantidad),
-      }
+      nuevoPedido
     );
     res.status(201).json(pedido);
   });

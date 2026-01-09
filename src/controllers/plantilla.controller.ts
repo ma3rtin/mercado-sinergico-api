@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { PlantillaService } from '../../services/plantilla.service.js';
-import { PlantillaDTO } from '../../dtos/plantilla/plantilla.dto.js';
-import { CustomError } from '../../errors/custom.error.js';
+import { PlantillaService } from '../services/plantilla.service.js';
+import { PlantillaDTO } from '../dtos/plantilla/plantilla.dto.js';
+import { CustomError } from '../errors/custom.error.js';
 
 export class PlantillaController {
 

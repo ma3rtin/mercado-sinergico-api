@@ -13,6 +13,12 @@ export class PlantillaDTO {
     @IsNotEmpty({ message: 'Las características no deben estar vacías' })
     @ArrayMinSize(1, { message: 'Las características no deben estar vacías' })
     caracteristicas!: CaracteristicaDTO[];
+
+    constructor(data: any) {
+        this.id = data.id;
+        this.nombre = data.nombre;
+        this.caracteristicas = data.caracteristicas.map((c: any) => new CaracteristicaDTO(c));
+    }
 }
 
 
