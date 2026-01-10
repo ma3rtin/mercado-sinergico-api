@@ -1,6 +1,6 @@
-import { prisma } from "../prisma/client.js";
-import { CustomError } from "../errors/custom.error.js";
-import { CrearPedidoDTO } from "../dtos/pedido/crearPedido.dto.js";
+import { prisma } from '../prisma/client.js';
+import { CustomError } from '../errors/custom.error.js';
+import { CrearPedidoDTO } from '../dtos/pedido/crearPedido.dto.js';
 
 export class PedidoService {
   private prisma = prisma;
@@ -26,7 +26,7 @@ export class PedidoService {
   private validarStockInformativo(
     stock: number | null,
     cantidad: number,
-    mensaje = "Stock insuficiente"
+    mensaje = 'Stock insuficiente'
   ) {
     if (stock !== null && stock < cantidad) {
       throw new CustomError(mensaje, 400);
@@ -84,11 +84,11 @@ export class PedidoService {
     });
 
     if (!paquete) {
-      throw new CustomError("Paquete no encontrado", 404);
+      throw new CustomError('Paquete no encontrado', 404);
     }
 
-    if (paquete.estado.nombre !== "Activo") {
-      throw new CustomError("El paquete no está activo", 400);
+    if (paquete.estado.nombre !== 'Activo') {
+      throw new CustomError('El paquete no está activo', 400);
     }
 
     const productoEnPaquete = paquete.paqueteBase.productos.find(
@@ -96,7 +96,7 @@ export class PedidoService {
     );
 
     if (!productoEnPaquete) {
-      throw new CustomError("El producto no pertenece al paquete", 400);
+      throw new CustomError('El producto no pertenece al paquete', 400);
     }
 
     const producto = productoEnPaquete.producto;
@@ -111,10 +111,10 @@ export class PedidoService {
       );
 
       if (!variante) {
-        throw new CustomError("La variante no existe para este producto", 400);
+        throw new CustomError('La variante no existe para este producto', 400);
       }
 
-      if (paquete.tipo === "ENERGETICO") {
+      if (paquete.tipo === 'ENERGETICO') {
         stockAValidar = variante.stockFisico;
       }
 
@@ -122,13 +122,13 @@ export class PedidoService {
     } else {
       if (producto.plantillaId !== null && producto.variantes.length > 0) {
         throw new CustomError(
-          "Debe seleccionar una variante para este producto",
+          'Debe seleccionar una variante para este producto',
           400
         );
       }
     }
 
-    if (paquete.tipo === "ENERGETICO") {
+    if (paquete.tipo === 'ENERGETICO') {
       this.validarStockInformativo(stockAValidar, dto.cantidad);
     }
 
@@ -177,7 +177,7 @@ export class PedidoService {
     if (detalleExistente) {
       const nuevaCantidad = detalleExistente.cantidad + dto.cantidad;
 
-      if (paquete.tipo === "ENERGETICO") {
+      if (paquete.tipo === 'ENERGETICO') {
         this.validarStockInformativo(stockAValidar, nuevaCantidad);
       }
 
@@ -221,12 +221,12 @@ export class PedidoService {
     });
 
     if (!pedido) {
-      throw new CustomError("Pedido no encontrado", 404);
+      throw new CustomError('Pedido no encontrado', 404);
     }
 
     const detalle = pedido.detalles.find((d) => d.id === detalleId);
     if (!detalle) {
-      throw new CustomError("Producto no encontrado en el pedido", 404);
+      throw new CustomError('Producto no encontrado en el pedido', 404);
     }
 
     await this.prisma.pedidoDetalle.delete({
@@ -289,15 +289,15 @@ export class PedidoService {
     });
 
     if (!pedido) {
-      throw new CustomError("Pedido no encontrado", 404);
+      throw new CustomError('Pedido no encontrado', 404);
     }
 
     const detalle = pedido.detalles.find((d) => d.id === detalleId);
     if (!detalle) {
-      throw new CustomError("Producto no encontrado", 404);
+      throw new CustomError('Producto no encontrado', 404);
     }
 
-    if (pedido.paquetePublicado.tipo === "ENERGETICO") {
+    if (pedido.paquetePublicado.tipo === 'ENERGETICO') {
       let stockAValidar = detalle.producto.stock;
 
       if (detalle.varianteId && detalle.variante) {
@@ -415,7 +415,7 @@ export class PedidoService {
     }
 
     if(pedido.estadoId != 1){
-      throw new CustomError('El pedido tiene que estar pendiente para poder bajarse')
+      throw new CustomError('El pedido tiene que estar pendiente para poder bajarse');
     }
   
     await this.prisma.pedido.delete({

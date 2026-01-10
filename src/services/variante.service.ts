@@ -1,11 +1,11 @@
-import { prisma } from "../prisma/client.js";
-import { CustomError } from "../errors/custom.error.js";
-import type { Prisma } from "@prisma/client";
-import { TipoPaquete } from "@prisma/client";
-import { GenerarVariantesDTO } from "../dtos/variante/generarVariantes.dto.js";
-import { ActualizarStockVariantesDTO } from "../dtos/variante/actualizarStockVariantes.dto.js";
-import { VarianteDTO } from "../dtos/variante/variante.dto.js";
-import { ProductoDTO } from "../dtos/producto/producto.dto.js";
+import { prisma } from '../prisma/client.js';
+import { CustomError } from '../errors/custom.error.js';
+import type { Prisma } from '@prisma/client';
+import { TipoPaquete } from '@prisma/client';
+import { GenerarVariantesDTO } from '../dtos/variante/generarVariantes.dto.js';
+import { ActualizarStockVariantesDTO } from '../dtos/variante/actualizarStockVariantes.dto.js';
+import { VarianteDTO } from '../dtos/variante/variante.dto.js';
+import { ProductoDTO } from '../dtos/producto/producto.dto.js';
 
 export class VarianteService {
   private prisma = prisma;
@@ -30,7 +30,7 @@ export class VarianteService {
     });
 
     if (!producto) {
-      throw new CustomError("Producto no encontrado", 404);
+      throw new CustomError('Producto no encontrado', 404);
     }
 
     const variantes = await this.prisma.productoVariante.findMany({
@@ -43,14 +43,17 @@ export class VarianteService {
           },
         },
       },
-      orderBy: { id: "asc" },
+      orderBy: { id: 'asc' },
     });
 
+    type ProductoWithTipo = typeof producto & { tipo: TipoPaquete | null };
+    const productoWithTipo = producto as ProductoWithTipo;
+    
     return {
       producto: {
         id: producto.id_producto,
         nombre: producto.nombre,
-        tipo: (producto as any).tipo,
+        tipo: productoWithTipo.tipo ?? TipoPaquete.POR_DEFINIR,
         plantilla: producto.plantilla,
       },
       variantes: variantes.map((v) => ({
@@ -92,11 +95,11 @@ export class VarianteService {
     });
 
     if (!producto) {
-      throw new CustomError("Producto no encontrado", 404);
+      throw new CustomError('Producto no encontrado', 404);
     }
 
     if (!producto.plantilla) {
-      throw new CustomError("El producto no tiene plantilla asignada", 400);
+      throw new CustomError('El producto no tiene plantilla asignada', 400);
     }
 
     // Validar que las características pertenezcan a la plantilla
@@ -119,7 +122,9 @@ export class VarianteService {
 
     // Determinar stock inicial según tipo de producto
     let stockInicial: number | null;
-    if ((producto as any).tipo === TipoPaquete.ENERGETICO) {
+    type ProductoWithTipo = typeof producto & { tipo: TipoPaquete | null };
+    const productoWithTipo = producto as ProductoWithTipo;
+    if (productoWithTipo.tipo === TipoPaquete.ENERGETICO) {
       stockInicial = 0; // Energético empieza en 0
     } else {
       stockInicial = null; // Sinérgico sin control de stock
@@ -138,9 +143,9 @@ export class VarianteService {
       const sku = `${producto.nombre
         .substring(0, 10)
         .toUpperCase()
-        .replace(/\s+/g, "-")}-${opcionesNombres
-        .map((o) => o?.nombre.substring(0, 4).toUpperCase().replace(/\s+/g, ""))
-        .join("-")}`;
+        .replace(/\s+/g, '-')}-${opcionesNombres
+        .map((o) => o?.nombre.substring(0, 4).toUpperCase().replace(/\s+/g, ''))
+        .join('-')}`;
 
       const variante = await this.prisma.productoVariante.create({
         data: {
@@ -194,7 +199,7 @@ export class VarianteService {
     });
 
     if (variantesExistentes.length !== variantes.length) {
-      throw new CustomError("Algunas variantes no pertenecen al producto", 400);
+      throw new CustomError('Algunas variantes no pertenecen al producto', 400);
     }
 
     // Actualizar cada variante
@@ -224,7 +229,7 @@ export class VarianteService {
     });
 
     if (!variante) {
-      throw new CustomError("Variante no encontrada", 404);
+      throw new CustomError('Variante no encontrada', 404);
     }
 
     return this.prisma.productoVariante.update({
@@ -257,7 +262,7 @@ export class VarianteService {
 
     if (pedidosConVariante > 0) {
       throw new CustomError(
-        "No se puede eliminar la variante porque tiene pedidos asociados",
+        'No se puede eliminar la variante porque tiene pedidos asociados',
         400
       );
     }
@@ -298,7 +303,7 @@ export class VarianteService {
     });
 
     if (!producto) {
-      throw new CustomError("Producto no encontrado", 404);
+      throw new CustomError('Producto no encontrado', 404);
     }
 
     // Calcular stock total
@@ -308,7 +313,7 @@ export class VarianteService {
 
     // Distribuir por variante
     const distribucion = producto.variantes.map((v) => ({
-      variante: v.opciones.map((vo) => vo.opcion.nombre).join(" - "),
+      variante: v.opciones.map((vo) => vo.opcion.nombre).join(' - '),
       stockFisico: v.stockFisico,
       paquetesActivos: v.disponibilidadEnPaquetes
         .filter((d) => d.activo)
@@ -318,13 +323,16 @@ export class VarianteService {
         })),
     }));
 
+    type ProductoWithTipo = typeof producto & { tipo: TipoPaquete | null };
+    const productoWithTipo = producto as ProductoWithTipo;
+    
     return {
       nombre: producto.nombre,
       descripcion: producto.descripcion,
       precio: producto.precio,
       marca_id: producto.marca_id,
       categoria_id: producto.categoria_id,
-      stockTotal: (producto as any).tipo === TipoPaquete.POR_DEFINIR ? null : stockTotal,
+      stockTotal: productoWithTipo.tipo === TipoPaquete.POR_DEFINIR ? null : stockTotal,
       distribucion,
     };
   }

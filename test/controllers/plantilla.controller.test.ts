@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { PlantillaDTO } from "../../src/dtos/plantilla/plantilla.dto";
 import { CustomError } from "../../src/errors/custom.error";
-import { PlantillaController } from "../../src/controllers/ControladoresPlantilla/plantilla.controller";
+import { PlantillaController } from "../../src/controllers/plantilla.controller";
 
 // Mock del PlantillaService
 const mockPlantillaService = {

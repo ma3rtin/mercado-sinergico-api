@@ -1,3 +1,21 @@
+interface VarianteOpcionData {
+  caracteristica: {
+    nombre: string;
+  };
+  opcion: {
+    nombre: string;
+  };
+}
+
+interface VarianteData {
+  id: number;
+  sku: string | null;
+  stockFisico: number | null;
+  precioExtra: number | null;
+  activo: boolean;
+  opciones?: VarianteOpcionData[];
+}
+
 export class VarianteRespuestaDTO {
     id: number;
     sku: string | null;
@@ -7,14 +25,14 @@ export class VarianteRespuestaDTO {
     activo: boolean;
     opciones: VarianteOpcionDTO[];
   
-    constructor(variante: any, precioBase: number) {
+    constructor(variante: VarianteData, precioBase: number) {
       this.id = variante.id;
       this.sku = variante.sku;
       this.stockFisico = variante.stockFisico;
       this.precioExtra = variante.precioExtra || 0;
       this.precioTotal = precioBase + (variante.precioExtra || 0);
       this.activo = variante.activo;
-      this.opciones = variante.opciones?.map((vo: any) => new VarianteOpcionDTO(vo)) || [];
+      this.opciones = variante.opciones?.map((vo: VarianteOpcionData) => new VarianteOpcionDTO(vo)) || [];
     }
   }
 
@@ -22,7 +40,7 @@ export class VarianteRespuestaDTO {
     caracteristica: string;
     opcion: string;
   
-    constructor(opcionVariante: any) {
+    constructor(opcionVariante: VarianteOpcionData) {
       this.caracteristica = opcionVariante.caracteristica.nombre;
       this.opcion = opcionVariante.opcion.nombre;
     }

@@ -13,6 +13,7 @@ jest.mock("../../src/prisma/client", () => {
   const mockPlantillaFindUnique = jest.fn();
   const mockPaqueteBaseProductoDeleteMany = jest.fn();
   const mockProductoImagenDeleteMany = jest.fn();
+  const mockProductoVarianteDeleteMany = jest.fn();
 
   return {
     prisma: {
@@ -30,6 +31,7 @@ jest.mock("../../src/prisma/client", () => {
           plantilla: { findUnique: mockPlantillaFindUnique },
           paqueteBaseProducto: { deleteMany: mockPaqueteBaseProductoDeleteMany },
           productoImagen: { deleteMany: mockProductoImagenDeleteMany },
+          productoVariante: { deleteMany: mockProductoVarianteDeleteMany },
         };
         return callback(tx);
       }),
@@ -45,6 +47,7 @@ jest.mock("../../src/prisma/client", () => {
       plantilla: { findUnique: mockPlantillaFindUnique },
       paqueteBaseProducto: { deleteMany: mockPaqueteBaseProductoDeleteMany },
       productoImagen: { deleteMany: mockProductoImagenDeleteMany },
+      productoVariante: { deleteMany: mockProductoVarianteDeleteMany },
     },
     __mocks: {
       mockTransaction,
@@ -58,6 +61,7 @@ jest.mock("../../src/prisma/client", () => {
       mockPlantillaFindUnique,
       mockPaqueteBaseProductoDeleteMany,
       mockProductoImagenDeleteMany,
+      mockProductoVarianteDeleteMany,
     },
   };
 });
@@ -138,7 +142,16 @@ describe("ProductoService", () => {
 
   describe("delete", () => {
     it("debería eliminar un producto", async () => {
-      const { mockProductoDelete } = require("../../src/prisma/client").__mocks;
+      const { 
+        mockProductoDelete, 
+        mockProductoVarianteDeleteMany,
+        mockPaqueteBaseProductoDeleteMany,
+        mockProductoImagenDeleteMany
+      } = require("../../src/prisma/client").__mocks;
+      
+      mockProductoVarianteDeleteMany.mockResolvedValue({ count: 0 });
+      mockPaqueteBaseProductoDeleteMany.mockResolvedValue({ count: 0 });
+      mockProductoImagenDeleteMany.mockResolvedValue({ count: 0 });
       mockProductoDelete.mockResolvedValue({ id_producto: 1, nombre: "Deleted" });
 
       const result = await service.delete(1);

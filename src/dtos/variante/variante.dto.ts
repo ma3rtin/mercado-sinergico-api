@@ -1,6 +1,6 @@
-import { Type } from "class-transformer";
-import { ArrayMinSize, IsArray, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, ValidateNested } from "class-validator";
-import { OpcionDTO } from "../plantilla/opcion.dto";
+import { Type } from 'class-transformer';
+import { ArrayMinSize, IsArray, IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, ValidateNested } from 'class-validator';
+import { OpcionDTO } from '../plantilla/opcion.dto';
 
 export class VarianteDTO {
     @IsNumber({}, { message: 'El id del producto debe ser un número' })

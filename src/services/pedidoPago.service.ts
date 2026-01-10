@@ -1,6 +1,6 @@
-import { prisma } from "../prisma/client.js";
-import { CustomError } from "../errors/custom.error.js";
-import { MercadoPagoService } from "../payments/mercadopago/mercadopago.service.js";
+import { prisma } from '../prisma/client.js';
+import { CustomError } from '../errors/custom.error.js';
+import { MercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
 
 export class PedidoPagoService {
   private prisma = prisma;
@@ -57,15 +57,15 @@ export class PedidoPagoService {
     });
 
     if (!pedido) {
-      throw new CustomError("Pedido no encontrado", 404);
+      throw new CustomError('Pedido no encontrado', 404);
     }
 
     if (pedido.usuarioId !== usuarioId) {
-      throw new CustomError("No autorizado", 403);
+      throw new CustomError('No autorizado', 403);
     }
 
     if (pedido.estadoId !== 1) {
-      throw new CustomError("El pedido no puede pagarse", 400);
+      throw new CustomError('El pedido no puede pagarse', 400);
     }
 
     const disponibles =
@@ -81,7 +81,7 @@ export class PedidoPagoService {
       );
     }
 
-    if (pedido.paquetePublicado.tipo === "ENERGETICO") {
+    if (pedido.paquetePublicado.tipo === 'ENERGETICO') {
       for (const detalle of pedido.detalles) {
         let stockAValidar = detalle.producto.stock;
         let nombreCompleto = detalle.producto.nombre;
@@ -91,7 +91,7 @@ export class PedidoPagoService {
           
           const opcionesNombres = detalle.variante.opciones
             .map((vo) => vo.opcion.nombre)
-            .join(" - ");
+            .join(' - ');
           
           nombreCompleto = `${detalle.producto.nombre} (${opcionesNombres})`;
         }
@@ -136,10 +136,10 @@ export class PedidoPagoService {
     });
 
     if (!pedido) {
-      throw new CustomError("Pedido no encontrado", 404);
+      throw new CustomError('Pedido no encontrado', 404);
     }
 
-    if (pago.status === "approved") {
+    if (pago.status === 'approved') {
       const totalProductos = pedido.detalles.reduce(
         (sum, d) => sum + d.cantidad,
         0
@@ -153,7 +153,7 @@ export class PedidoPagoService {
           },
         });
 
-        if (pedido.paquetePublicado.tipo === "ENERGETICO") {
+        if (pedido.paquetePublicado.tipo === 'ENERGETICO') {
           for (const detalle of pedido.detalles) {
             if (detalle.varianteId) {
               await prisma.productoVariante.update({
@@ -179,14 +179,14 @@ export class PedidoPagoService {
       });
     }
 
-    if (pago.status === "rejected") {
+    if (pago.status === 'rejected') {
       await this.prisma.pedido.update({
         where: { id_pedido: pedidoId },
         data: { estadoId: 4 },
       });
     }
 
-    if (pago.status === "pending") {
+    if (pago.status === 'pending') {
       await this.prisma.pedido.update({
         where: { id_pedido: pedidoId },
         data: { estadoId: 2 },

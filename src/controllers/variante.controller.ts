@@ -1,9 +1,9 @@
-import { Request, Response } from "express";
-import { VarianteService } from "../services/variante.service.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { VarianteDTO } from "../dtos/variante/variante.dto.js";
-import { GenerarVariantesDTO } from "../dtos/variante/generarVariantes.dto.js";
-import { ActualizarStockVariantesDTO } from "../dtos/variante/actualizarStockVariantes.dto.js";
+import { Request, Response } from 'express';
+import { VarianteService } from '../services/variante.service.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { VarianteDTO } from '../dtos/variante/variante.dto.js';
+import { GenerarVariantesDTO } from '../dtos/variante/generarVariantes.dto.js';
+import { ActualizarStockVariantesDTO } from '../dtos/variante/actualizarStockVariantes.dto.js';
 
 export class VarianteController {
   constructor(private varianteService: VarianteService) {}
@@ -70,7 +70,7 @@ export class VarianteController {
 
       await this.varianteService.eliminarVariante(varianteId);
 
-      res.status(200).json({ message: "Variante eliminada correctamente" });
+      res.status(200).json({ message: 'Variante eliminada correctamente' });
     }
   );
 

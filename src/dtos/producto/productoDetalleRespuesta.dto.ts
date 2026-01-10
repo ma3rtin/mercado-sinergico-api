@@ -1,5 +1,53 @@
-import { PlantillaDTO } from "../plantilla/plantilla.dto";
-import { VarianteRespuestaDTO } from "../variante/varianteRespuesta.dto";
+import { PlantillaDTO, PlantillaData } from '../plantilla/plantilla.dto';
+import { VarianteRespuestaDTO } from '../variante/varianteRespuesta.dto';
+
+interface ImagenData {
+  url: string;
+}
+
+interface VarianteProductoData {
+  id: number;
+  sku: string | null;
+  stockFisico: number | null;
+  precioExtra: number | null;
+  activo: boolean;
+  opciones: Array<{
+    caracteristica: {
+      nombre: string;
+    };
+    opcion: {
+      nombre: string;
+    };
+  }>;
+}
+
+interface ProductoDetalleData {
+  producto: {
+    id_producto: number;
+    nombre: string;
+    descripcion: string;
+    precio: number;
+    tipo: string | null;
+    stock: number | null;
+    imagen_url: string | null;
+    imagenes?: ImagenData[];
+    marca: {
+      id_marca: number;
+      nombre: string;
+    };
+    categoria: {
+      id_categoria: number;
+      nombre: string;
+    };
+    altura: number | null;
+    ancho: number | null;
+    profundidad: number | null;
+    peso: number | null;
+    plantilla: unknown | null;
+    variantes?: VarianteProductoData[];
+  };
+  cantPaquetes?: number;
+}
 
 export class ProductoDetalleRespuestaDTO {
     id: number;
@@ -32,15 +80,15 @@ export class ProductoDetalleRespuestaDTO {
     variantes: VarianteRespuestaDTO[];
     cantPaquetes: number;
   
-    constructor(data: any) {
+    constructor(data: ProductoDetalleData) {
       this.id = data.producto.id_producto;
       this.nombre = data.producto.nombre;
       this.descripcion = data.producto.descripcion;
       this.precio = data.producto.precio;
-      this.tipo = data.producto.tipo;
+      this.tipo = data.producto.tipo || 'POR_DEFINIR';
       this.stock = data.producto.stock;
       this.imagen = data.producto.imagen_url;
-      this.imagenes = data.producto.imagenes?.map((img: any) => img.url) || [];
+      this.imagenes = data.producto.imagenes?.map((img: ImagenData) => img.url) || [];
       
       this.marca = {
         id: data.producto.marca.id_marca,
@@ -60,11 +108,11 @@ export class ProductoDetalleRespuestaDTO {
       };
       
       this.plantilla = data.producto.plantilla 
-        ? new PlantillaDTO(data.producto.plantilla)
+        ? new PlantillaDTO(data.producto.plantilla as PlantillaData)
         : null;
       
       this.variantes = data.producto.variantes?.map(
-        (v: any) => new VarianteRespuestaDTO(v, data.producto.precio)
+        (v: VarianteProductoData) => new VarianteRespuestaDTO(v, data.producto.precio)
       ) || [];
       
       this.cantPaquetes = data.cantPaquetes || 0;

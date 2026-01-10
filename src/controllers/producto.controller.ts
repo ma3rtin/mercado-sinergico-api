@@ -50,11 +50,11 @@ export class ProductoController {
       tipo: body.tipo || 'POR_DEFINIR',
       opcionesDisponibles:
         typeof body.opcionesDisponibles === 'string'
-          ? JSON.parse(body.opcionesDisponibles)
+          ? (JSON.parse(body.opcionesDisponibles) as Record<string, number[]>)
           : body.opcionesDisponibles,
     };
 
-    console.log("PRODUCTO: ", producto);
+    console.log('PRODUCTO: ', producto);
 
     if (campos?.icono?.[0]) {
       producto.imagen_url = await this.imagenService.uploadToCloudinary(

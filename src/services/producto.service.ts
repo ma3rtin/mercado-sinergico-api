@@ -1,9 +1,9 @@
-import { ProductoDTO, TipoProducto } from "../dtos/producto/producto.dto.js";
-import type { Prisma, Producto } from "@prisma/client";
-import { prisma } from "../prisma/client.js";
-import { CustomError } from "../errors/custom.error.js";
-import { ProductoItemListaDTO } from "../dtos/producto/productoItemLista.dto.js";
-import { ProductoDetalleRespuestaDTO } from "../dtos/producto/productoDetalleRespuesta.dto.js";
+import { ProductoDTO, TipoProducto } from '../dtos/producto/producto.dto.js';
+import type { Prisma, Producto } from '@prisma/client';
+import { prisma } from '../prisma/client.js';
+import { CustomError } from '../errors/custom.error.js';
+import { ProductoItemListaDTO } from '../dtos/producto/productoItemLista.dto.js';
+import { ProductoDetalleRespuestaDTO } from '../dtos/producto/productoDetalleRespuesta.dto.js';
 
 export class ProductoService {
   private prisma = prisma;
@@ -20,7 +20,7 @@ export class ProductoService {
       },
       skip,
       take,
-      orderBy: { id_producto: "asc" },
+      orderBy: { id_producto: 'asc' },
     });
 
     return productos.map((p) => new ProductoItemListaDTO(p));
@@ -60,7 +60,7 @@ export class ProductoService {
     });
 
     if (!producto) {
-      throw new CustomError("Producto no encontrado", 404);
+      throw new CustomError('Producto no encontrado', 404);
     }
 
     return new ProductoDetalleRespuestaDTO({
@@ -82,14 +82,14 @@ export class ProductoService {
 
     if (plantillaId && rest.stock !== undefined && rest.stock !== null) {
       throw new CustomError(
-        "Los productos con plantilla no pueden tener stock directo. El stock se maneja por variantes.",
+        'Los productos con plantilla no pueden tener stock directo. El stock se maneja por variantes.',
         400
       );
     }
 
     if (!plantillaId && tipo === TipoProducto.ENERGETICO && !rest.stock) {
       throw new CustomError(
-        "Los productos energéticos sin variantes deben tener stock definido.",
+        'Los productos energéticos sin variantes deben tener stock definido.',
         400
       );
     }
@@ -99,7 +99,7 @@ export class ProductoService {
     });
 
     if (!categoria) {
-      throw new CustomError("Categoria no encontrada", 404);
+      throw new CustomError('Categoria no encontrada', 404);
     }
 
     const nuevoProducto = await this.prisma.producto.create({
@@ -146,7 +146,7 @@ export class ProductoService {
 
     if (plantillaId && rest.stock !== undefined && rest.stock !== null) {
       throw new CustomError(
-        "Los productos con plantilla no pueden tener stock directo.",
+        'Los productos con plantilla no pueden tener stock directo.',
         400
       );
     }
@@ -213,7 +213,7 @@ export class ProductoService {
     });
 
     if (!producto) {
-      throw new CustomError("Producto no encontrado", 404);
+      throw new CustomError('Producto no encontrado', 404);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -308,7 +308,7 @@ export class ProductoService {
     });
 
     if (!producto || !producto.plantilla) {
-      throw new CustomError("El producto no tiene plantilla asignada", 400);
+      throw new CustomError('El producto no tiene plantilla asignada', 400);
     }
 
     const caracteristicasIds = Object.keys(opcionesDisponibles).map(Number);
@@ -338,7 +338,7 @@ export class ProductoService {
         .substring(0, 10)
         .toUpperCase()}-${opcionesNombres
         .map((o) => o?.nombre.substring(0, 4).toUpperCase())
-        .join("-")}`;
+        .join('-')}`;
 
       let stockInicial: number | null;
       if (tipo === TipoProducto.ENERGETICO) {
