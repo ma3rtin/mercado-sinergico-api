@@ -5,19 +5,48 @@ import { validarDto } from '../../middlewares/validateDTO.middleware.js';
 import { CrearPedidoDTO } from '../../dtos/pedido/crearPedido.dto.js';
 import { ActualizarCantidadDTO } from '../../dtos/pedido/actualizarCantidad.dto.js';
 import { PedidoService } from '../../services/pedido.service.js';
+import { PedidoPagoService } from '../../services/pedidoPago.service.js';
 import { MercadoPagoService } from '../../payments/mercadopago/mercadopago.service.js';
 
 const router = Router();
+
+// Instanciar dependencias
 const mercadoPagoService = new MercadoPagoService();
-const pedidoService = new PedidoService(mercadoPagoService);
-const controller = new PedidoController(pedidoService);
+const pedidoService = new PedidoService();
+const pagoService = new PedidoPagoService(mercadoPagoService);
+
+const controller = new PedidoController(pedidoService, pagoService);
 
 router.get('/', authMiddleware, controller.getAll);
-router.post('/:paqueteId', authMiddleware, validarDto(CrearPedidoDTO), controller.crearPedido);
-router.get('/bajarse/:paqueteId', authMiddleware, controller.bajarse);
+
+router.post(
+  '/:paqueteId',
+  authMiddleware,
+  validarDto(CrearPedidoDTO),
+  controller.crearPedido
+);
+
+router.delete('/:paqueteId/bajarse', authMiddleware, controller.bajarse);
+
 router.get('/:id', authMiddleware, controller.getById);
-router.delete('/:pedidoId/producto/:productoId', authMiddleware, controller.eliminarProducto);
-router.patch('/:pedidoId/producto/:productoId', authMiddleware, validarDto(ActualizarCantidadDTO), controller.actualizarCantidad);
-router.post('/:pedidoId/checkout', authMiddleware, controller.iniciarPago);
+
+router.delete(
+  '/:pedidoId/detalle/:detalleId',
+  authMiddleware,
+  controller.eliminarProducto
+);
+
+router.patch(
+  '/:pedidoId/detalle/:detalleId/cantidad',
+  authMiddleware,
+  validarDto(ActualizarCantidadDTO),
+  controller.actualizarCantidad
+);
+
+router.post(
+  '/:pedidoId/checkout',
+  authMiddleware,
+  controller.iniciarPago
+);
 
 export default router;
