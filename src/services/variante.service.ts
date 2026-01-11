@@ -1,18 +1,13 @@
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
-import type { Prisma } from '@prisma/client';
 import { TipoPaquete } from '@prisma/client';
 import { GenerarVariantesDTO } from '../dtos/variante/generarVariantes.dto.js';
 import { ActualizarStockVariantesDTO } from '../dtos/variante/actualizarStockVariantes.dto.js';
 import { VarianteDTO } from '../dtos/variante/variante.dto.js';
-import { ProductoDTO } from '../dtos/producto/producto.dto.js';
 
 export class VarianteService {
   private prisma = prisma;
 
-  /**
-   * Obtener todas las variantes de un producto
-   */
   public async getVariantesByProducto(productoId: number) {
     const producto = await this.prisma.producto.findUnique({
       where: { id_producto: productoId },
@@ -72,13 +67,9 @@ export class VarianteService {
     };
   }
 
-  /**
-   * Generar variantes automáticamente para un producto
-   */
   public async generarVariantes(data: GenerarVariantesDTO) {
     const { productoId, opcionesDisponibles } = data;
 
-    // Validar que el producto exista y tenga plantilla
     const producto = await this.prisma.producto.findUnique({
       where: { id_producto: productoId },
       include: {
@@ -102,7 +93,6 @@ export class VarianteService {
       throw new CustomError('El producto no tiene plantilla asignada', 400);
     }
 
-    // Validar que las características pertenezcan a la plantilla
     const caracteristicasIds = Object.keys(opcionesDisponibles).map(Number);
     const caracteristicasValidas = producto.plantilla.caracteristicas.map(
       (c) => c.id
@@ -117,23 +107,19 @@ export class VarianteService {
       }
     }
 
-    // Generar todas las combinaciones
     const combinaciones = this.generarCombinaciones(opcionesDisponibles);
 
-    // Determinar stock inicial según tipo de producto
     let stockInicial: number | null;
     type ProductoWithTipo = typeof producto & { tipo: TipoPaquete | null };
     const productoWithTipo = producto as ProductoWithTipo;
     if (productoWithTipo.tipo === TipoPaquete.ENERGETICO) {
-      stockInicial = 0; // Energético empieza en 0
+      stockInicial = 0;
     } else {
-      stockInicial = null; // Sinérgico sin control de stock
+      stockInicial = null;
     }
 
-    // Crear variantes
     const variantesCreadas = [];
     for (const combinacion of combinaciones) {
-      // Generar SKU automático
       const opcionesNombres = await Promise.all(
         Object.values(combinacion).map((opcionId) =>
           this.prisma.opcion.findUnique({ where: { id: opcionId } })
@@ -180,16 +166,12 @@ export class VarianteService {
     };
   }
 
-  /**
-   * Actualizar stock de múltiples variantes (bulk)
-   */
   public async actualizarStockBulk(
     productoId: number,
     data: ActualizarStockVariantesDTO
   ) {
     const { variantes } = data;
 
-    // Validar que todas las variantes pertenezcan al producto
     const variantesIds = variantes.map((v) => v.id);
     const variantesExistentes = await this.prisma.productoVariante.findMany({
       where: {
@@ -202,7 +184,6 @@ export class VarianteService {
       throw new CustomError('Algunas variantes no pertenecen al producto', 400);
     }
 
-    // Actualizar cada variante
     await this.prisma.$transaction(
       variantes.map((v) =>
         this.prisma.productoVariante.update({
@@ -217,9 +198,6 @@ export class VarianteService {
     };
   }
 
-  /**
-   * Actualizar una variante individual
-   */
   public async actualizarVariante(
     varianteId: number,
     data: Partial<VarianteDTO>
@@ -251,11 +229,7 @@ export class VarianteService {
     });
   }
 
-  /**
-   * Eliminar una variante
-   */
   public async eliminarVariante(varianteId: number) {
-    // Verificar que no tenga pedidos asociados
     const pedidosConVariante = await this.prisma.pedidoDetalle.count({
       where: { varianteId },
     });
@@ -272,9 +246,6 @@ export class VarianteService {
     });
   }
 
-  /**
-   * Obtener stock global de un producto (suma de todas sus variantes)
-   */
   public async getStockGlobal(productoId: number) {
     const producto = await this.prisma.producto.findUnique({
       where: { id_producto: productoId },
@@ -306,12 +277,10 @@ export class VarianteService {
       throw new CustomError('Producto no encontrado', 404);
     }
 
-    // Calcular stock total
     const stockTotal = producto.variantes.reduce((sum, v) => {
       return sum + (v.stockFisico || 0);
     }, 0);
 
-    // Distribuir por variante
     const distribucion = producto.variantes.map((v) => ({
       variante: v.opciones.map((vo) => vo.opcion.nombre).join(' - '),
       stockFisico: v.stockFisico,
@@ -337,9 +306,6 @@ export class VarianteService {
     };
   }
 
-  /**
-   * Genera todas las combinaciones posibles de opciones
-   */
   private generarCombinaciones(
     opcionesDisponibles: Record<string, number[]>
   ): Record<string, number>[] {

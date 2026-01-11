@@ -54,8 +54,6 @@ export class ProductoController {
           : body.opcionesDisponibles,
     };
 
-    console.log('PRODUCTO: ', producto);
-
     if (campos?.icono?.[0]) {
       producto.imagen_url = await this.imagenService.uploadToCloudinary(
         campos.icono[0].buffer
