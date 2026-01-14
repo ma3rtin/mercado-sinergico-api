@@ -1,5 +1,17 @@
 import { ArrayMinSize, IsArray, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { OpcionDTO } from './opcion.dto.js';
+
+interface OpcionData {
+  id?: number;
+  nombre: string;
+}
+
+interface CaracteristicaData {
+  id?: number;
+  nombre: string;
+  opciones: OpcionData[];
+}
+
 export class CaracteristicaDTO{
     
     @IsOptional()
@@ -14,4 +26,12 @@ export class CaracteristicaDTO{
     @IsNotEmpty({ message: 'Las opciones no deben estar vacías' })
     @ArrayMinSize(1, { message: 'Las opciones no deben estar vacías' })
     opciones!: OpcionDTO[];
+
+    constructor(data?: CaracteristicaData) {
+        if (data) {
+            this.id = data.id;
+            this.nombre = data.nombre;
+            this.opciones = data.opciones.map((o: OpcionData) => new OpcionDTO(o));
+        }
+    }
 }

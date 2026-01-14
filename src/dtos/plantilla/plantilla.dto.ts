@@ -1,5 +1,21 @@
 import { CaracteristicaDTO } from './caracteristica.dto.js';
 import { ArrayMinSize, IsArray, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+
+interface CaracteristicaData {
+  id?: number;
+  nombre: string;
+  opciones: Array<{
+    id?: number;
+    nombre: string;
+  }>;
+}
+
+export interface PlantillaData {
+  id: number;
+  nombre: string;
+  caracteristicas: CaracteristicaData[];
+}
+
 export class PlantillaDTO {
     @IsOptional()
     @IsInt({ message: 'El id debe ser un número entero' })
@@ -13,6 +29,14 @@ export class PlantillaDTO {
     @IsNotEmpty({ message: 'Las características no deben estar vacías' })
     @ArrayMinSize(1, { message: 'Las características no deben estar vacías' })
     caracteristicas!: CaracteristicaDTO[];
+
+    constructor(data?: PlantillaData) {
+        if (data) {
+            this.id = data.id;
+            this.nombre = data.nombre;
+            this.caracteristicas = data.caracteristicas.map((c: CaracteristicaData) => new CaracteristicaDTO(c));
+        }
+    }
 }
 
 

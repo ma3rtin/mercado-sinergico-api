@@ -1,15 +1,15 @@
 import { Request, Response } from 'express';
-import { PedidoService } from '../../services/pedido.service.js';
+import { PedidoPagoService } from '../../services/pedidoPago.service.js';
 
 export class MercadoPagoController {
-  constructor(private pedidoService: PedidoService) {}
+  constructor(private pedidoPagoService: PedidoPagoService) {}
   async webhook(req: Request, res: Response) {
     try {
       const { type, data } = req.body;
 
       if (type === 'payment') {
         const paymentId = Number(data.id);
-        await this.pedidoService.confirmarPago(paymentId);
+        await this.pedidoPagoService.confirmarPago(paymentId);
       }
 
       return res.status(200).send('OK');

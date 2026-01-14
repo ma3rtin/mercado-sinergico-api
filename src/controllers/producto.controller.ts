@@ -22,20 +22,19 @@ export class ProductoController {
 
   public getProductoById = asyncHandler(async (req: Request, res: Response) => {
     const id: number = parseInt(req.params.id, 10);
-    const producto = await this.productoService.getById(id);
+    const resultado = await this.productoService.getById(id);
 
-    if (!producto) {
+    if (!resultado) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    res.status(200).json(producto);
+    res.status(200).json(resultado);
   });
 
   public createProducto = asyncHandler(async (req: Request, res: Response) => {
     const body = req.body;
     const campos = req.files as { [fieldname: string]: Express.Multer.File[] };
 
-    // Convertir strings a números (porque llegan como texto desde FormData)
     const producto: ProductoDTO = {
       nombre: body.nombre,
       descripcion: body.descripcion,
@@ -48,9 +47,13 @@ export class ProductoController {
       profundidad: body.profundidad ? Number(body.profundidad) : undefined,
       stock: body.stock ? Number(body.stock) : undefined,
       plantillaId: body.plantillaId ? Number(body.plantillaId) : undefined,
-    } as ProductoDTO;
+      tipo: body.tipo || 'POR_DEFINIR',
+      opcionesDisponibles:
+        typeof body.opcionesDisponibles === 'string'
+          ? (JSON.parse(body.opcionesDisponibles) as Record<string, number[]>)
+          : body.opcionesDisponibles,
+    };
 
-    // imagen principal
     if (campos?.icono?.[0]) {
       producto.imagen_url = await this.imagenService.uploadToCloudinary(
         campos.icono[0].buffer
@@ -105,25 +108,29 @@ export class ProductoController {
       .json({ message: 'Product deleted successfully', deleted });
   });
 
-  public duplicateProducto = asyncHandler(async (req: Request, res: Response) => {
-    const id: number = parseInt(req.params.id, 10);
+  public duplicateProducto = asyncHandler(
+    async (req: Request, res: Response) => {
+      const id: number = parseInt(req.params.id, 10);
 
-    await this.productoService.duplicarProducto(id);
+      await this.productoService.duplicarProducto(id);
 
-    res.status(200).json({ message: 'Product duplicated successfully' });
-  });
+      res.status(200).json({ message: 'Product duplicated successfully' });
+    }
+  );
 
-  public getProductosFiltrados = asyncHandler(async (req: Request, res: Response) => {
-    const search = String(req.query.search || '').trim();
-    const offset = Number(req.query.offset || 0);
-    const limit = Number(req.query.limit || 10);
+  public getProductosFiltrados = asyncHandler(
+    async (req: Request, res: Response) => {
+      const search = String(req.query.search || '').trim();
+      const offset = Number(req.query.offset || 0);
+      const limit = Number(req.query.limit || 10);
 
-    const productos = await this.productoService.getAll(
-      search.length > 0 ? search : undefined,
-      offset,
-      limit
-    );
+      const productos = await this.productoService.getAll(
+        search.length > 0 ? search : undefined,
+        offset,
+        limit
+      );
 
-    res.json(productos);
-  });
+      res.json(productos);
+    }
+  );
 }
