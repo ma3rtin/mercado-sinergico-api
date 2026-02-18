@@ -2,11 +2,12 @@ import { Request, Response } from 'express';
 import { VarianteService } from '../services/variante.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { VarianteDTO } from '../dtos/variante/variante.dto.js';
+import { ActualizarVarianteDTO } from '../dtos/variante/actualizarVariante.dto.js';
 import { GenerarVariantesDTO } from '../dtos/variante/generarVariantes.dto.js';
 import { ActualizarStockVariantesDTO } from '../dtos/variante/actualizarStockVariantes.dto.js';
 
 export class VarianteController {
-  constructor(private varianteService: VarianteService) {}
+  constructor(private varianteService: VarianteService) { }
 
   public getVariantesByProducto = asyncHandler(
     async (req: Request, res: Response) => {
@@ -53,11 +54,13 @@ export class VarianteController {
   public actualizarVariante = asyncHandler(
     async (req: Request, res: Response) => {
       const varianteId = parseInt(req.params.id, 10);
-      const data: Partial<VarianteDTO> = req.body;
+      const data: ActualizarVarianteDTO = req.body;
+      const imagenBuffer = req.file?.buffer;
 
       const resultado = await this.varianteService.actualizarVariante(
         varianteId,
-        data
+        data,
+        imagenBuffer
       );
 
       res.status(200).json(resultado);

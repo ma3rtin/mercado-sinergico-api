@@ -4,9 +4,12 @@ import { TipoPaquete } from '@prisma/client';
 import { GenerarVariantesDTO } from '../dtos/variante/generarVariantes.dto.js';
 import { ActualizarStockVariantesDTO } from '../dtos/variante/actualizarStockVariantes.dto.js';
 import { VarianteDTO } from '../dtos/variante/variante.dto.js';
+import { ActualizarVarianteDTO } from '../dtos/variante/actualizarVariante.dto.js';
+import { ImagenService } from './imagen.service.js';
 
 export class VarianteService {
   private prisma = prisma;
+  private imagenService = new ImagenService();
 
   public async getVariantesByProducto(productoId: number) {
     const producto = await this.prisma.producto.findUnique({
@@ -43,7 +46,7 @@ export class VarianteService {
 
     type ProductoWithTipo = typeof producto & { tipo: TipoPaquete | null };
     const productoWithTipo = producto as ProductoWithTipo;
-    
+
     return {
       producto: {
         id: producto.id_producto,
@@ -57,6 +60,7 @@ export class VarianteService {
         stockFisico: v.stockFisico,
         precioExtra: v.precioExtra,
         activo: v.activo,
+        imagen_url: v.imagen_url ?? null,
         opciones: v.opciones.map((vo) => ({
           caracteristica: vo.caracteristica.nombre,
           opcion: vo.opcion.nombre,
@@ -130,8 +134,8 @@ export class VarianteService {
         .substring(0, 10)
         .toUpperCase()
         .replace(/\s+/g, '-')}-${opcionesNombres
-        .map((o) => o?.nombre.substring(0, 4).toUpperCase().replace(/\s+/g, ''))
-        .join('-')}`;
+          .map((o) => o?.nombre.substring(0, 4).toUpperCase().replace(/\s+/g, ''))
+          .join('-')}`;
 
       const variante = await this.prisma.productoVariante.create({
         data: {
@@ -200,7 +204,8 @@ export class VarianteService {
 
   public async actualizarVariante(
     varianteId: number,
-    data: Partial<VarianteDTO>
+    data: ActualizarVarianteDTO,
+    imagenBuffer?: Buffer
   ) {
     const variante = await this.prisma.productoVariante.findUnique({
       where: { id: varianteId },
@@ -210,6 +215,15 @@ export class VarianteService {
       throw new CustomError('Variante no encontrada', 404);
     }
 
+    // Si hay imagen, subirla a Cloudinary
+    let imagen_url: string | undefined = undefined;
+    if (imagenBuffer) {
+      imagen_url = await this.imagenService.uploadToCloudinary(
+        imagenBuffer,
+        'mercado_sinergico/variantes'
+      );
+    }
+
     return this.prisma.productoVariante.update({
       where: { id: varianteId },
       data: {
@@ -217,6 +231,7 @@ export class VarianteService {
         stockFisico: data.stockFisico,
         precioExtra: data.precioExtra,
         activo: data.activo,
+        ...(imagen_url !== undefined && { imagen_url }),
       },
       include: {
         opciones: {
@@ -294,7 +309,7 @@ export class VarianteService {
 
     type ProductoWithTipo = typeof producto & { tipo: TipoPaquete | null };
     const productoWithTipo = producto as ProductoWithTipo;
-    
+
     return {
       nombre: producto.nombre,
       descripcion: producto.descripcion,

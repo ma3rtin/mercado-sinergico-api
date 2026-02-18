@@ -327,36 +327,41 @@ export class PedidoService {
     return { ok: true };
   }
 
-  public async obtenerPedidosUsuario(usuarioId: number) {
-    return this.prisma.pedido.findMany({
-      where: { usuarioId },
-      include: {
-        estado: true,
-        paquetePublicado: {
-          include: {
-            paqueteBase: true,
-            zona: true,
+public async obtenerPedidosUsuario(usuarioId: number) {
+  return this.prisma.pedido.findMany({
+    where: { usuarioId },
+    include: {
+      estado: true,
+      paquetePublicado: {
+        include: {
+          paqueteBase: {
+            include: {
+              marca: true,
+              categoria: true,
+            },
           },
+          zona: true,
         },
-        detalles: {
-          include: {
-            producto: true,
-            variante: {
-              include: {
-                opciones: {
-                  include: {
-                    caracteristica: true,
-                    opcion: true,
-                  },
+      },
+      detalles: {
+        include: {
+          producto: true,
+          variante: {
+            include: {
+              opciones: {
+                include: {
+                  caracteristica: true,
+                  opcion: true,
                 },
               },
             },
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
   
   public async obtenerPedidoPorId(usuarioId: number, pedidoId: number) {
     const pedido = await this.prisma.pedido.findFirst({
