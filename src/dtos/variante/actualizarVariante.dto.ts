@@ -1,10 +1,9 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
     IsBoolean,
     IsInt,
     IsNumber,
     IsOptional,
-    IsPositive,
     IsString,
     Min,
 } from 'class-validator';
@@ -29,5 +28,10 @@ export class ActualizarVarianteDTO {
 
     @IsBoolean({ message: 'El campo activo debe ser un booleano' })
     @IsOptional()
+    @Transform(({ value }) => {
+        if (value === 'true') return true;
+        if (value === 'false') return false;
+        return value;
+    })
     activo?: boolean;
 }
