@@ -5,7 +5,8 @@ import { Prisma, TipoPaquete } from '@prisma/client';
 
 export class ProductoExcelService {
     /**
-     * Importa productos desde un archivo Excel
+     * Importa productos desde un archivo Excel con soporte para UPSERT
+     * Si el producto tiene id_producto o SKU, lo actualiza; si no, lo crea
      */
     async importarProductos(buffer: Buffer): Promise<ProductoImportResultDto> {
         try {
@@ -21,7 +22,8 @@ export class ProductoExcelService {
             }
 
             const errores: Array<{ fila: number; mensaje: string; datos: any }> = [];
-            let importados = 0;
+            let creados = 0;
+            let actualizados = 0;
 
             for (let i = 0; i < data.length; i++) {
                 const fila = i + 2; // +2 porque Excel empieza en 1 y tiene header
@@ -78,8 +80,8 @@ export class ProductoExcelService {
                         }
                     }
 
-                    // Preparar los datos del producto
-                    const productoData: Prisma.ProductoCreateInput = {
+                    // Preparar los datos del producto (sin relaciones)
+                    const productoDataBase = {
                         nombre: row.nombre,
                         descripcion: row.descripcion,
                         precio: parseFloat(row.precio),
@@ -90,33 +92,97 @@ export class ProductoExcelService {
                         peso: row.peso ? parseFloat(row.peso) : null,
                         stock: row.stock ? parseInt(row.stock) : null,
                         tipo: tipo,
-                        marca: {
-                            connect: { id_marca: marca.id_marca },
-                        },
-                        categoria: {
-                            connect: { id_categoria: categoria.id_categoria },
-                        },
+                    };
+
+                    // Datos para actualización (con IDs directos)
+                    const productoDataUpdate = {
+                        ...productoDataBase,
+                        marca_id: marca.id_marca,
+                        categoria_id: categoria.id_categoria,
+                        plantillaId: plantillaId,
+                    };
+
+                    // Datos para creación (con relaciones connect)
+                    const productoDataCreate = {
+                        ...productoDataBase,
+                        marca: { connect: { id_marca: marca.id_marca } },
+                        categoria: { connect: { id_categoria: categoria.id_categoria } },
                         plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
                     };
 
-                    // Crear el producto
-                    const producto = await prisma.producto.create({
-                        data: productoData,
-                    });
+                    let producto;
 
-                    // Si tiene SKU, crear una variante
-                    if (row.sku) {
-                        await prisma.productoVariante.create({
-                            data: {
-                                productoId: producto.id_producto,
-                                sku: row.sku,
-                                stockFisico: row.stock ? parseInt(row.stock) : null,
-                                activo: true,
-                            },
+                    // Intentar encontrar producto existente por ID o SKU
+                    if (row.id_producto) {
+                        // Buscar por ID
+                        const productoExistente = await prisma.producto.findUnique({
+                            where: { id_producto: parseInt(row.id_producto) },
                         });
-                    }
 
-                    importados++;
+                        if (productoExistente) {
+                            // ACTUALIZAR producto existente
+                            producto = await prisma.producto.update({
+                                where: { id_producto: parseInt(row.id_producto) },
+                                data: productoDataUpdate,
+                            });
+                            actualizados++;
+                        } else {
+                            errores.push({
+                                fila,
+                                mensaje: `No se encontró producto con ID ${row.id_producto}`,
+                                datos: row,
+                            });
+                            continue;
+                        }
+                    } else if (row.sku) {
+                        // Buscar por SKU
+                        const varianteExistente = await prisma.productoVariante.findUnique({
+                            where: { sku: row.sku },
+                            include: { producto: true },
+                        });
+
+                        if (varianteExistente) {
+                            // ACTUALIZAR producto existente
+                            producto = await prisma.producto.update({
+                                where: { id_producto: varianteExistente.productoId },
+                                data: productoDataUpdate,
+                            });
+
+                            // Actualizar también la variante
+                            await prisma.productoVariante.update({
+                                where: { sku: row.sku },
+                                data: {
+                                    stockFisico: row.stock ? parseInt(row.stock) : null,
+                                    activo: true,
+                                },
+                            });
+
+                            actualizados++;
+                        } else {
+                            // CREAR nuevo producto con variante
+                            producto = await prisma.producto.create({
+                                data: productoDataCreate,
+                            });
+
+                            // Crear variante
+                            await prisma.productoVariante.create({
+                                data: {
+                                    productoId: producto.id_producto,
+                                    sku: row.sku,
+                                    stockFisico: row.stock ? parseInt(row.stock) : null,
+                                    activo: true,
+                                },
+                            });
+
+                            creados++;
+                        }
+                    } else {
+                        // CREAR nuevo producto sin ID ni SKU
+                        producto = await prisma.producto.create({
+                            data: productoDataCreate,
+                        });
+                        creados++;
+                    }
                 } catch (error: any) {
                     errores.push({
                         fila,
@@ -126,11 +192,14 @@ export class ProductoExcelService {
                 }
             }
 
+            const total = creados + actualizados;
             return new ProductoImportResultDto(
                 true,
-                `Importación completada. ${importados} productos importados, ${errores.length} errores`,
+                `Importación completada. ${creados} creados, ${actualizados} actualizados, ${errores.length} errores`,
                 {
-                    importados,
+                    importados: total,
+                    creados,
+                    actualizados,
                     errores,
                 }
             );
@@ -184,7 +253,6 @@ export class ProductoExcelService {
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos');
 
             // Ajustar el ancho de las columnas
-            const maxWidth = 50;
             const colWidths = [
                 { wch: 10 }, // id_producto
                 { wch: 30 }, // nombre
@@ -221,6 +289,7 @@ export class ProductoExcelService {
         try {
             const data = [
                 {
+                    id_producto: '',
                     nombre: 'Ejemplo Producto 1',
                     descripcion: 'Descripción del producto',
                     precio: 1000,
@@ -237,6 +306,7 @@ export class ProductoExcelService {
                     sku: 'SKU-001',
                 },
                 {
+                    id_producto: '',
                     nombre: 'Ejemplo Producto 2',
                     descripcion: 'Otro producto de ejemplo',
                     precio: 2000,
@@ -260,6 +330,7 @@ export class ProductoExcelService {
 
             // Ajustar el ancho de las columnas
             const colWidths = [
+                { wch: 10 }, // id_producto
                 { wch: 30 }, // nombre
                 { wch: 50 }, // descripcion
                 { wch: 10 }, // precio

@@ -64,6 +64,8 @@ export class ProductoImportResultDto {
     message: string;
     data?: {
         importados: number;
+        creados?: number;
+        actualizados?: number;
         errores: Array<{
             fila: number;
             mensaje: string;

@@ -46,7 +46,7 @@ INSERT INTO EstadoPedido (nombre) VALUES
 ('Cancelado');
 
 -- ============================ LOCALIDAD ============================
-INSERT INTO localidad (nombre, codigo_postal) VALUES
+INSERT INTO Localidad (nombre, codigo_postal) VALUES
 ('Balvanera', 1001),
 ('San Nicolás', 1002),
 ('Monserrat', 1003),
@@ -310,7 +310,7 @@ INSERT INTO localidad (nombre, codigo_postal) VALUES
 
 
 -- ============================ ZONA ============================
-INSERT INTO zona (nombre, createdAt, updatedAt) VALUES
+INSERT INTO Zona (nombre, createdAt, updatedAt) VALUES
 ('CABA', NOW(), NOW()),
 ('Zona Norte', NOW(), NOW()),
 ('Zona Oeste', NOW(), NOW()),
@@ -320,7 +320,7 @@ INSERT INTO zona (nombre, createdAt, updatedAt) VALUES
 
 
 -- ============================ LOCALIDADZONA ============================
-INSERT INTO localidadzona (zonaId, localidadId) VALUES
+INSERT INTO LocalidadZona (zonaId, localidadId) VALUES
 (1, 1),
 (1, 2),
 (1, 3),
@@ -585,7 +585,7 @@ INSERT INTO localidadzona (zonaId, localidadId) VALUES
 
 -- ============================ USUARIO ============================
 -- 👤 Usuario admin (contraseña: Admin123)
-INSERT INTO usuario 
+INSERT INTO Usuario 
 (email, nombre, contraseña, telefono, fecha_nac, imagen_url, rolId, localidadId, createdAt, updatedAt)
 VALUES
 ('admin@admin.com', 'Administrador', '$2b$10$bRN.9ubsi8pgl0Mun.oD/.dIMMmj2/gofIoiij5TyeEFVXFtLp/vW', '1122334455', '1990-01-01', 
@@ -593,7 +593,7 @@ VALUES
 
 
 -- 👤 Usuario cliente (contraseña: Clave123)
-INSERT INTO usuario 
+INSERT INTO Usuario 
 (email, nombre, contraseña, telefono, fecha_nac, imagen_url, rolId, localidadId, createdAt, updatedAt)
 VALUES
 ('prueba@prueba.com', 'Juan Pérez', '$2b$10$W/AjjH9ka.qZKrz5a20jGuicKvHYaOJTCMageZNaM2amDrI7Gup2i', '1199887766', '1995-05-15', 
@@ -603,14 +603,14 @@ VALUES
 
 -- ============================ DIRECCION ============================
 -- Admin → Palermo (localidadId = 9)
-INSERT INTO direccion 
+INSERT INTO Direccion 
 (usuarioId, localidadId, codigo_postal, calle, numero, piso, departamento)
 VALUES
 (1, 9, 1425, 'Av. Santa Fe', 1234, 5, 'A');
 
 
 -- Juan Pérez → Morón (localidadId = 123)
-INSERT INTO direccion 
+INSERT INTO Direccion 
 (usuarioId, localidadId, codigo_postal, calle, numero, piso, departamento)
 VALUES
 (2, 123, 1708, 'Av. Rivadavia', 9876, NULL, NULL);
