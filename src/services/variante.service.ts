@@ -3,7 +3,6 @@ import { CustomError } from '../errors/custom.error.js';
 import { TipoPaquete } from '@prisma/client';
 import { GenerarVariantesDTO } from '../dtos/variante/generarVariantes.dto.js';
 import { ActualizarStockVariantesDTO } from '../dtos/variante/actualizarStockVariantes.dto.js';
-import { VarianteDTO } from '../dtos/variante/variante.dto.js';
 import { ActualizarVarianteDTO } from '../dtos/variante/actualizarVariante.dto.js';
 import { ImagenService } from './imagen.service.js';
 

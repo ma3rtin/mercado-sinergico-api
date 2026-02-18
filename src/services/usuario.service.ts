@@ -4,7 +4,7 @@ import { DireccionDTO } from '../dtos/direccion/direccion.dto.js';
 import { LoginDTO } from '../dtos/usuario/login.dto.js';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto.js';
 import { UsuarioUpdateDTO } from '../dtos/usuario/usuarioUpdate.dto.js';
-import type { Direccion, Localidad, Prisma, Usuario } from '@prisma/client';
+import type { Direccion, Prisma, Usuario } from '@prisma/client';
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { FirebaseUser } from '../middlewares/firebaseAuth.middleware.js';
