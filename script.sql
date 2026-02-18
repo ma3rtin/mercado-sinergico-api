@@ -1074,7 +1074,7 @@ INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALU
 (30, 9, 33), -- Procesador: Intel i5
 (30, 10, 37), -- RAM: 8 GB
 (30, 11, 41), -- Almacenamiento: 512 GB SSD
-(30, 12, 45); -- SO: Linux
+(30, 12, 41); -- SO: Linux
 
 -- ============================ PAQUETEBASE ============================
 -- 📱 Paquete de celulares Apple
