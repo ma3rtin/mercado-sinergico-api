@@ -871,210 +871,210 @@ INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALU
 (1, 1, 1), -- Color: Negro
 (1, 2, 6), -- Almacenamiento: 128 GB
 (1, 3, 10), -- Pantalla: 6.1"
-(1, 4, 13); -- RAM: 4 GB
+(1, 4, 12); -- RAM: 4 GB
 
 -- iPhone 14 - Variante 2: Negro, 256 GB, 6.1", 6 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (2, 1, 1), -- Color: Negro
 (2, 2, 7), -- Almacenamiento: 256 GB
 (2, 3, 10), -- Pantalla: 6.1"
-(2, 4, 14); -- RAM: 6 GB
+(2, 4, 13); -- RAM: 6 GB
 
 -- iPhone 14 - Variante 3: Blanco, 128 GB, 6.1", 4 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (3, 1, 2), -- Color: Blanco
 (3, 2, 6), -- Almacenamiento: 128 GB
 (3, 3, 10), -- Pantalla: 6.1"
-(3, 4, 13); -- RAM: 4 GB
+(3, 4, 12); -- RAM: 4 GB
 
 -- iPhone 14 - Variante 4: Blanco, 256 GB, 6.1", 6 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (4, 1, 2), -- Color: Blanco
 (4, 2, 7), -- Almacenamiento: 256 GB
 (4, 3, 10), -- Pantalla: 6.1"
-(4, 4, 14); -- RAM: 6 GB
+(4, 4, 13); -- RAM: 6 GB
 
 -- iPhone 14 - Variante 5: Azul, 512 GB, 6.7", 8 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (5, 1, 3), -- Color: Azul
 (5, 2, 8), -- Almacenamiento: 512 GB
 (5, 3, 11), -- Pantalla: 6.7"
-(5, 4, 15); -- RAM: 8 GB
+(5, 4, 14); -- RAM: 8 GB
 
 -- 📱 Samsung Galaxy S23 - Variante 6: Negro, 128 GB, 6.1", 6 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (6, 1, 1), -- Color: Negro
 (6, 2, 6), -- Almacenamiento: 128 GB
 (6, 3, 10), -- Pantalla: 6.1"
-(6, 4, 14); -- RAM: 6 GB
+(6, 4, 13); -- RAM: 6 GB
 
 -- Samsung Galaxy S23 - Variante 7: Negro, 256 GB, 6.1", 8 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (7, 1, 1), -- Color: Negro
 (7, 2, 7), -- Almacenamiento: 256 GB
 (7, 3, 10), -- Pantalla: 6.1"
-(7, 4, 15); -- RAM: 8 GB
+(7, 4, 14); -- RAM: 8 GB
 
 -- Samsung Galaxy S23 - Variante 8: Blanco, 256 GB, 6.7", 8 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (8, 1, 2), -- Color: Blanco
 (8, 2, 7), -- Almacenamiento: 256 GB
 (8, 3, 11), -- Pantalla: 6.7"
-(8, 4, 15); -- RAM: 8 GB
+(8, 4, 14); -- RAM: 8 GB
 
 -- Samsung Galaxy S23 - Variante 9: Rojo, 512 GB, 6.7", 8 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (9, 1, 4), -- Color: Rojo
 (9, 2, 8), -- Almacenamiento: 512 GB
 (9, 3, 11), -- Pantalla: 6.7"
-(9, 4, 15); -- RAM: 8 GB
+(9, 4, 14); -- RAM: 8 GB
 
 -- 📱 Sony Xperia - Variante 10: Negro, 64 GB, 5.5", 4 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (10, 1, 1), -- Color: Negro
 (10, 2, 5), -- Almacenamiento: 64 GB
 (10, 3, 9), -- Pantalla: 5.5"
-(10, 4, 13); -- RAM: 4 GB
+(10, 4, 12); -- RAM: 4 GB
 
 -- Sony Xperia - Variante 11: Blanco, 128 GB, 6.1", 6 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (11, 1, 2), -- Color: Blanco
 (11, 2, 6), -- Almacenamiento: 128 GB
 (11, 3, 10), -- Pantalla: 6.1"
-(11, 4, 14); -- RAM: 6 GB
+(11, 4, 13); -- RAM: 6 GB
 
 -- Sony Xperia - Variante 12: Azul, 256 GB, 6.1", 8 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (12, 1, 3), -- Color: Azul
 (12, 2, 7), -- Almacenamiento: 256 GB
 (12, 3, 10), -- Pantalla: 6.1"
-(12, 4, 15); -- RAM: 8 GB
+(12, 4, 14); -- RAM: 8 GB
 
 -- 🖥️ LG OLED - Variante 13: 55", OLED, 4K, Wi-Fi
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(13, 5, 18), -- Pulgadas: 55"
-(13, 6, 22), -- Tipo: OLED
-(13, 7, 26), -- Resolución: 4K
-(13, 8, 29); -- Conectividad: Wi-Fi
+(13, 5, 17), -- Pulgadas: 55"
+(13, 6, 20), -- Tipo: OLED
+(13, 7, 24), -- Resolución: 4K
+(13, 8, 26); -- Conectividad: Wi-Fi
 
 -- LG OLED - Variante 14: 55", OLED, 4K, Bluetooth
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(14, 5, 18), -- Pulgadas: 55"
-(14, 6, 22), -- Tipo: OLED
-(14, 7, 26), -- Resolución: 4K
-(14, 8, 30); -- Conectividad: Bluetooth
+(14, 5, 17), -- Pulgadas: 55"
+(14, 6, 20), -- Tipo: OLED
+(14, 7, 24), -- Resolución: 4K
+(14, 8, 27); -- Conectividad: Bluetooth
 
 -- LG OLED - Variante 15: 65", OLED, 8K, HDMI
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(15, 5, 19), -- Pulgadas: 65"
-(15, 6, 22), -- Tipo: OLED
-(15, 7, 27), -- Resolución: 8K
-(15, 8, 31); -- Conectividad: HDMI
+(15, 5, 18), -- Pulgadas: 65"
+(15, 6, 20), -- Tipo: OLED
+(15, 7, 25), -- Resolución: 8K
+(15, 8, 28); -- Conectividad: HDMI
 
 -- 🖥️ Samsung QLED - Variante 16: 43", QLED, Full HD, Wi-Fi
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(16, 5, 17), -- Pulgadas: 43"
-(16, 6, 23), -- Tipo: QLED
-(16, 7, 25), -- Resolución: Full HD
-(16, 8, 29); -- Conectividad: Wi-Fi
+(16, 5, 16), -- Pulgadas: 43"
+(16, 6, 21), -- Tipo: QLED
+(16, 7, 23), -- Resolución: Full HD
+(16, 8, 26); -- Conectividad: Wi-Fi
 
--- Samsung QLED - Variante 17: 50", QLED, 4K, USB
+-- Samsung QLED - Variante 17: 55", QLED, 4K, USB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(17, 5, 18), -- Pulgadas: 55" (ajustado)
-(17, 6, 23), -- Tipo: QLED
-(17, 7, 26), -- Resolución: 4K
-(17, 8, 32); -- Conectividad: USB
+(17, 5, 17), -- Pulgadas: 55"
+(17, 6, 21), -- Tipo: QLED
+(17, 7, 24), -- Resolución: 4K
+(17, 8, 29); -- Conectividad: USB
 
 -- Samsung QLED - Variante 18: 55", QLED, 4K, HDMI
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(18, 5, 18), -- Pulgadas: 55"
-(18, 6, 23), -- Tipo: QLED
-(18, 7, 26), -- Resolución: 4K
-(18, 8, 31); -- Conectividad: HDMI
+(18, 5, 17), -- Pulgadas: 55"
+(18, 6, 21), -- Tipo: QLED
+(18, 7, 24), -- Resolución: 4K
+(18, 8, 28); -- Conectividad: HDMI
 
 -- 🖥️ Philips - Variante 19: 32", LED, HD, Wi-Fi
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(19, 5, 16), -- Pulgadas: 32"
-(19, 6, 21), -- Tipo: LED
-(19, 7, 24), -- Resolución: HD
-(19, 8, 29); -- Conectividad: Wi-Fi
+(19, 5, 15), -- Pulgadas: 32"
+(19, 6, 19), -- Tipo: LED
+(19, 7, 22), -- Resolución: HD
+(19, 8, 26); -- Conectividad: Wi-Fi
 
 -- Philips - Variante 20: 43", LED, Full HD, Bluetooth
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(20, 5, 17), -- Pulgadas: 43"
-(20, 6, 21), -- Tipo: LED
-(20, 7, 25), -- Resolución: Full HD
-(20, 8, 30); -- Conectividad: Bluetooth
+(20, 5, 16), -- Pulgadas: 43"
+(20, 6, 19), -- Tipo: LED
+(20, 7, 23), -- Resolución: Full HD
+(20, 8, 27); -- Conectividad: Bluetooth
 
 -- Philips - Variante 21: 43", OLED, 4K, HDMI
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(21, 5, 17), -- Pulgadas: 43"
-(21, 6, 22), -- Tipo: OLED
-(21, 7, 26), -- Resolución: 4K
-(21, 8, 31); -- Conectividad: HDMI
+(21, 5, 16), -- Pulgadas: 43"
+(21, 6, 20), -- Tipo: OLED
+(21, 7, 24), -- Resolución: 4K
+(21, 8, 28); -- Conectividad: HDMI
 
 -- 💻 MacBook Air M2 - Variante 22: Intel i7, 8 GB, 256 GB SSD, macOS
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(22, 9, 34), -- Procesador: Intel i7
-(22, 10, 37), -- RAM: 8 GB
-(22, 11, 40), -- Almacenamiento: 256 GB SSD
-(22, 12, 43); -- SO: macOS
+(22, 9, 31), -- Procesador: Intel i7
+(22, 10, 34), -- RAM: 8 GB
+(22, 11, 37), -- Almacenamiento: 256 GB SSD
+(22, 12, 42); -- SO: macOS
 
 -- MacBook Air M2 - Variante 23: Intel i7, 16 GB, 512 GB SSD, macOS
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(23, 9, 34), -- Procesador: Intel i7
-(23, 10, 38), -- RAM: 16 GB
-(23, 11, 41), -- Almacenamiento: 512 GB SSD
-(23, 12, 43); -- SO: macOS
+(23, 9, 31), -- Procesador: Intel i7
+(23, 10, 35), -- RAM: 16 GB
+(23, 11, 38), -- Almacenamiento: 512 GB SSD
+(23, 12, 42); -- SO: macOS
 
 -- MacBook Air M2 - Variante 24: AMD Ryzen 7, 16 GB, 1 TB SSD, macOS
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(24, 9, 36), -- Procesador: AMD Ryzen 7
-(24, 10, 38), -- RAM: 16 GB
-(24, 11, 42), -- Almacenamiento: 1 TB SSD
-(24, 12, 43); -- SO: macOS
+(24, 9, 33), -- Procesador: AMD Ryzen 7
+(24, 10, 35), -- RAM: 16 GB
+(24, 11, 39), -- Almacenamiento: 1 TB SSD
+(24, 12, 42); -- SO: macOS
 
 -- 💻 HP Pavilion - Variante 25: Intel i5, 8 GB, 256 GB SSD, Windows 11
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(25, 9, 33), -- Procesador: Intel i5
-(25, 10, 37), -- RAM: 8 GB
-(25, 11, 40), -- Almacenamiento: 256 GB SSD
-(25, 12, 44); -- SO: Windows 11
+(25, 9, 30), -- Procesador: Intel i5
+(25, 10, 34), -- RAM: 8 GB
+(25, 11, 37), -- Almacenamiento: 256 GB SSD
+(25, 12, 40); -- SO: Windows 11
 
 -- HP Pavilion - Variante 26: Intel i5, 16 GB, 512 GB SSD, Windows 11
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(26, 9, 33), -- Procesador: Intel i5
-(26, 10, 38), -- RAM: 16 GB
-(26, 11, 41), -- Almacenamiento: 512 GB SSD
-(26, 12, 44); -- SO: Windows 11
+(26, 9, 30), -- Procesador: Intel i5
+(26, 10, 35), -- RAM: 16 GB
+(26, 11, 38), -- Almacenamiento: 512 GB SSD
+(26, 12, 40); -- SO: Windows 11
 
 -- HP Pavilion - Variante 27: AMD Ryzen 5, 8 GB, 256 GB SSD, Linux
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(27, 9, 35), -- Procesador: AMD Ryzen 5
-(27, 10, 37), -- RAM: 8 GB
-(27, 11, 40), -- Almacenamiento: 256 GB SSD
-(27, 12, 45); -- SO: Linux
+(27, 9, 32), -- Procesador: AMD Ryzen 5
+(27, 10, 34), -- RAM: 8 GB
+(27, 11, 37), -- Almacenamiento: 256 GB SSD
+(27, 12, 41); -- SO: Linux
 
 -- 💻 Lenovo IdeaPad - Variante 28: AMD Ryzen 5, 8 GB, 256 GB SSD, Windows 11
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(28, 9, 35), -- Procesador: AMD Ryzen 5
-(28, 10, 37), -- RAM: 8 GB
-(28, 11, 40), -- Almacenamiento: 256 GB SSD
-(28, 12, 44); -- SO: Windows 11
+(28, 9, 32), -- Procesador: AMD Ryzen 5
+(28, 10, 34), -- RAM: 8 GB
+(28, 11, 37), -- Almacenamiento: 256 GB SSD
+(28, 12, 40); -- SO: Windows 11
 
 -- Lenovo IdeaPad - Variante 29: AMD Ryzen 5, 16 GB, 512 GB SSD, Windows 11
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(29, 9, 35), -- Procesador: AMD Ryzen 5
-(29, 10, 38), -- RAM: 16 GB
-(29, 11, 41), -- Almacenamiento: 512 GB SSD
-(29, 12, 44); -- SO: Windows 11
+(29, 9, 32), -- Procesador: AMD Ryzen 5
+(29, 10, 35), -- RAM: 16 GB
+(29, 11, 38), -- Almacenamiento: 512 GB SSD
+(29, 12, 40); -- SO: Windows 11
 
 -- Lenovo IdeaPad - Variante 30: Intel i5, 8 GB, 512 GB SSD, Linux
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(30, 9, 33), -- Procesador: Intel i5
-(30, 10, 37), -- RAM: 8 GB
-(30, 11, 41), -- Almacenamiento: 512 GB SSD
-(30, 12, 45); -- SO: Linux
+(30, 9, 30), -- Procesador: Intel i5
+(30, 10, 34), -- RAM: 8 GB
+(30, 11, 38), -- Almacenamiento: 512 GB SSD
+(30, 12, 41); -- SO: Linux
 
 -- ============================ PAQUETEBASE ============================
 -- 📱 Paquete de celulares Apple
