@@ -56,6 +56,7 @@ model ProductoVariante {
 
   precioExtra Float?  @default(0)
   activo      Boolean @default(true)
+  imagen_url  String?
 
   // Relaciones
   opciones                 ProductoVarianteOpcion[]
