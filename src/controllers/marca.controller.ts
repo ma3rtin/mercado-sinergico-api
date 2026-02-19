@@ -1,5 +1,5 @@
 import { MarcaService } from '../services/marca.service.js';
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { CustomError } from '../errors/custom.error.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 

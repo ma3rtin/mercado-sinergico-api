@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { PaqueteBaseService } from '../services/paqueteBase.service.js';
 import { ProductoService } from '../services/producto.service.js';
 import { ProductoDTO } from '../dtos/producto/producto.dto.js';

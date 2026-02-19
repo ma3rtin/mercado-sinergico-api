@@ -39,7 +39,7 @@ export class LocalidadController {
   );
 
   delete = asyncHandler(
-    async (req: Request, res: Response): Promise<void> => {
+    async (_req: Request, _res: Response): Promise<void> => {
       // try {
       //   const { id, localidadId } = req.params; 
       //   await service.delete(Number(id), Number(localidadId));

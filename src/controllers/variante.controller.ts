@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { VarianteService } from '../services/variante.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { VarianteDTO } from '../dtos/variante/variante.dto.js';
 import { ActualizarVarianteDTO } from '../dtos/variante/actualizarVariante.dto.js';
 import { GenerarVariantesDTO } from '../dtos/variante/generarVariantes.dto.js';
 import { ActualizarStockVariantesDTO } from '../dtos/variante/actualizarStockVariantes.dto.js';

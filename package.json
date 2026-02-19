@@ -11,10 +11,11 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/app.js",
     "lint": "eslint src/**/*.ts --fix",
+    "lint:fix": "eslint src/**/*.ts --fix",
     "postinstall": "prisma generate"
   },
   "engines": {
-  "node": "22.12.0"
+    "node": "22.12.0"
   },
   "keywords": [],
   "author": "",
@@ -34,6 +35,7 @@
     "@typescript-eslint/eslint-plugin": "^8.46.1",
     "@typescript-eslint/parser": "^8.46.1",
     "eslint": "^9.37.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
     "jest": "^30.1.3",
     "prisma": "^7.0.0",
     "supertest": "^7.1.4",
