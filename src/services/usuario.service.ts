@@ -148,7 +148,7 @@ export class UsuarioService {
   public async loginConFirebase(
     firebaseUser: FirebaseUser
   ): Promise<Usuario & { rol: { nombre: string } }> {
-    const { uid, email, name, picture } = firebaseUser;
+    const { email, name, picture } = firebaseUser;
 
     if (!email) {
       throw new CustomError(
