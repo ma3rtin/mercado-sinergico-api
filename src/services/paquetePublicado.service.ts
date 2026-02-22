@@ -2,9 +2,11 @@ import { PaquetePublicadoDTO } from '../dtos/paquete/paquetePublicado.dto.js';
 import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdate.dto.js';
 import { CustomError } from '../errors/custom.error.js';
 import { prisma } from '../prisma/client.js';
+import { EmailService } from './email.service.js';
 
 export class PaquetePublicadoService {
   private prisma = prisma;
+  private emailService = new EmailService();
 
   async getAll() {
     console.log('obteniendo todos los paquetes');
@@ -330,5 +332,58 @@ export class PaquetePublicadoService {
     scoredPackages.sort((a, b) => b.score - a.score);
 
     return scoredPackages.slice(0, 4).map((x) => x.paquete);
+  }
+
+  async confirmarCompraFabricante(id: number) {
+    // 1. Verificar paquete
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: { paqueteBase: true },
+    });
+
+    if (!paquete) throw new CustomError('Paquete no encontrado', 404);
+
+    // 2. Obtener estado "Confirmado" (o similar, ajusta según tu DB)
+    const estadoConfirmado = await this.prisma.estadoPaquetePublicado.findFirst({
+      where: { nombre: { in: ['Confirmado', 'Cerrado', 'Completado'] } }
+    });
+
+    // 3. Actualizar estado
+    await this.prisma.paquetePublicado.update({
+      where: { id_paquete_publicado: id },
+      data: {
+        ...(estadoConfirmado && { estado: { connect: { id_estado: estadoConfirmado.id_estado } } })
+      },
+    });
+
+    // 4. Obtener compradores
+    const pedidosAprobados = await this.prisma.pedido.findMany({
+      where: {
+        paquetePublicadoId: id,
+        estadoId: 3,
+      },
+      include: {
+        usuario: true,
+      },
+    });
+
+    const correosCompradores = [...new Set(pedidosAprobados.map(p => p.usuario.email))];
+
+    // 5. Enviar correo final
+    if (correosCompradores.length > 0) {
+      await this.emailService.enviarEmail({
+        para: correosCompradores,
+        asunto: `✅ Compra Confirmada - ${paquete.paqueteBase.nombre}`,
+        cuerpoHtml: `
+          <h1>¡Buenas noticias!</h1>
+          <p>La compra mayorista de <strong>${paquete.paqueteBase.nombre}</strong> ha sido confirmada con el fabricante.</p>
+          <p>Pronto recibirás instrucciones detalladas sobre la entrega, el retiro o el pago del saldo restante (si aplica).</p>
+          <br>
+          <p>Gracias por ser parte de la comunidad de Mercado Sinérgico.</p>
+        `,
+      });
+    }
+
+    return { message: 'Compra confirmada y usuarios notificados.' };
   }
 }
