@@ -46,7 +46,7 @@ INSERT INTO EstadoPedido (nombre) VALUES
 ('Cancelado');
 
 -- ============================ LOCALIDAD ============================
-INSERT INTO localidad (nombre, codigo_postal) VALUES
+INSERT INTO Localidad (nombre, codigo_postal) VALUES
 ('Balvanera', 1001),
 ('San Nicolás', 1002),
 ('Monserrat', 1003),
@@ -310,7 +310,7 @@ INSERT INTO localidad (nombre, codigo_postal) VALUES
 
 
 -- ============================ ZONA ============================
-INSERT INTO zona (nombre, createdAt, updatedAt) VALUES
+INSERT INTO Zona (nombre, createdAt, updatedAt) VALUES
 ('CABA', NOW(), NOW()),
 ('Zona Norte', NOW(), NOW()),
 ('Zona Oeste', NOW(), NOW()),
@@ -320,7 +320,7 @@ INSERT INTO zona (nombre, createdAt, updatedAt) VALUES
 
 
 -- ============================ LOCALIDADZONA ============================
-INSERT INTO localidadzona (zonaId, localidadId) VALUES
+INSERT INTO LocalidadZona (zonaId, localidadId) VALUES
 (1, 1),
 (1, 2),
 (1, 3),
@@ -585,7 +585,7 @@ INSERT INTO localidadzona (zonaId, localidadId) VALUES
 
 -- ============================ USUARIO ============================
 -- 👤 Usuario admin (contraseña: Admin123)
-INSERT INTO usuario 
+INSERT INTO Usuario 
 (email, nombre, contraseña, telefono, fecha_nac, imagen_url, rolId, localidadId, createdAt, updatedAt)
 VALUES
 ('admin@admin.com', 'Administrador', '$2b$10$bRN.9ubsi8pgl0Mun.oD/.dIMMmj2/gofIoiij5TyeEFVXFtLp/vW', '1122334455', '1990-01-01', 
@@ -593,7 +593,7 @@ VALUES
 
 
 -- 👤 Usuario cliente (contraseña: Clave123)
-INSERT INTO usuario 
+INSERT INTO Usuario 
 (email, nombre, contraseña, telefono, fecha_nac, imagen_url, rolId, localidadId, createdAt, updatedAt)
 VALUES
 ('prueba@prueba.com', 'Juan Pérez', '$2b$10$W/AjjH9ka.qZKrz5a20jGuicKvHYaOJTCMageZNaM2amDrI7Gup2i', '1199887766', '1995-05-15', 
@@ -603,14 +603,14 @@ VALUES
 
 -- ============================ DIRECCION ============================
 -- Admin → Palermo (localidadId = 9)
-INSERT INTO direccion 
+INSERT INTO Direccion 
 (usuarioId, localidadId, codigo_postal, calle, numero, piso, departamento)
 VALUES
 (1, 9, 1425, 'Av. Santa Fe', 1234, 5, 'A');
 
 
 -- Juan Pérez → Morón (localidadId = 123)
-INSERT INTO direccion 
+INSERT INTO Direccion 
 (usuarioId, localidadId, codigo_postal, calle, numero, piso, departamento)
 VALUES
 (2, 123, 1708, 'Av. Rivadavia', 9876, NULL, NULL);
@@ -730,24 +730,24 @@ INSERT INTO Producto
 (nombre, descripcion, precio, imagen_url, marca_id, categoria_id, plantillaId, stock, tipo, altura, ancho, profundidad, peso, createdAt, updatedAt)
 VALUES
 ('iPhone 14', 'Smartphone de Apple con pantalla de 6.1", 128 GB y chip A15 Bionic.', 1200.00, 'https://acdn-us.mitiendanube.com/stores/001/555/911/products/iphone-14-black-d61713d18bdf31d02417016951877100-1024-1024.webp', 1, 4, 1, NULL, 'SINERGICO', 14.7, 7.1, 0.8, 0.17, NOW(), NOW()),
-('Samsung Galaxy S23', 'Smartphone Samsung con 256 GB de almacenamiento y cámara triple.', 1100.00, 'https://http2.mlstatic.com/D_848869-CBT90467223350_082025-C.jpg', 2, 4, 1, NULL, 'ENERGETICO', 15.0, 7.2, 0.8, 0.18, NOW(), NOW()),
+('Samsung Galaxy S23', 'Smartphone Samsung con 256 GB de almacenamiento y cámara triple.', 1100.00, 'https://http2.mlstatic.com/D_848869-CBT90467223350_082025-C.jpg', 2, 4, 1, NULL, 'ENERGICO', 15.0, 7.2, 0.8, 0.18, NOW(), NOW()),
 ('Sony Xperia 10 V', 'Celular Sony con pantalla OLED de 6.1" y batería de 5000 mAh.', 800.00, 'https://images-cdn.ubuy.co.in/66faadc7e1426368995da054-sony-xperia-10-v-xq-dc72-5g-dual-128gb.jpg', 3, 4, 1, NULL, 'SINERGICO', 15.2, 7.1, 0.8, 0.16, NOW(), NOW());
 
 -- Televisores (Plantilla 2, Categoría: Televisores)
 INSERT INTO Producto 
 (nombre, descripcion, precio, imagen_url, marca_id, categoria_id, plantillaId, stock, tipo, altura, ancho, profundidad, peso, createdAt, updatedAt)
 VALUES
-('LG OLED C3 55"', 'Televisor OLED de 55" con resolución 4K y soporte Dolby Vision.', 1800.00, 'https://www.lg.com/content/dam/channel/wcms/mx/images/televisores/oled55c3psa_awm_enms_mx_c/gallery/large06.jpg', 4, 3, 2, NULL, 'ENERGETICO', 70.0, 123.0, 5.0, 18.0, NOW(), NOW()),
+('LG OLED C3 55"', 'Televisor OLED de 55" con resolución 4K y soporte Dolby Vision.', 1800.00, 'https://www.lg.com/content/dam/channel/wcms/mx/images/televisores/oled55c3psa_awm_enms_mx_c/gallery/large06.jpg', 4, 3, 2, NULL, 'ENERGICO', 70.0, 123.0, 5.0, 18.0, NOW(), NOW()),
 ('Samsung QLED Q60C 50"', 'Televisor QLED de 50" con Quantum HDR y SmartThings integrado.', 1500.00, 'https://http2.mlstatic.com/D_NQ_NP_890431-MLU70332220536_072023-O.webp', 2, 3, 2, NULL, 'SINERGICO', 65.0, 112.0, 5.5, 16.5, NOW(), NOW()),
-('Philips 43PUS8008', 'Televisor LED 4K UHD de 43" con Ambilight y Android TV.', 1000.00, 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTaqu-K9cZ2B7O7q_5s0qDuD78PC2l8_323oA&s', 5, 3, 2, NULL, 'ENERGETICO', 55.0, 96.0, 5.0, 13.0, NOW(), NOW());
+('Philips 43PUS8008', 'Televisor LED 4K UHD de 43" con Ambilight y Android TV.', 1000.00, 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTaqu-K9cZ2B7O7q_5s0qDuD78PC2l8_323oA&s', 5, 3, 2, NULL, 'ENERGICO', 55.0, 96.0, 5.0, 13.0, NOW(), NOW());
 
 -- Notebooks (Plantilla 3, Categoría: Tecnología)
 INSERT INTO Producto 
 (nombre, descripcion, precio, imagen_url, marca_id, categoria_id, plantillaId, stock, tipo, altura, ancho, profundidad, peso, createdAt, updatedAt)
 VALUES
-('MacBook Air M2', 'Notebook de Apple con chip M2, pantalla Retina y 8 GB de RAM.', 1900.00, 'https://http2.mlstatic.com/D_NQ_NP_663606-MLA78669752141_082024-O.webp', 1, 4, 3, NULL, 'ENERGETICO', 1.1, 30.0, 21.0, 1.24, NOW(), NOW()),
+('MacBook Air M2', 'Notebook de Apple con chip M2, pantalla Retina y 8 GB de RAM.', 1900.00, 'https://http2.mlstatic.com/D_NQ_NP_663606-MLA78669752141_082024-O.webp', 1, 4, 3, NULL, 'ENERGICO', 1.1, 30.0, 21.0, 1.24, NOW(), NOW()),
 ('HP Pavilion 15', 'Notebook HP con procesador Intel i5 y SSD de 512 GB.', 950.00, 'https://i5.walmartimages.com/asr/762e3ce1-4e52-40fe-abd1-1a1e056d4895_2.f2b9c74ed7d0701637b067a44f89cca6.jpeg', 6, 4, 3, NULL, 'SINERGICO', 1.9, 36.0, 24.0, 1.80, NOW(), NOW()),
-('Lenovo IdeaPad 3', 'Notebook Lenovo con AMD Ryzen 5, 8 GB de RAM y 256 GB SSD.', 800.00, 'https://i5.walmartimages.com/asr/812648ff-28b6-4a80-b19e-21a722a3a2ee.79a703c8f6fa9663ca7da697ea9f74d0.jpeg', 6, 4, 3, NULL, 'ENERGETICO', 1.9, 36.0, 24.0, 1.65, NOW(), NOW());
+('Lenovo IdeaPad 3', 'Notebook Lenovo con AMD Ryzen 5, 8 GB de RAM y 256 GB SSD.', 800.00, 'https://i5.walmartimages.com/asr/812648ff-28b6-4a80-b19e-21a722a3a2ee.79a703c8f6fa9663ca7da697ea9f74d0.jpeg', 6, 4, 3, NULL, 'ENERGICO', 1.9, 36.0, 24.0, 1.65, NOW(), NOW());
 
 -- ============================ PRODUCTOIMAGEN ============================
 -- 📱 Celulares
@@ -791,7 +791,7 @@ INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo,
 -- Azul, 512 GB, 6.7", 8 GB
 (1, 'IPH14-AZU-512-67-8', NULL, 150, true, NOW(), NOW());
 
--- 📱 Samsung Galaxy S23 - Variantes (ENERGETICO con stock físico)
+-- 📱 Samsung Galaxy S23 - Variantes (ENERGICO con stock físico)
 INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo, createdAt, updatedAt) VALUES
 -- Negro, 128 GB, 6.1", 6 GB
 (2, 'S23-NEG-128-61-6', 15, 0, true, NOW(), NOW()),
@@ -811,7 +811,7 @@ INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo,
 -- Azul, 256 GB, 6.1", 8 GB
 (3, 'XPERIA-AZU-256-61-8', NULL, 80, true, NOW(), NOW());
 
--- 🖥️ LG OLED C3 55" - Variantes (ENERGETICO con stock)
+-- 🖥️ LG OLED C3 55" - Variantes (ENERGICO con stock)
 INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo, createdAt, updatedAt) VALUES
 -- 55", OLED, 4K, Wi-Fi
 (4, 'LG-55-OLED-4K-WIFI', 12, 0, true, NOW(), NOW()),
@@ -829,7 +829,7 @@ INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo,
 -- 55", QLED, 4K, HDMI
 (5, 'SAM-55-QLED-4K-HDMI', NULL, 150, true, NOW(), NOW());
 
--- 🖥️ Philips 43PUS8008 - Variantes (ENERGETICO)
+-- 🖥️ Philips 43PUS8008 - Variantes (ENERGICO)
 INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo, createdAt, updatedAt) VALUES
 -- 32", LED, HD, Wi-Fi
 (6, 'PHI-32-LED-HD-WIFI', 20, 0, true, NOW(), NOW()),
@@ -838,7 +838,7 @@ INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo,
 -- 43", OLED, 4K, HDMI
 (6, 'PHI-43-OLED-4K-HDMI', 10, 120, true, NOW(), NOW());
 
--- 💻 MacBook Air M2 - Variantes (ENERGETICO)
+-- 💻 MacBook Air M2 - Variantes (ENERGICO)
 INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo, createdAt, updatedAt) VALUES
 -- Intel i7, 8 GB, 256 GB SSD, macOS
 (7, 'MAC-I7-8-256-MAC', 10, 0, true, NOW(), NOW()),
@@ -856,7 +856,7 @@ INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo,
 -- AMD Ryzen 5, 8 GB, 256 GB SSD, Linux
 (8, 'HP-R5-8-256-LIN', NULL, -50, true, NOW(), NOW());
 
--- 💻 Lenovo IdeaPad 3 - Variantes (ENERGETICO)
+-- 💻 Lenovo IdeaPad 3 - Variantes (ENERGICO)
 INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo, createdAt, updatedAt) VALUES
 -- AMD Ryzen 5, 8 GB, 256 GB SSD, Windows 11
 (9, 'LEN-R5-8-256-WIN', 18, 0, true, NOW(), NOW()),
@@ -871,209 +871,209 @@ INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALU
 (1, 1, 1), -- Color: Negro
 (1, 2, 6), -- Almacenamiento: 128 GB
 (1, 3, 10), -- Pantalla: 6.1"
-(1, 4, 13); -- RAM: 4 GB
+(1, 4, 12); -- RAM: 4 GB
 
 -- iPhone 14 - Variante 2: Negro, 256 GB, 6.1", 6 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (2, 1, 1), -- Color: Negro
 (2, 2, 7), -- Almacenamiento: 256 GB
 (2, 3, 10), -- Pantalla: 6.1"
-(2, 4, 14); -- RAM: 6 GB
+(2, 4, 13); -- RAM: 6 GB
 
 -- iPhone 14 - Variante 3: Blanco, 128 GB, 6.1", 4 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (3, 1, 2), -- Color: Blanco
 (3, 2, 6), -- Almacenamiento: 128 GB
 (3, 3, 10), -- Pantalla: 6.1"
-(3, 4, 13); -- RAM: 4 GB
+(3, 4, 12); -- RAM: 4 GB
 
 -- iPhone 14 - Variante 4: Blanco, 256 GB, 6.1", 6 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (4, 1, 2), -- Color: Blanco
 (4, 2, 7), -- Almacenamiento: 256 GB
 (4, 3, 10), -- Pantalla: 6.1"
-(4, 4, 14); -- RAM: 6 GB
+(4, 4, 13); -- RAM: 6 GB
 
 -- iPhone 14 - Variante 5: Azul, 512 GB, 6.7", 8 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (5, 1, 3), -- Color: Azul
 (5, 2, 8), -- Almacenamiento: 512 GB
 (5, 3, 11), -- Pantalla: 6.7"
-(5, 4, 15); -- RAM: 8 GB
+(5, 4, 14); -- RAM: 8 GB
 
 -- 📱 Samsung Galaxy S23 - Variante 6: Negro, 128 GB, 6.1", 6 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (6, 1, 1), -- Color: Negro
 (6, 2, 6), -- Almacenamiento: 128 GB
 (6, 3, 10), -- Pantalla: 6.1"
-(6, 4, 14); -- RAM: 6 GB
+(6, 4, 13); -- RAM: 6 GB
 
 -- Samsung Galaxy S23 - Variante 7: Negro, 256 GB, 6.1", 8 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (7, 1, 1), -- Color: Negro
 (7, 2, 7), -- Almacenamiento: 256 GB
 (7, 3, 10), -- Pantalla: 6.1"
-(7, 4, 15); -- RAM: 8 GB
+(7, 4, 14); -- RAM: 8 GB
 
 -- Samsung Galaxy S23 - Variante 8: Blanco, 256 GB, 6.7", 8 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (8, 1, 2), -- Color: Blanco
 (8, 2, 7), -- Almacenamiento: 256 GB
 (8, 3, 11), -- Pantalla: 6.7"
-(8, 4, 15); -- RAM: 8 GB
+(8, 4, 14); -- RAM: 8 GB
 
 -- Samsung Galaxy S23 - Variante 9: Rojo, 512 GB, 6.7", 8 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (9, 1, 4), -- Color: Rojo
 (9, 2, 8), -- Almacenamiento: 512 GB
 (9, 3, 11), -- Pantalla: 6.7"
-(9, 4, 15); -- RAM: 8 GB
+(9, 4, 14); -- RAM: 8 GB
 
 -- 📱 Sony Xperia - Variante 10: Negro, 64 GB, 5.5", 4 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (10, 1, 1), -- Color: Negro
 (10, 2, 5), -- Almacenamiento: 64 GB
 (10, 3, 9), -- Pantalla: 5.5"
-(10, 4, 13); -- RAM: 4 GB
+(10, 4, 12); -- RAM: 4 GB
 
 -- Sony Xperia - Variante 11: Blanco, 128 GB, 6.1", 6 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (11, 1, 2), -- Color: Blanco
 (11, 2, 6), -- Almacenamiento: 128 GB
 (11, 3, 10), -- Pantalla: 6.1"
-(11, 4, 14); -- RAM: 6 GB
+(11, 4, 13); -- RAM: 6 GB
 
 -- Sony Xperia - Variante 12: Azul, 256 GB, 6.1", 8 GB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
 (12, 1, 3), -- Color: Azul
 (12, 2, 7), -- Almacenamiento: 256 GB
 (12, 3, 10), -- Pantalla: 6.1"
-(12, 4, 15); -- RAM: 8 GB
+(12, 4, 14); -- RAM: 8 GB
 
 -- 🖥️ LG OLED - Variante 13: 55", OLED, 4K, Wi-Fi
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(13, 5, 18), -- Pulgadas: 55"
-(13, 6, 22), -- Tipo: OLED
-(13, 7, 26), -- Resolución: 4K
-(13, 8, 29); -- Conectividad: Wi-Fi
+(13, 5, 17), -- Pulgadas: 55"
+(13, 6, 20), -- Tipo: OLED
+(13, 7, 24), -- Resolución: 4K
+(13, 8, 26); -- Conectividad: Wi-Fi
 
 -- LG OLED - Variante 14: 55", OLED, 4K, Bluetooth
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(14, 5, 18), -- Pulgadas: 55"
-(14, 6, 22), -- Tipo: OLED
-(14, 7, 26), -- Resolución: 4K
-(14, 8, 30); -- Conectividad: Bluetooth
+(14, 5, 17), -- Pulgadas: 55"
+(14, 6, 20), -- Tipo: OLED
+(14, 7, 24), -- Resolución: 4K
+(14, 8, 27); -- Conectividad: Bluetooth
 
 -- LG OLED - Variante 15: 65", OLED, 8K, HDMI
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(15, 5, 19), -- Pulgadas: 65"
-(15, 6, 22), -- Tipo: OLED
-(15, 7, 27), -- Resolución: 8K
-(15, 8, 31); -- Conectividad: HDMI
+(15, 5, 18), -- Pulgadas: 65"
+(15, 6, 20), -- Tipo: OLED
+(15, 7, 25), -- Resolución: 8K
+(15, 8, 28); -- Conectividad: HDMI
 
 -- 🖥️ Samsung QLED - Variante 16: 43", QLED, Full HD, Wi-Fi
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(16, 5, 17), -- Pulgadas: 43"
-(16, 6, 23), -- Tipo: QLED
-(16, 7, 25), -- Resolución: Full HD
-(16, 8, 29); -- Conectividad: Wi-Fi
+(16, 5, 16), -- Pulgadas: 43"
+(16, 6, 21), -- Tipo: QLED
+(16, 7, 23), -- Resolución: Full HD
+(16, 8, 26); -- Conectividad: Wi-Fi
 
--- Samsung QLED - Variante 17: 50", QLED, 4K, USB
+-- Samsung QLED - Variante 17: 55", QLED, 4K, USB
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(17, 5, 18), -- Pulgadas: 55" (ajustado)
-(17, 6, 23), -- Tipo: QLED
-(17, 7, 26), -- Resolución: 4K
-(17, 8, 32); -- Conectividad: USB
+(17, 5, 17), -- Pulgadas: 55"
+(17, 6, 21), -- Tipo: QLED
+(17, 7, 24), -- Resolución: 4K
+(17, 8, 29); -- Conectividad: USB
 
 -- Samsung QLED - Variante 18: 55", QLED, 4K, HDMI
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(18, 5, 18), -- Pulgadas: 55"
-(18, 6, 23), -- Tipo: QLED
-(18, 7, 26), -- Resolución: 4K
-(18, 8, 31); -- Conectividad: HDMI
+(18, 5, 17), -- Pulgadas: 55"
+(18, 6, 21), -- Tipo: QLED
+(18, 7, 24), -- Resolución: 4K
+(18, 8, 28); -- Conectividad: HDMI
 
 -- 🖥️ Philips - Variante 19: 32", LED, HD, Wi-Fi
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(19, 5, 16), -- Pulgadas: 32"
-(19, 6, 21), -- Tipo: LED
-(19, 7, 24), -- Resolución: HD
-(19, 8, 29); -- Conectividad: Wi-Fi
+(19, 5, 15), -- Pulgadas: 32"
+(19, 6, 19), -- Tipo: LED
+(19, 7, 22), -- Resolución: HD
+(19, 8, 26); -- Conectividad: Wi-Fi
 
 -- Philips - Variante 20: 43", LED, Full HD, Bluetooth
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(20, 5, 17), -- Pulgadas: 43"
-(20, 6, 21), -- Tipo: LED
-(20, 7, 25), -- Resolución: Full HD
-(20, 8, 30); -- Conectividad: Bluetooth
+(20, 5, 16), -- Pulgadas: 43"
+(20, 6, 19), -- Tipo: LED
+(20, 7, 23), -- Resolución: Full HD
+(20, 8, 27); -- Conectividad: Bluetooth
 
 -- Philips - Variante 21: 43", OLED, 4K, HDMI
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(21, 5, 17), -- Pulgadas: 43"
-(21, 6, 22), -- Tipo: OLED
-(21, 7, 26), -- Resolución: 4K
-(21, 8, 31); -- Conectividad: HDMI
+(21, 5, 16), -- Pulgadas: 43"
+(21, 6, 20), -- Tipo: OLED
+(21, 7, 24), -- Resolución: 4K
+(21, 8, 28); -- Conectividad: HDMI
 
 -- 💻 MacBook Air M2 - Variante 22: Intel i7, 8 GB, 256 GB SSD, macOS
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(22, 9, 34), -- Procesador: Intel i7
-(22, 10, 37), -- RAM: 8 GB
-(22, 11, 40), -- Almacenamiento: 256 GB SSD
-(22, 12, 43); -- SO: macOS
+(22, 9, 31), -- Procesador: Intel i7
+(22, 10, 34), -- RAM: 8 GB
+(22, 11, 37), -- Almacenamiento: 256 GB SSD
+(22, 12, 42); -- SO: macOS
 
 -- MacBook Air M2 - Variante 23: Intel i7, 16 GB, 512 GB SSD, macOS
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(23, 9, 34), -- Procesador: Intel i7
-(23, 10, 38), -- RAM: 16 GB
-(23, 11, 41), -- Almacenamiento: 512 GB SSD
-(23, 12, 43); -- SO: macOS
+(23, 9, 31), -- Procesador: Intel i7
+(23, 10, 35), -- RAM: 16 GB
+(23, 11, 38), -- Almacenamiento: 512 GB SSD
+(23, 12, 42); -- SO: macOS
 
 -- MacBook Air M2 - Variante 24: AMD Ryzen 7, 16 GB, 1 TB SSD, macOS
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(24, 9, 36), -- Procesador: AMD Ryzen 7
-(24, 10, 38), -- RAM: 16 GB
-(24, 11, 42), -- Almacenamiento: 1 TB SSD
-(24, 12, 43); -- SO: macOS
+(24, 9, 33), -- Procesador: AMD Ryzen 7
+(24, 10, 35), -- RAM: 16 GB
+(24, 11, 39), -- Almacenamiento: 1 TB SSD
+(24, 12, 42); -- SO: macOS
 
 -- 💻 HP Pavilion - Variante 25: Intel i5, 8 GB, 256 GB SSD, Windows 11
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(25, 9, 33), -- Procesador: Intel i5
-(25, 10, 37), -- RAM: 8 GB
-(25, 11, 40), -- Almacenamiento: 256 GB SSD
-(25, 12, 44); -- SO: Windows 11
+(25, 9, 30), -- Procesador: Intel i5
+(25, 10, 34), -- RAM: 8 GB
+(25, 11, 37), -- Almacenamiento: 256 GB SSD
+(25, 12, 40); -- SO: Windows 11
 
 -- HP Pavilion - Variante 26: Intel i5, 16 GB, 512 GB SSD, Windows 11
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(26, 9, 33), -- Procesador: Intel i5
-(26, 10, 38), -- RAM: 16 GB
-(26, 11, 41), -- Almacenamiento: 512 GB SSD
-(26, 12, 44); -- SO: Windows 11
+(26, 9, 30), -- Procesador: Intel i5
+(26, 10, 35), -- RAM: 16 GB
+(26, 11, 38), -- Almacenamiento: 512 GB SSD
+(26, 12, 40); -- SO: Windows 11
 
 -- HP Pavilion - Variante 27: AMD Ryzen 5, 8 GB, 256 GB SSD, Linux
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(27, 9, 35), -- Procesador: AMD Ryzen 5
-(27, 10, 37), -- RAM: 8 GB
-(27, 11, 40), -- Almacenamiento: 256 GB SSD
-(27, 12, 45); -- SO: Linux
+(27, 9, 32), -- Procesador: AMD Ryzen 5
+(27, 10, 34), -- RAM: 8 GB
+(27, 11, 37), -- Almacenamiento: 256 GB SSD
+(27, 12, 41); -- SO: Linux
 
 -- 💻 Lenovo IdeaPad - Variante 28: AMD Ryzen 5, 8 GB, 256 GB SSD, Windows 11
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(28, 9, 35), -- Procesador: AMD Ryzen 5
-(28, 10, 37), -- RAM: 8 GB
-(28, 11, 40), -- Almacenamiento: 256 GB SSD
-(28, 12, 44); -- SO: Windows 11
+(28, 9, 32), -- Procesador: AMD Ryzen 5
+(28, 10, 34), -- RAM: 8 GB
+(28, 11, 37), -- Almacenamiento: 256 GB SSD
+(28, 12, 40); -- SO: Windows 11
 
 -- Lenovo IdeaPad - Variante 29: AMD Ryzen 5, 16 GB, 512 GB SSD, Windows 11
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(29, 9, 35), -- Procesador: AMD Ryzen 5
-(29, 10, 38), -- RAM: 16 GB
-(29, 11, 41), -- Almacenamiento: 512 GB SSD
-(29, 12, 44); -- SO: Windows 11
+(29, 9, 32), -- Procesador: AMD Ryzen 5
+(29, 10, 35), -- RAM: 16 GB
+(29, 11, 38), -- Almacenamiento: 512 GB SSD
+(29, 12, 40); -- SO: Windows 11
 
 -- Lenovo IdeaPad - Variante 30: Intel i5, 8 GB, 512 GB SSD, Linux
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(30, 9, 33), -- Procesador: Intel i5
-(30, 10, 37), -- RAM: 8 GB
-(30, 11, 41), -- Almacenamiento: 512 GB SSD
+(30, 9, 30), -- Procesador: Intel i5
+(30, 10, 34), -- RAM: 8 GB
+(30, 11, 38), -- Almacenamiento: 512 GB SSD
 (30, 12, 41); -- SO: Linux
 
 -- ============================ PAQUETEBASE ============================
@@ -1159,19 +1159,19 @@ VALUES
 INSERT INTO PaquetePublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
 VALUES
-(2, 1, 2, NOW(), DATE_ADD(NOW(), INTERVAL 4 DAY), 40, 1100.00, 'https://img.global.news.samsung.com/global/wp-content/uploads/2023/02/%EA%B8%80%EB%A1%9C%EB%B2%8C-Featured-Stories-Thumbnail-728x410.jpg', 'ENERGETICO', 15.0, NOW(), NOW());
+(2, 1, 2, NOW(), DATE_ADD(NOW(), INTERVAL 4 DAY), 40, 1100.00, 'https://img.global.news.samsung.com/global/wp-content/uploads/2023/02/%EA%B8%80%EB%A1%9C%EB%B2%8C-Featured-Stories-Thumbnail-728x410.jpg', 'ENERGICO', 15.0, NOW(), NOW());
 
 -- 📦 Pack Smart TV LG publicado en Zona Sur (Activo)
 INSERT INTO PaquetePublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
 VALUES
-(3, 1, 4, NOW(), DATE_ADD(NOW(), INTERVAL 3 DAY), 25, 1800.00, 'https://www.lg.com/global/images/business/information-display/commercial-tv/md07574661/gallery/medium01.jpg', 'ENERGETICO', 20.0, NOW(), NOW());
+(3, 1, 4, NOW(), DATE_ADD(NOW(), INTERVAL 3 DAY), 25, 1800.00, 'https://www.lg.com/global/images/business/information-display/commercial-tv/md07574661/gallery/medium01.jpg', 'ENERGICO', 20.0, NOW(), NOW());
 
 -- 📦 Pack Philips Ambilight publicado en Zona Oeste (Pendiente)
 INSERT INTO PaquetePublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
 VALUES
-(4, 3, 3, NOW(), DATE_ADD(NOW(), INTERVAL 2 DAY), 30, 1000.00, 'https://www.philips.es/c-dam/b2c/tv/categorypage/master/oled-2024/oled-2023-thumbnail-l-m.jpg', 'ENERGETICO', 12.0, NOW(), NOW());
+(4, 3, 3, NOW(), DATE_ADD(NOW(), INTERVAL 2 DAY), 30, 1000.00, 'https://www.philips.es/c-dam/b2c/tv/categorypage/master/oled-2024/oled-2023-thumbnail-l-m.jpg', 'ENERGICO', 12.0, NOW(), NOW());
 
 -- 📦 Pack Oficina HP publicado en Zona Oeste (Activo)
 INSERT INTO PaquetePublicado 
@@ -1183,7 +1183,7 @@ VALUES
 INSERT INTO PaquetePublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
 VALUES
-(6, 1, 5, NOW(), DATE_ADD(NOW(), INTERVAL 10 DAY), 30, 1900.00, 'https://i.ytimg.com/vi/P-UifawCilA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBx5Omr-Pgm8jU20l8i0KXkNUKAeQ', 'ENERGETICO', 5.0, NOW(), NOW());
+(6, 1, 5, NOW(), DATE_ADD(NOW(), INTERVAL 10 DAY), 30, 1900.00, 'https://i.ytimg.com/vi/P-UifawCilA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBx5Omr-Pgm8jU20l8i0KXkNUKAeQ', 'ENERGICO', 5.0, NOW(), NOW());
 
 -- ============================ DISPONIBILIDADVARIANTEPAQUETE ============================
 -- Pack iPhone Experience (Paquete Publicado 1) - Variantes disponibles

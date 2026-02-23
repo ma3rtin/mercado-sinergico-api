@@ -81,7 +81,7 @@ export class PedidoPagoService {
       );
     }
 
-    if (pedido.paquetePublicado.tipo === 'ENERGETICO') {
+    if (pedido.paquetePublicado.tipo === 'ENERGICO') {
       for (const detalle of pedido.detalles) {
         let stockAValidar = detalle.producto.stock;
         let nombreCompleto = detalle.producto.nombre;
@@ -155,7 +155,7 @@ export class PedidoPagoService {
           },
         });
 
-        if (pedido.paquetePublicado.tipo === 'ENERGETICO') {
+        if (pedido.paquetePublicado.tipo === 'ENERGICO') {
           for (const detalle of pedido.detalles) {
             if (detalle.varianteId) {
               await prisma.productoVariante.update({
@@ -174,6 +174,7 @@ export class PedidoPagoService {
             }
           }
         }
+        console.log('Actualizando pedido a pagado ', pedidoId);
         await prisma.pedido.update({
           where: { id_pedido: pedidoId },
           data: { estadoId: 3 },
