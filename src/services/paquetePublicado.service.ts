@@ -9,7 +9,6 @@ export class PaquetePublicadoService {
   private emailService = new EmailService();
 
   async getAll() {
-    console.log('obteniendo todos los paquetes');
     return await this.prisma.paquetePublicado.findMany({
       include: {
         paqueteBase: {

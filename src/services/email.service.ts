@@ -1,10 +1,15 @@
 import nodemailer from 'nodemailer';
-import { envs } from '../config/envs';
+import { envs } from '../config/envs.js';
+import fs from 'fs';
+import path from 'path';
+import handlebars from 'handlebars';
 
 interface EnviarEmailOptions {
     para: string | string[];
     asunto: string;
-    cuerpoHtml: string;
+    template?: string; // Name of the hbs file without extension
+    context?: Record<string, unknown>;     // Variables to pass to the template
+    cuerpoHtml?: string; // Fallback HTML
     adjuntos?: nodemailer.SendMailOptions['attachments'];
 }
 
@@ -23,18 +28,29 @@ export class EmailService {
     constructor() { }
 
     async enviarEmail(opciones: EnviarEmailOptions): Promise<boolean> {
-        const { para, asunto, cuerpoHtml, adjuntos = [] } = opciones;
+        const { para, asunto, template, context, cuerpoHtml, adjuntos = [] } = opciones;
+
+        let htmlToSend = cuerpoHtml || '';
 
         try {
-            const sentInformation = await this.transporter.sendMail({
+            if (template) {
+                // templates in src/templates/emails/
+                const templatePath = path.join(process.cwd(), 'src', 'templates', 'emails', `${template}.hbs`);
+                const templateFile = fs.readFileSync(templatePath, 'utf8');
+                const compiledTemplate = handlebars.compile(templateFile);
+                htmlToSend = compiledTemplate(context || {});
+            } else if (!cuerpoHtml) {
+                throw new Error('Se debe proveer \'template\' o \'cuerpoHtml\'');
+            }
+
+            await this.transporter.sendMail({
                 from: envs.MAILER_EMAIL,
                 to: para,
                 subject: asunto,
-                html: cuerpoHtml,
+                html: htmlToSend,
                 attachments: adjuntos,
             });
 
-            console.log('Email enviado: ', sentInformation);
             return true;
         } catch (error) {
             console.error('Error enviando email: ', error);

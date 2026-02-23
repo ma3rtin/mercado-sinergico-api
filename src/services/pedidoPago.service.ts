@@ -174,7 +174,6 @@ export class PedidoPagoService {
             }
           }
         }
-        console.log('Actualizando pedido a pagado ', pedidoId);
         await prisma.pedido.update({
           where: { id_pedido: pedidoId },
           data: { estadoId: 3 },

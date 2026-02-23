@@ -53,13 +53,10 @@ despachadorEventosApp.on(
                 await emailService.enviarEmail({
                     para: correosCompradores,
                     asunto: `¡Grupo Completado! - ${paquete.paqueteBase.nombre}`,
-                    cuerpoHtml: `
-            <h1>¡Lo logramos! 🎉</h1>
-            <p>Se completó el grupo para la compra mayorista de <strong>${paquete.paqueteBase.nombre}</strong>.</p>
-            <p>Estamos validando el stock final con el fabricante y te enviaremos los siguientes pasos a la brevedad.</p>
-            <br>
-            <p>Gracias por confiar en Mercado Sinérgico.</p>
-          `,
+                    template: 'comprador-paquete-completado',
+                    context: {
+                        nombrePaquete: paquete.paqueteBase.nombre
+                    }
                 });
                 console.log(`[Event Listener] Correo enviado a ${correosCompradores.length} compradores.`);
             }
@@ -69,12 +66,11 @@ despachadorEventosApp.on(
                 await emailService.enviarEmail({
                     para: correosAdmins,
                     asunto: `🚨 Acción Requerida: Paquete Completado - ${paquete.paqueteBase.nombre}`,
-                    cuerpoHtml: `
-            <h1>Paquete Completado</h1>
-            <p>El paquete <strong>${paquete.paqueteBase.nombre}</strong> (ID: ${paquete.id_paquete_publicado}) ha alcanzado el 100% de reservas.</p>
-            <p><strong>Acción requerida:</strong> Por favor, contacta al fabricante para congelar el precio y asegurar el stock.</p>
-            <p>Una vez confirmado, recuerda ingresar al panel de administración para "Confirmar y Notificar" a los compradores.</p>
-          `,
+                    template: 'admin-paquete-completado',
+                    context: {
+                        nombrePaquete: paquete.paqueteBase.nombre,
+                        paqueteId: paquete.id_paquete_publicado
+                    }
                 });
                 console.log(`[Event Listener] Correo de alerta enviado a ${correosAdmins.length} administradores.`);
             }
