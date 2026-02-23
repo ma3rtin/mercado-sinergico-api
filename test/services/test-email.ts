@@ -54,6 +54,15 @@ const main = async () => {
         context: { nombrePaquete: 'iPhone 14 Mayorista', paqueteId: 7 }
     });
 
+    console.log('Test: Plantilla de Compra Confirmada (Admin hacia Comprador)...');
+
+    await emailService.enviarEmail({
+        para: recipient,
+        asunto: 'Test: ✅ Compra Confirmada - iPhone 14 Mayorista',
+        template: 'comprador-compra-confirmada',
+        context: { nombrePaquete: 'iPhone 14 Mayorista' }
+    });
+
 };
 
 main();

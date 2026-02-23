@@ -342,16 +342,16 @@ export class PaquetePublicadoService {
 
     if (!paquete) throw new CustomError('Paquete no encontrado', 404);
 
-    // 2. Obtener estado "Confirmado" (o similar, ajusta según tu DB)
-    const estadoConfirmado = await this.prisma.estadoPaquetePublicado.findFirst({
-      where: { nombre: { in: ['Confirmado', 'Cerrado', 'Completado'] } }
+    // 2. Obtener estado "Cerrado"
+    const estadoCerrado = await this.prisma.estadoPaquetePublicado.findFirst({
+      where: { nombre: { in: ['Cerrado'] } }
     });
 
     // 3. Actualizar estado
     await this.prisma.paquetePublicado.update({
       where: { id_paquete_publicado: id },
       data: {
-        ...(estadoConfirmado && { estado: { connect: { id_estado: estadoConfirmado.id_estado } } })
+        ...(estadoCerrado && { estado: { connect: { id_estado: estadoCerrado.id_estado } } })
       },
     });
 
@@ -373,13 +373,8 @@ export class PaquetePublicadoService {
       await this.emailService.enviarEmail({
         para: correosCompradores,
         asunto: `✅ Compra Confirmada - ${paquete.paqueteBase.nombre}`,
-        cuerpoHtml: `
-          <h1>¡Buenas noticias!</h1>
-          <p>La compra mayorista de <strong>${paquete.paqueteBase.nombre}</strong> ha sido confirmada con el fabricante.</p>
-          <p>Pronto recibirás instrucciones detalladas sobre la entrega, el retiro o el pago del saldo restante (si aplica).</p>
-          <br>
-          <p>Gracias por ser parte de la comunidad de Mercado Sinérgico.</p>
-        `,
+        template: 'comprador-compra-confirmada',
+        context: { nombrePaquete: paquete.paqueteBase.nombre }
       });
     }
 
