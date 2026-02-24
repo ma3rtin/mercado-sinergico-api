@@ -174,7 +174,7 @@ export class PedidoPagoService {
         }
         await prisma.pedido.update({
           where: { id_pedido: pedidoId },
-          data: { estadoId: 3 },
+          data: { estadoId: 2 },
         });
       });
     }
@@ -182,14 +182,14 @@ export class PedidoPagoService {
     if (pago.status === 'rejected') {
       await this.prisma.pedido.update({
         where: { id_pedido: pedidoId },
-        data: { estadoId: 4 },
+        data: { estadoId: 5 },
       });
     }
 
-    if (pago.status === 'pending') {
+    if (pago.status === 'pending' || pago.status === 'in_process') {
       await this.prisma.pedido.update({
         where: { id_pedido: pedidoId },
-        data: { estadoId: 2 },
+        data: { estadoId: 1 },
       });
     }
 
