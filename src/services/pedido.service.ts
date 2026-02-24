@@ -171,7 +171,7 @@ export class PedidoService {
       where: {
         pedidoId: pedido.id_pedido,
         productoId: producto.id_producto,
-        varianteId: varianteId,
+        varianteId: varianteId ?? null,
       },
     });
 
