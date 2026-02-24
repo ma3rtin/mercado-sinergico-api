@@ -39,8 +39,7 @@ VALUES
 -- ============================ ESTADOPEDIDO ============================
 INSERT INTO EstadoPedido (nombre) VALUES
 ('Pendiente'),
-('Confirmado'),
-('Pagado'),
+('En Preparación'),
 ('Enviado'),
 ('Entregado'),
 ('Cancelado');
