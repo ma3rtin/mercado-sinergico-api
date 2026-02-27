@@ -213,7 +213,7 @@ model Producto {
   // Stock solo para productos SIN variantes (plantillaId = null)
   stock Int?
 
-  // Tipo de producto: ENERGETICO (con stock) o SINERGICO (bajo pedido)
+  // Tipo de producto: ENERGICO (con stock) o SINERGICO (bajo pedido)
   tipo TipoPaquete? @default(POR_DEFINIR)
 
   plantillaId  Int?
@@ -278,7 +278,7 @@ model PaqueteBaseProducto {
 
 enum TipoPaquete {
   SINERGICO
-  ENERGETICO
+  ENERGICO
   POR_DEFINIR
 }
 

@@ -1,11 +1,11 @@
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { MercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
-
+import { despachadorEventosApp, DespachadorEventos } from '../events/despachadorEventos.js';
 export class PedidoPagoService {
   private prisma = prisma;
 
-  constructor(private readonly mercadoPagoService: MercadoPagoService) {}
+  constructor(private readonly mercadoPagoService: MercadoPagoService) { }
 
   private validarStockFinal(
     stock: number | null,
@@ -81,18 +81,18 @@ export class PedidoPagoService {
       );
     }
 
-    if (pedido.paquetePublicado.tipo === 'ENERGETICO') {
+    if (pedido.paquetePublicado.tipo === 'ENERGICO') {
       for (const detalle of pedido.detalles) {
         let stockAValidar = detalle.producto.stock;
         let nombreCompleto = detalle.producto.nombre;
 
         if (detalle.varianteId && detalle.variante) {
           stockAValidar = detalle.variante.stockFisico;
-          
+
           const opcionesNombres = detalle.variante.opciones
             .map((vo) => vo.opcion.nombre)
             .join(' - ');
-          
+
           nombreCompleto = `${detalle.producto.nombre} (${opcionesNombres})`;
         }
 
@@ -145,6 +145,8 @@ export class PedidoPagoService {
         0
       );
 
+      let emitirEvento = false;
+
       await this.prisma.$transaction(async (prisma) => {
         await prisma.paquetePublicado.update({
           where: { id_paquete_publicado: pedido.paquetePublicadoId },
@@ -153,7 +155,7 @@ export class PedidoPagoService {
           },
         });
 
-        if (pedido.paquetePublicado.tipo === 'ENERGETICO') {
+        if (pedido.paquetePublicado.tipo === 'ENERGICO') {
           for (const detalle of pedido.detalles) {
             if (detalle.varianteId) {
               await prisma.productoVariante.update({
@@ -176,7 +178,19 @@ export class PedidoPagoService {
           where: { id_pedido: pedidoId },
           data: { estadoId: 2 },
         });
+
+        const paqueteActualizado = await prisma.paquetePublicado.findUnique({
+          where: { id_paquete_publicado: pedido.paquetePublicadoId }
+        });
+
+        if (paqueteActualizado && paqueteActualizado.cant_productos_reservados >= (paqueteActualizado.cant_productos || 0)) {
+          emitirEvento = true;
+        }
       });
+
+      if (emitirEvento) {
+        despachadorEventosApp.emit(DespachadorEventos.PAQUETE_COMPLETADO, pedido.paquetePublicadoId);
+      }
     }
 
     if (pago.status === 'rejected') {

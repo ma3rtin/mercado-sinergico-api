@@ -115,7 +115,7 @@ export class VarianteService {
     let stockInicial: number | null;
     type ProductoWithTipo = typeof producto & { tipo: TipoPaquete | null };
     const productoWithTipo = producto as ProductoWithTipo;
-    if (productoWithTipo.tipo === TipoPaquete.ENERGETICO) {
+    if (productoWithTipo.tipo === TipoPaquete.ENERGICO) {
       stockInicial = 0;
     } else {
       stockInicial = null;

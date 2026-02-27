@@ -84,7 +84,7 @@ export class VariantesProductoRespuestaDTO {
       (v) => new VarianteRespuestaDTO(v, this.producto.precio)
     );
 
-    if (data.producto.tipo === 'ENERGETICO') {
+    if (data.producto.tipo === 'ENERGICO') {
       this.stockTotal = this.variantes.reduce(
         (sum, v) => sum + (v.stockFisico || 0),
         0

@@ -18,6 +18,9 @@ export const envs = {
     .get('MERCADOPAGO_ACCESS_TOKEN')
     .required()
     .asString(),
+  MAILER_SERVICE: env.get('MAILER_SERVICE').required().asString(),
+  MAILER_EMAIL: env.get('MAILER_EMAIL').required().asString(),
+  MAILER_SECRET_KEY: env.get('MAILER_SECRET_KEY').required().asString(),
 };
 
 cloudinary.config({
