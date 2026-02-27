@@ -17,8 +17,9 @@ export enum EstadoPaquete {
 }
 
 export enum TipoPaquete {
-  SINERGICO = 'Sinérgico',
-  ENERGICO = 'Enérgico',
+  SINERGICO = 'SINERGICO',
+  ENERGICO = 'ENERGICO',
+  POR_DEFINIR = 'POR_DEFINIR',
 }
 
 export class PaqueteBaseDTO {
@@ -36,6 +37,10 @@ export class PaqueteBaseDTO {
   @IsOptional()
   @IsString({ message: 'La imagen debe ser una cadena de texto' })
   imagen_url!: string;
+
+  @IsOptional()
+  @IsString({ message: 'El tipo de paquete debe ser una cadena de texto' })
+  tipo?: TipoPaquete;
 
   @IsNotEmpty()
   @IsNumber({}, { message: 'El id de la categoría debe ser un número' })

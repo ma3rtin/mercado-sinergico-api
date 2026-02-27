@@ -81,7 +81,7 @@ export class PedidoPagoService {
       );
     }
 
-    if (pedido.paquetePublicado.tipo === 'ENERGETICO') {
+    if (pedido.paquetePublicado.tipo === 'ENERGICO') {
       for (const detalle of pedido.detalles) {
         let stockAValidar = detalle.producto.stock;
         let nombreCompleto = detalle.producto.nombre;
@@ -153,7 +153,7 @@ export class PedidoPagoService {
           },
         });
 
-        if (pedido.paquetePublicado.tipo === 'ENERGETICO') {
+        if (pedido.paquetePublicado.tipo === 'ENERGICO') {
           for (const detalle of pedido.detalles) {
             if (detalle.varianteId) {
               await prisma.productoVariante.update({

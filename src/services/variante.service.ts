@@ -4,6 +4,7 @@ import { TipoPaquete } from '@prisma/client';
 import { GenerarVariantesDTO } from '../dtos/variante/generarVariantes.dto.js';
 import { ActualizarStockVariantesDTO } from '../dtos/variante/actualizarStockVariantes.dto.js';
 import { ActualizarVarianteDTO } from '../dtos/variante/actualizarVariante.dto.js';
+import { ActualizarVarianteBulkDTO } from '../dtos/variante/actualizarVarianteBulk.dto.js';
 import { ImagenService } from './imagen.service.js';
 
 export class VarianteService {
@@ -112,31 +113,40 @@ export class VarianteService {
 
     const combinaciones = this.generarCombinaciones(opcionesDisponibles);
 
+    if (combinaciones.length > 200) {
+      throw new CustomError('No se pueden generar más de 200 variantes a la vez', 400);
+    }
+
     let stockInicial: number | null;
     type ProductoWithTipo = typeof producto & { tipo: TipoPaquete | null };
     const productoWithTipo = producto as ProductoWithTipo;
-    if (productoWithTipo.tipo === TipoPaquete.ENERGETICO) {
+    if (productoWithTipo.tipo === TipoPaquete.ENERGICO) {
       stockInicial = 0;
     } else {
       stockInicial = null;
     }
 
-    const variantesCreadas = [];
-    for (const combinacion of combinaciones) {
-      const opcionesNombres = await Promise.all(
-        Object.values(combinacion).map((opcionId) =>
-          this.prisma.opcion.findUnique({ where: { id: opcionId } })
-        )
+    const todasLasOpcionesIds = [
+      ...new Set(Object.values(opcionesDisponibles).flat()),
+    ];
+    const opciones = await this.prisma.opcion.findMany({
+      where: { id: { in: todasLasOpcionesIds } },
+    });
+    const opcionesMap = new Map(opciones.map((o) => [o.id, o]));
+
+    const promesasVariantes = combinaciones.map((combinacion) => {
+      const opcionesNombres = Object.values(combinacion).map(
+        (opcionId) => opcionesMap.get(opcionId)?.nombre || ''
       );
 
       const sku = `${producto.nombre
         .substring(0, 10)
         .toUpperCase()
         .replace(/\s+/g, '-')}-${opcionesNombres
-          .map((o) => o?.nombre.substring(0, 4).toUpperCase().replace(/\s+/g, ''))
+          .map((nombre) => nombre.substring(0, 4).toUpperCase().replace(/\s+/g, ''))
           .join('-')}`;
 
-      const variante = await this.prisma.productoVariante.create({
+      return this.prisma.productoVariante.create({
         data: {
           productoId,
           sku,
@@ -159,9 +169,9 @@ export class VarianteService {
           },
         },
       });
+    });
 
-      variantesCreadas.push(variante);
-    }
+    const variantesCreadas = await this.prisma.$transaction(promesasVariantes);
 
     return {
       message: `${variantesCreadas.length} variantes generadas correctamente`,
@@ -198,6 +208,44 @@ export class VarianteService {
 
     return {
       message: `Stock actualizado para ${variantes.length} variantes`,
+    };
+  }
+
+  public async actualizarVarianteBulk(
+    productoId: number,
+    data: ActualizarVarianteBulkDTO
+  ) {
+    const { variantes } = data;
+
+    const variantesIds = variantes.map((v) => v.id);
+    const variantesExistentes = await this.prisma.productoVariante.findMany({
+      where: {
+        id: { in: variantesIds },
+        productoId,
+      },
+    });
+
+    if (variantesExistentes.length !== variantes.length) {
+      throw new CustomError('Algunas variantes no pertenecen al producto', 400);
+    }
+
+    await this.prisma.$transaction(
+      variantes.map((v) => {
+        const dataToUpdate: any = {};
+        if (v.sku !== undefined) dataToUpdate.sku = v.sku;
+        if (v.stockFisico !== undefined) dataToUpdate.stockFisico = v.stockFisico;
+        if (v.precioExtra !== undefined) dataToUpdate.precioExtra = v.precioExtra;
+        if (v.activo !== undefined) dataToUpdate.activo = v.activo;
+
+        return this.prisma.productoVariante.update({
+          where: { id: v.id },
+          data: dataToUpdate,
+        });
+      })
+    );
+
+    return {
+      message: `Se actualizaron exitosamente ${variantes.length} variantes.`,
     };
   }
 

@@ -87,7 +87,7 @@ export class ProductoService {
       );
     }
 
-    if (!plantillaId && tipo === TipoProducto.ENERGETICO && !rest.stock) {
+    if (!plantillaId && tipo === TipoProducto.ENERGICO && !rest.stock) {
       throw new CustomError(
         'Los productos energéticos sin variantes deben tener stock definido.',
         400
@@ -341,7 +341,7 @@ export class ProductoService {
         .join('-')}`;
 
       let stockInicial: number | null;
-      if (tipo === TipoProducto.ENERGETICO) {
+      if (tipo === TipoProducto.ENERGICO) {
         stockInicial = 0;
       } else {
         stockInicial = null;
