@@ -22,6 +22,6 @@ paquetePublicadoRouter.get('/zona', (req, res, next) => {
 paquetePublicadoRouter.get('/producto/:id', controller.getByProductId.bind(controller));
 paquetePublicadoRouter.get('/', controller.getAll.bind(controller));
 paquetePublicadoRouter.get('/:id', controller.getById.bind(controller));
-paquetePublicadoRouter.post('/', controller.create.bind(controller));
+paquetePublicadoRouter.post('/:id/confirmar', controller.confirmarCompraFabricante.bind(controller));
 paquetePublicadoRouter.put('/:id', controller.update.bind(controller));
 paquetePublicadoRouter.delete('/:id', controller.delete.bind(controller));
