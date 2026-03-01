@@ -198,29 +198,145 @@ export class PaquetePublicadoService {
   }
 
   async update(id: number, dto: PaquetePublicadoUpdateDTO) {
+    return this.prisma.$transaction(async (tx) => {
+      const paqueteExistente = await tx.paquetePublicado.findUnique({
+        where: { id_paquete_publicado: id },
+      });
+
+      if (!paqueteExistente) throw new CustomError('No encontrado', 404);
+
+      if (dto.nombre || dto.descripcion) {
+        await tx.paqueteBase.update({
+          where: { id_paquete_base: paqueteExistente.paqueteBaseId },
+          data: {
+            ...(dto.nombre && { nombre: dto.nombre }),
+            ...(dto.descripcion && { descripcion: dto.descripcion }),
+          },
+        });
+      }
+
+      return await tx.paquetePublicado.update({
+        where: { id_paquete_publicado: id },
+        data: {
+          ...(dto.fecha_fin && { fecha_fin: new Date(dto.fecha_fin) }),
+          ...(dto.estadoId && { estado: { connect: { id_estado: dto.estadoId } } }),
+          ...(dto.estadoNombre && { estado: { connect: { nombre: dto.estadoNombre } } }),
+        },
+      });
+    });
+  }
+
+  async delete(id: number) {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: { pedidos: true },
+    });
+
+    if (!paquete) throw new CustomError('No encontrado', 404);
+    if (paquete.pedidos.length > 0) {
+      throw new CustomError('No se puede borrar: tiene pedidos asociados.', 400);
+    }
+
+    return this.prisma.paquetePublicado.update({
+      where: { id_paquete_publicado: id },
+      data: { estado: { connect: { nombre: 'Eliminado' } } },
+    });
+  }
+
+  async duplicar(id: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const paqueteOriginal = await tx.paquetePublicado.findUnique({
+        where: { id_paquete_publicado: id },
+      });
+
+      if (!paqueteOriginal) {
+        throw new CustomError(`Publicación con id=${id} no encontrada`, 404);
+      }
+
+      const estadoActivo = await tx.estadoPaquetePublicado.findUnique({
+        where: { nombre: 'Activo' },
+      });
+
+      if (!estadoActivo) {
+        throw new CustomError('Estado "Activo" no encontrado en la BD', 500);
+      }
+
+      return await tx.paquetePublicado.create({
+        data: {
+          paqueteBaseId: paqueteOriginal.paqueteBaseId,
+          zonaId: paqueteOriginal.zonaId,
+          fecha_inicio: new Date(),
+          fecha_fin: paqueteOriginal.fecha_fin,
+          cant_productos: paqueteOriginal.cant_productos,
+          monto_total: paqueteOriginal.monto_total,
+          imagen_url: paqueteOriginal.imagen_url,
+          tipo: paqueteOriginal.tipo,
+          descuento: paqueteOriginal.descuento,
+          estadoId: estadoActivo.id_estado,
+          cant_productos_reservados: 0,
+          cant_usuarios_registrados: 0,
+        },
+      });
+    });
+  }
+
+  async completar(id: number) {
+    const estadoCerrado = await this.prisma.estadoPaquetePublicado.findUnique({
+      where: { nombre: 'Cerrado' },
+    });
+
+    if (!estadoCerrado) throw new CustomError('Estado "Cerrado" no encontrado', 500);
+
     return await this.prisma.paquetePublicado.update({
       where: { id_paquete_publicado: id },
       data: {
-        cant_productos: dto.cant_productos,
-        fecha_inicio: dto.fecha_inicio,
-        fecha_fin: dto.fecha_fin,
-        zona: {
-          connect: { id_zona: dto.zonaId },
-        },
-        paqueteBase: {
-          connect: { id_paquete_base: dto.paqueteBaseId },
-        },
-        ...(dto.estadoNombre && {
-          estado: { connect: { nombre: dto.estadoNombre } },
-        }),
+        estado: { connect: { id_estado: estadoCerrado.id_estado } },
       },
     });
   }
 
-  delete(id: number) {
-    return this.prisma.paquetePublicado.update({
-      where: { id_paquete_publicado: id },
-      data: { estado: { connect: { nombre: 'Eliminado' } } },
+  async cancelarYReembolsar(id: number) {
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Obtener paquete
+      const paquete = await tx.paquetePublicado.findUnique({
+        where: { id_paquete_publicado: id },
+        include: { pedidos: true },
+      });
+
+      if (!paquete) throw new CustomError('Paquete no encontrado', 404);
+
+      // 2. Cambiar estado a Cerrado (o Cancelado, pero las instrucciones dicen 'Cerrado')
+      const estadoCerrado = await tx.estadoPaquetePublicado.findUnique({
+        where: { nombre: 'Cerrado' },
+      });
+
+      if (!estadoCerrado) throw new CustomError('Estado "Cerrado" no encontrado', 500);
+
+      await tx.paquetePublicado.update({
+        where: { id_paquete_publicado: id },
+        data: { estadoId: estadoCerrado.id_estado },
+      });
+
+      // 3. Obtener estado Cancelado/Reembolsado para Pedidos
+      const estadoPedido = await tx.estadoPedido.findUnique({
+        where: { nombre: 'Cancelado' }, // o equivalente
+      });
+
+      if (estadoPedido) {
+        // Marcamos los pedidos como cancelados
+        await tx.pedido.updateMany({
+          where: { paquetePublicadoId: id },
+          data: { estadoId: estadoPedido.id_estado },
+        });
+      }
+
+      // TODO: Aquí llamarías a mercadoPagoService.refund() si guardaras el payment_id en cada pedido
+      // Ejemplo:
+      // for (const pedido of paquete.pedidos) {
+      //   if (pedido.paymentId) await mercadoPagoService.obtenerPago(pedido.paymentId... refund);
+      // }
+
+      return { mensaje: 'Publicación cancelada y pedidos listos para reembolso (simulado)', paqueteId: id };
     });
   }
 

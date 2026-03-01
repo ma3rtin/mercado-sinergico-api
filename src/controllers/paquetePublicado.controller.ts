@@ -109,4 +109,28 @@ export class PaquetePublicadoController {
 
     res.status(200).json(paquetes);
   });
+
+  duplicar = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
+
+    const paquete = await this.service.duplicar(Number(id));
+    res.status(201).json(paquete);
+  });
+
+  completar = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
+
+    const paquete = await this.service.completar(Number(id));
+    res.status(200).json(paquete);
+  });
+
+  cancelar = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
+
+    const resultado = await this.service.cancelarYReembolsar(Number(id));
+    res.status(200).json(resultado);
+  });
 }

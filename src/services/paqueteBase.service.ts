@@ -154,4 +154,47 @@ export class PaqueteBaseService {
 
     return paquete.productos.map(p => p.producto);
   }
+
+  public async duplicar(id: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const paqueteOriginal = await tx.paqueteBase.findUnique({
+        where: { id_paquete_base: id },
+        include: {
+          productos: true,
+        },
+      });
+
+      if (!paqueteOriginal) {
+        throw new CustomError(`Paquete con id=${id} no encontrado`, 404);
+      }
+
+      const paqueteDuplicado = await tx.paqueteBase.create({
+        data: {
+          nombre: `${paqueteOriginal.nombre} (Copia)`,
+          descripcion: paqueteOriginal.descripcion,
+          imagen_url: paqueteOriginal.imagen_url,
+          categoria_id: paqueteOriginal.categoria_id,
+          marcaId: paqueteOriginal.marcaId,
+        },
+      });
+
+      if (paqueteOriginal.productos.length > 0) {
+        await tx.paqueteBaseProducto.createMany({
+          data: paqueteOriginal.productos.map((p) => ({
+            productoId: p.productoId,
+            paqueteBaseId: paqueteDuplicado.id_paquete_base,
+          })),
+        });
+      }
+
+      return await tx.paqueteBase.findUnique({
+        where: { id_paquete_base: paqueteDuplicado.id_paquete_base },
+        include: {
+          productos: {
+            include: { producto: true },
+          },
+        },
+      });
+    });
+  }
 }
