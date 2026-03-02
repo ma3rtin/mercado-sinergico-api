@@ -337,8 +337,8 @@ export class ProductoService {
       const sku = `${producto.nombre
         .substring(0, 10)
         .toUpperCase()}-${opcionesNombres
-        .map((o) => o?.nombre.substring(0, 4).toUpperCase())
-        .join('-')}`;
+          .map((o) => o?.nombre.substring(0, 4).toUpperCase())
+          .join('-')}`;
 
       let stockInicial: number | null;
       if (tipo === TipoProducto.ENERGICO) {

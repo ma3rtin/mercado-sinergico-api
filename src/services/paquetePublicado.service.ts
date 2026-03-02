@@ -2,12 +2,13 @@ import { PaquetePublicadoDTO } from '../dtos/paquete/paquetePublicado.dto.js';
 import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdate.dto.js';
 import { CustomError } from '../errors/custom.error.js';
 import { prisma } from '../prisma/client.js';
+import { EmailService } from './email.service.js';
 
 export class PaquetePublicadoService {
   private prisma = prisma;
+  private emailService = new EmailService();
 
   async getAll() {
-    console.log('obteniendo todos los paquetes');
     return await this.prisma.paquetePublicado.findMany({
       include: {
         paqueteBase: {
@@ -330,5 +331,53 @@ export class PaquetePublicadoService {
     scoredPackages.sort((a, b) => b.score - a.score);
 
     return scoredPackages.slice(0, 4).map((x) => x.paquete);
+  }
+
+  async confirmarCompraFabricante(id: number) {
+    // 1. Verificar paquete
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: { paqueteBase: true },
+    });
+
+    if (!paquete) throw new CustomError('Paquete no encontrado', 404);
+
+    // 2. Obtener estado "Cerrado"
+    const estadoCerrado = await this.prisma.estadoPaquetePublicado.findFirst({
+      where: { nombre: { in: ['Cerrado'] } }
+    });
+
+    // 3. Actualizar estado
+    await this.prisma.paquetePublicado.update({
+      where: { id_paquete_publicado: id },
+      data: {
+        ...(estadoCerrado && { estado: { connect: { id_estado: estadoCerrado.id_estado } } })
+      },
+    });
+
+    // 4. Obtener compradores
+    const pedidosAprobados = await this.prisma.pedido.findMany({
+      where: {
+        paquetePublicadoId: id,
+        estadoId: 3,
+      },
+      include: {
+        usuario: true,
+      },
+    });
+
+    const correosCompradores = [...new Set(pedidosAprobados.map(p => p.usuario.email))];
+
+    // 5. Enviar correo final
+    if (correosCompradores.length > 0) {
+      await this.emailService.enviarEmail({
+        para: correosCompradores,
+        asunto: `✅ Compra Confirmada - ${paquete.paqueteBase.nombre}`,
+        template: 'comprador-compra-confirmada',
+        context: { nombrePaquete: paquete.paqueteBase.nombre }
+      });
+    }
+
+    return { message: 'Compra confirmada y usuarios notificados.' };
   }
 }
