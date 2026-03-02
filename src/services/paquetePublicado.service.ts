@@ -380,4 +380,55 @@ export class PaquetePublicadoService {
 
     return { message: 'Compra confirmada y usuarios notificados.' };
   }
+
+  async enviarEmailPrueba(id: number, emailDestino: string) {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: { paqueteBase: true },
+    });
+
+    if (!paquete) throw new CustomError('Paquete no encontrado', 404);
+
+    const baseUrl = process.env['FRONTEND_URL'] || 'http://localhost:4200';
+    
+    const context = {
+      nombrePaquete: paquete.paqueteBase.nombre,
+      paqueteId: paquete.id_paquete_publicado,
+      userName: 'Usuario de Prueba',
+      adminUrl: `${baseUrl}/admin/administrar-publicacion/${id}`,
+      linkPublicacion: `${baseUrl}/mis-pedidos`
+    };
+
+    const timestamp = new Date().toLocaleTimeString();
+
+    // 1. Comprador - Paquete Completado
+    await this.emailService.enviarEmail({
+      para: emailDestino,
+      asunto: `[PRUEBA 1/3] [${timestamp}] ¡Grupo Completado! - ${paquete.paqueteBase.nombre}`,
+      template: 'comprador-paquete-completado',
+      context
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // 2. Admin - Alerta
+    await this.emailService.enviarEmail({
+      para: emailDestino,
+      asunto: `[PRUEBA 2/3] [${timestamp}] 🚨 Alerta Admin: Paquete Completado - ${paquete.paqueteBase.nombre}`,
+      template: 'admin-paquete-completado',
+      context
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // 3. Comprador - Compra Confirmada
+    await this.emailService.enviarEmail({
+      para: emailDestino,
+      asunto: `[PRUEBA 3/3] [${timestamp}] ✅ Compra Confirmada - ${paquete.paqueteBase.nombre}`,
+      template: 'comprador-compra-confirmada',
+      context
+    });
+
+    return { message: `Los 3 emails de prueba se enviaron a ${emailDestino} con éxito.` };
+  }
 }

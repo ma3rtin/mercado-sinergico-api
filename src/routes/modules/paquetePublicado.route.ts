@@ -23,5 +23,6 @@ paquetePublicadoRouter.get('/producto/:id', controller.getByProductId.bind(contr
 paquetePublicadoRouter.get('/', controller.getAll.bind(controller));
 paquetePublicadoRouter.get('/:id', controller.getById.bind(controller));
 paquetePublicadoRouter.post('/:id/confirmar', controller.confirmarCompraFabricante.bind(controller));
+paquetePublicadoRouter.post('/:id/test-email', controller.testEmail.bind(controller));
 paquetePublicadoRouter.put('/:id', controller.update.bind(controller));
 paquetePublicadoRouter.delete('/:id', controller.delete.bind(controller));

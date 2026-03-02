@@ -117,4 +117,13 @@ export class PaquetePublicadoController {
     const result = await this.service.confirmarCompraFabricante(Number(id));
     res.status(200).json(result);
   });
+
+  testEmail = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { email } = req.body;
+    if (!id || !email) throw new CustomError('Id de paquete y email son requeridos', 400);
+
+    const result = await this.service.enviarEmailPrueba(Number(id), email);
+    res.status(200).json(result);
+  });
 }
