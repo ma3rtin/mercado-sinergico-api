@@ -231,7 +231,12 @@ export class VarianteService {
 
     await this.prisma.$transaction(
       variantes.map((v) => {
-        const dataToUpdate: any = {};
+        const dataToUpdate: {
+          sku?: string;
+          stockFisico?: number | null;
+          precioExtra?: number;
+          activo?: boolean;
+        } = {};
         if (v.sku !== undefined) dataToUpdate.sku = v.sku;
         if (v.stockFisico !== undefined) dataToUpdate.stockFisico = v.stockFisico;
         if (v.precioExtra !== undefined) dataToUpdate.precioExtra = v.precioExtra;
