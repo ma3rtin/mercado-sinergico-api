@@ -39,8 +39,7 @@ VALUES
 -- ============================ ESTADOPEDIDO ============================
 INSERT INTO EstadoPedido (nombre) VALUES
 ('Pendiente'),
-('Confirmado'),
-('Pagado'),
+('En Preparación'),
 ('Enviado'),
 ('Entregado'),
 ('Cancelado');
@@ -731,6 +730,7 @@ INSERT INTO Producto
 VALUES
 ('iPhone 14', 'Smartphone de Apple con pantalla de 6.1", 128 GB y chip A15 Bionic.', 1200.00, 'https://acdn-us.mitiendanube.com/stores/001/555/911/products/iphone-14-black-d61713d18bdf31d02417016951877100-1024-1024.webp', 1, 4, 1, NULL, 'SINERGICO', 14.7, 7.1, 0.8, 0.17, NOW(), NOW()),
 ('Samsung Galaxy S23', 'Smartphone Samsung con 256 GB de almacenamiento y cámara triple.', 1100.00, 'https://http2.mlstatic.com/D_848869-CBT90467223350_082025-C.jpg', 2, 4, 1, NULL, 'ENERGICO', 15.0, 7.2, 0.8, 0.18, NOW(), NOW()),
+('Samsung Galaxy S23', 'Smartphone Samsung con 256 GB de almacenamiento y cámara triple.', 1100.00, 'https://http2.mlstatic.com/D_848869-CBT90467223350_082025-C.jpg', 2, 4, 1, NULL, 'ENERGICO', 15.0, 7.2, 0.8, 0.18, NOW(), NOW()),
 ('Sony Xperia 10 V', 'Celular Sony con pantalla OLED de 6.1" y batería de 5000 mAh.', 800.00, 'https://images-cdn.ubuy.co.in/66faadc7e1426368995da054-sony-xperia-10-v-xq-dc72-5g-dual-128gb.jpg', 3, 4, 1, NULL, 'SINERGICO', 15.2, 7.1, 0.8, 0.16, NOW(), NOW());
 
 -- Televisores (Plantilla 2, Categoría: Televisores)
@@ -738,7 +738,9 @@ INSERT INTO Producto
 (nombre, descripcion, precio, imagen_url, marca_id, categoria_id, plantillaId, stock, tipo, altura, ancho, profundidad, peso, createdAt, updatedAt)
 VALUES
 ('LG OLED C3 55"', 'Televisor OLED de 55" con resolución 4K y soporte Dolby Vision.', 1800.00, 'https://www.lg.com/content/dam/channel/wcms/mx/images/televisores/oled55c3psa_awm_enms_mx_c/gallery/large06.jpg', 4, 3, 2, NULL, 'ENERGICO', 70.0, 123.0, 5.0, 18.0, NOW(), NOW()),
+('LG OLED C3 55"', 'Televisor OLED de 55" con resolución 4K y soporte Dolby Vision.', 1800.00, 'https://www.lg.com/content/dam/channel/wcms/mx/images/televisores/oled55c3psa_awm_enms_mx_c/gallery/large06.jpg', 4, 3, 2, NULL, 'ENERGICO', 70.0, 123.0, 5.0, 18.0, NOW(), NOW()),
 ('Samsung QLED Q60C 50"', 'Televisor QLED de 50" con Quantum HDR y SmartThings integrado.', 1500.00, 'https://http2.mlstatic.com/D_NQ_NP_890431-MLU70332220536_072023-O.webp', 2, 3, 2, NULL, 'SINERGICO', 65.0, 112.0, 5.5, 16.5, NOW(), NOW()),
+('Philips 43PUS8008', 'Televisor LED 4K UHD de 43" con Ambilight y Android TV.', 1000.00, 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTaqu-K9cZ2B7O7q_5s0qDuD78PC2l8_323oA&s', 5, 3, 2, NULL, 'ENERGICO', 55.0, 96.0, 5.0, 13.0, NOW(), NOW());
 ('Philips 43PUS8008', 'Televisor LED 4K UHD de 43" con Ambilight y Android TV.', 1000.00, 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTaqu-K9cZ2B7O7q_5s0qDuD78PC2l8_323oA&s', 5, 3, 2, NULL, 'ENERGICO', 55.0, 96.0, 5.0, 13.0, NOW(), NOW());
 
 -- Notebooks (Plantilla 3, Categoría: Tecnología)
@@ -746,7 +748,9 @@ INSERT INTO Producto
 (nombre, descripcion, precio, imagen_url, marca_id, categoria_id, plantillaId, stock, tipo, altura, ancho, profundidad, peso, createdAt, updatedAt)
 VALUES
 ('MacBook Air M2', 'Notebook de Apple con chip M2, pantalla Retina y 8 GB de RAM.', 1900.00, 'https://http2.mlstatic.com/D_NQ_NP_663606-MLA78669752141_082024-O.webp', 1, 4, 3, NULL, 'ENERGICO', 1.1, 30.0, 21.0, 1.24, NOW(), NOW()),
+('MacBook Air M2', 'Notebook de Apple con chip M2, pantalla Retina y 8 GB de RAM.', 1900.00, 'https://http2.mlstatic.com/D_NQ_NP_663606-MLA78669752141_082024-O.webp', 1, 4, 3, NULL, 'ENERGICO', 1.1, 30.0, 21.0, 1.24, NOW(), NOW()),
 ('HP Pavilion 15', 'Notebook HP con procesador Intel i5 y SSD de 512 GB.', 950.00, 'https://i5.walmartimages.com/asr/762e3ce1-4e52-40fe-abd1-1a1e056d4895_2.f2b9c74ed7d0701637b067a44f89cca6.jpeg', 6, 4, 3, NULL, 'SINERGICO', 1.9, 36.0, 24.0, 1.80, NOW(), NOW()),
+('Lenovo IdeaPad 3', 'Notebook Lenovo con AMD Ryzen 5, 8 GB de RAM y 256 GB SSD.', 800.00, 'https://i5.walmartimages.com/asr/812648ff-28b6-4a80-b19e-21a722a3a2ee.79a703c8f6fa9663ca7da697ea9f74d0.jpeg', 6, 4, 3, NULL, 'ENERGICO', 1.9, 36.0, 24.0, 1.65, NOW(), NOW());
 ('Lenovo IdeaPad 3', 'Notebook Lenovo con AMD Ryzen 5, 8 GB de RAM y 256 GB SSD.', 800.00, 'https://i5.walmartimages.com/asr/812648ff-28b6-4a80-b19e-21a722a3a2ee.79a703c8f6fa9663ca7da697ea9f74d0.jpeg', 6, 4, 3, NULL, 'ENERGICO', 1.9, 36.0, 24.0, 1.65, NOW(), NOW());
 
 -- ============================ PRODUCTOIMAGEN ============================
@@ -792,6 +796,7 @@ INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo,
 (1, 'IPH14-AZU-512-67-8', NULL, 150, true, NOW(), NOW());
 
 -- 📱 Samsung Galaxy S23 - Variantes (ENERGICO con stock físico)
+-- 📱 Samsung Galaxy S23 - Variantes (ENERGICO con stock físico)
 INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo, createdAt, updatedAt) VALUES
 -- Negro, 128 GB, 6.1", 6 GB
 (2, 'S23-NEG-128-61-6', 15, 0, true, NOW(), NOW()),
@@ -812,6 +817,7 @@ INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo,
 (3, 'XPERIA-AZU-256-61-8', NULL, 80, true, NOW(), NOW());
 
 -- 🖥️ LG OLED C3 55" - Variantes (ENERGICO con stock)
+-- 🖥️ LG OLED C3 55" - Variantes (ENERGICO con stock)
 INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo, createdAt, updatedAt) VALUES
 -- 55", OLED, 4K, Wi-Fi
 (4, 'LG-55-OLED-4K-WIFI', 12, 0, true, NOW(), NOW()),
@@ -830,6 +836,7 @@ INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo,
 (5, 'SAM-55-QLED-4K-HDMI', NULL, 150, true, NOW(), NOW());
 
 -- 🖥️ Philips 43PUS8008 - Variantes (ENERGICO)
+-- 🖥️ Philips 43PUS8008 - Variantes (ENERGICO)
 INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo, createdAt, updatedAt) VALUES
 -- 32", LED, HD, Wi-Fi
 (6, 'PHI-32-LED-HD-WIFI', 20, 0, true, NOW(), NOW()),
@@ -838,6 +845,7 @@ INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo,
 -- 43", OLED, 4K, HDMI
 (6, 'PHI-43-OLED-4K-HDMI', 10, 120, true, NOW(), NOW());
 
+-- 💻 MacBook Air M2 - Variantes (ENERGICO)
 -- 💻 MacBook Air M2 - Variantes (ENERGICO)
 INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo, createdAt, updatedAt) VALUES
 -- Intel i7, 8 GB, 256 GB SSD, macOS
@@ -856,6 +864,7 @@ INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo,
 -- AMD Ryzen 5, 8 GB, 256 GB SSD, Linux
 (8, 'HP-R5-8-256-LIN', NULL, -50, true, NOW(), NOW());
 
+-- 💻 Lenovo IdeaPad 3 - Variantes (ENERGICO)
 -- 💻 Lenovo IdeaPad 3 - Variantes (ENERGICO)
 INSERT INTO ProductoVariante (productoId, sku, stockFisico, precioExtra, activo, createdAt, updatedAt) VALUES
 -- AMD Ryzen 5, 8 GB, 256 GB SSD, Windows 11
@@ -1015,66 +1024,66 @@ INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALU
 
 -- 💻 MacBook Air M2 - Variante 22: Intel i7, 8 GB, 256 GB SSD, macOS
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(22, 9, 31), -- Procesador: Intel i7
-(22, 10, 34), -- RAM: 8 GB
-(22, 11, 37), -- Almacenamiento: 256 GB SSD
-(22, 12, 42); -- SO: macOS
+(22, 9, 33), -- Procesador: Intel i7
+(22, 10, 31), -- RAM: 8 GB
+(22, 11, 34), -- Almacenamiento: 256 GB SSD
+(22, 12, 39); -- SO: macOS
 
 -- MacBook Air M2 - Variante 23: Intel i7, 16 GB, 512 GB SSD, macOS
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(23, 9, 31), -- Procesador: Intel i7
-(23, 10, 35), -- RAM: 16 GB
-(23, 11, 38), -- Almacenamiento: 512 GB SSD
-(23, 12, 42); -- SO: macOS
+(23, 9, 33), -- Procesador: Intel i7
+(23, 10, 32), -- RAM: 16 GB
+(23, 11, 35), -- Almacenamiento: 512 GB SSD
+(23, 12, 39); -- SO: macOS
 
 -- MacBook Air M2 - Variante 24: AMD Ryzen 7, 16 GB, 1 TB SSD, macOS
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(24, 9, 33), -- Procesador: AMD Ryzen 7
-(24, 10, 35), -- RAM: 16 GB
-(24, 11, 39), -- Almacenamiento: 1 TB SSD
-(24, 12, 42); -- SO: macOS
+(24, 9, 35), -- Procesador: AMD Ryzen 7
+(24, 10, 32), -- RAM: 16 GB
+(24, 11, 36), -- Almacenamiento: 1 TB SSD
+(24, 12, 39); -- SO: macOS
 
 -- 💻 HP Pavilion - Variante 25: Intel i5, 8 GB, 256 GB SSD, Windows 11
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(25, 9, 30), -- Procesador: Intel i5
-(25, 10, 34), -- RAM: 8 GB
-(25, 11, 37), -- Almacenamiento: 256 GB SSD
-(25, 12, 40); -- SO: Windows 11
+(25, 9, 33), -- Procesador: Intel i5
+(25, 10, 31), -- RAM: 8 GB
+(25, 11, 34), -- Almacenamiento: 256 GB SSD
+(25, 12, 37); -- SO: Windows 11
 
 -- HP Pavilion - Variante 26: Intel i5, 16 GB, 512 GB SSD, Windows 11
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(26, 9, 30), -- Procesador: Intel i5
-(26, 10, 35), -- RAM: 16 GB
-(26, 11, 38), -- Almacenamiento: 512 GB SSD
-(26, 12, 40); -- SO: Windows 11
+(26, 9, 33), -- Procesador: Intel i5
+(26, 10, 32), -- RAM: 16 GB
+(26, 11, 35), -- Almacenamiento: 512 GB SSD
+(26, 12, 37); -- SO: Windows 11
 
 -- HP Pavilion - Variante 27: AMD Ryzen 5, 8 GB, 256 GB SSD, Linux
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(27, 9, 32), -- Procesador: AMD Ryzen 5
-(27, 10, 34), -- RAM: 8 GB
-(27, 11, 37), -- Almacenamiento: 256 GB SSD
-(27, 12, 41); -- SO: Linux
+(27, 9, 35), -- Procesador: AMD Ryzen 5
+(27, 10, 31), -- RAM: 8 GB
+(27, 11, 34), -- Almacenamiento: 256 GB SSD
+(27, 12, 38); -- SO: Linux
 
 -- 💻 Lenovo IdeaPad - Variante 28: AMD Ryzen 5, 8 GB, 256 GB SSD, Windows 11
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(28, 9, 32), -- Procesador: AMD Ryzen 5
-(28, 10, 34), -- RAM: 8 GB
-(28, 11, 37), -- Almacenamiento: 256 GB SSD
-(28, 12, 40); -- SO: Windows 11
+(28, 9, 35), -- Procesador: AMD Ryzen 5
+(28, 10, 31), -- RAM: 8 GB
+(28, 11, 34), -- Almacenamiento: 256 GB SSD
+(28, 12, 37); -- SO: Windows 11
 
 -- Lenovo IdeaPad - Variante 29: AMD Ryzen 5, 16 GB, 512 GB SSD, Windows 11
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(29, 9, 32), -- Procesador: AMD Ryzen 5
-(29, 10, 35), -- RAM: 16 GB
-(29, 11, 38), -- Almacenamiento: 512 GB SSD
-(29, 12, 40); -- SO: Windows 11
+(29, 9, 35), -- Procesador: AMD Ryzen 5
+(29, 10, 32), -- RAM: 16 GB
+(29, 11, 35), -- Almacenamiento: 512 GB SSD
+(29, 12, 37); -- SO: Windows 11
 
 -- Lenovo IdeaPad - Variante 30: Intel i5, 8 GB, 512 GB SSD, Linux
 INSERT INTO ProductoVarianteOpcion (varianteId, caracteristicaId, opcionId) VALUES
-(30, 9, 30), -- Procesador: Intel i5
-(30, 10, 34), -- RAM: 8 GB
-(30, 11, 38), -- Almacenamiento: 512 GB SSD
-(30, 12, 41); -- SO: Linux
+(30, 9, 33), -- Procesador: Intel i5
+(30, 10, 31), -- RAM: 8 GB
+(30, 11, 35), -- Almacenamiento: 512 GB SSD
+(30, 12, 38); -- SO: Linux
 
 -- ============================ PAQUETEBASE ============================
 -- 📱 Paquete de celulares Apple
@@ -1160,17 +1169,20 @@ INSERT INTO PaquetePublicado
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
 VALUES
 (2, 1, 2, NOW(), DATE_ADD(NOW(), INTERVAL 4 DAY), 40, 1100.00, 'https://img.global.news.samsung.com/global/wp-content/uploads/2023/02/%EA%B8%80%EB%A1%9C%EB%B2%8C-Featured-Stories-Thumbnail-728x410.jpg', 'ENERGICO', 15.0, NOW(), NOW());
+(2, 1, 2, NOW(), DATE_ADD(NOW(), INTERVAL 4 DAY), 40, 1100.00, 'https://img.global.news.samsung.com/global/wp-content/uploads/2023/02/%EA%B8%80%EB%A1%9C%EB%B2%8C-Featured-Stories-Thumbnail-728x410.jpg', 'ENERGICO', 15.0, NOW(), NOW());
 
 -- 📦 Pack Smart TV LG publicado en Zona Sur (Activo)
 INSERT INTO PaquetePublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
 VALUES
 (3, 1, 4, NOW(), DATE_ADD(NOW(), INTERVAL 3 DAY), 25, 1800.00, 'https://www.lg.com/global/images/business/information-display/commercial-tv/md07574661/gallery/medium01.jpg', 'ENERGICO', 20.0, NOW(), NOW());
+(3, 1, 4, NOW(), DATE_ADD(NOW(), INTERVAL 3 DAY), 25, 1800.00, 'https://www.lg.com/global/images/business/information-display/commercial-tv/md07574661/gallery/medium01.jpg', 'ENERGICO', 20.0, NOW(), NOW());
 
 -- 📦 Pack Philips Ambilight publicado en Zona Oeste (Pendiente)
 INSERT INTO PaquetePublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
 VALUES
+(4, 3, 3, NOW(), DATE_ADD(NOW(), INTERVAL 2 DAY), 30, 1000.00, 'https://www.philips.es/c-dam/b2c/tv/categorypage/master/oled-2024/oled-2023-thumbnail-l-m.jpg', 'ENERGICO', 12.0, NOW(), NOW());
 (4, 3, 3, NOW(), DATE_ADD(NOW(), INTERVAL 2 DAY), 30, 1000.00, 'https://www.philips.es/c-dam/b2c/tv/categorypage/master/oled-2024/oled-2023-thumbnail-l-m.jpg', 'ENERGICO', 12.0, NOW(), NOW());
 
 -- 📦 Pack Oficina HP publicado en Zona Oeste (Activo)
@@ -1183,6 +1195,7 @@ VALUES
 INSERT INTO PaquetePublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
 VALUES
+(6, 1, 5, NOW(), DATE_ADD(NOW(), INTERVAL 10 DAY), 30, 1900.00, 'https://i.ytimg.com/vi/P-UifawCilA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBx5Omr-Pgm8jU20l8i0KXkNUKAeQ', 'ENERGICO', 5.0, NOW(), NOW());
 (6, 1, 5, NOW(), DATE_ADD(NOW(), INTERVAL 10 DAY), 30, 1900.00, 'https://i.ytimg.com/vi/P-UifawCilA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBx5Omr-Pgm8jU20l8i0KXkNUKAeQ', 'ENERGICO', 5.0, NOW(), NOW());
 
 -- ============================ DISPONIBILIDADVARIANTEPAQUETE ============================
@@ -1267,3 +1280,48 @@ VALUES
 -- Pedido 5: 1x MacBook Air i7 8GB (variante 22)
 INSERT INTO PedidoDetalle (pedidoId, productoId, varianteId, cantidad, precio_unitario, subtotal)
 VALUES (5, 7, 22, 1, 1805.00, 1805.00);
+-- ============================ NUEVOS PRODUCTOS MOCK ============================
+-- 🎧 Auriculares (Plantilla 1, Categoría: Tecnología)
+INSERT INTO Producto 
+(nombre, descripcion, precio, imagen_url, marca_id, categoria_id, plantillaId, stock, tipo, altura, ancho, profundidad, peso, createdAt, updatedAt)
+VALUES
+('AirPods Pro 2', 'Auriculares de Apple con cancelación de ruido activa.', 250.00, 'https://http2.mlstatic.com/D_NQ_NP_903027-MLU72688461520_112023-O.webp', 1, 4, NULL, 50, 'ENERGICO', 4.5, 6.0, 2.1, 0.05, NOW(), NOW()),
+('Sony WH-1000XM5', 'Auriculares de diadema Sony con la mejor cancelación de ruido del mercado.', 350.00, 'https://images-cdn.ubuy.co.in/634e3419b48b5b7b203c9603-sony-wh-1000xm5-wireless-noise-canceling.jpg', 3, 4, NULL, 30, 'ENERGICO', 25.0, 20.0, 8.0, 0.25, NOW(), NOW()),
+('Samsung Galaxy Buds 2', 'Auriculares inalámbricos Samsung con ajuste cómodo y sonido inmersivo.', 150.00, 'https://http2.mlstatic.com/D_NQ_NP_727918-MLA47183355097_082021-O.webp', 2, 4, NULL, 40, 'ENERGICO', 5.0, 5.0, 2.7, 0.04, NOW(), NOW());
+
+-- ============================ NUEVOS PRODUCTOS IMAGENES ============================
+INSERT INTO ProductoImagen (url, productoId, createdAt) VALUES
+('https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/MQD83_AV2?wid=1144&hei=1144&fmt=jpeg&qlt=90&.v=1660803972361', 10, NOW()),
+('https://media.solotodo.com/media/products/215338_picture_1656515814.jpg', 11, NOW()),
+('https://images.samsung.com/is/image/samsung/p6pim/ar/sm-r177nzkaaro/gallery/ar-galaxy-buds2-r177-sm-r177nzkaaro-530263673', 12, NOW());
+
+-- ============================ NUEVOS PAQUETES BASE ============================
+INSERT INTO PaqueteBase 
+(nombre, descripcion, imagen_url, categoria_id, marcaId, tipo, createdAt, updatedAt)
+VALUES
+('Pack Sonido Apple', 'Auriculares AirPods Pro 2 con funda protectora.', 
+'https://cdn.shopify.com/s/files/1/0259/3157/9476/products/AirPodsPro_MWP22_AV2_1080x_d6e1d5e5-3347-49f9-aa11-840938b819f7_grande.jpg', 4, 1, 'ENERGICO', NOW(), NOW()),
+('Pack Audio Pro Sony', 'Auriculares Sony WH-1000XM5 con soporte para auriculares.', 
+'https://www.tecnomari.es/wp-content/uploads/2022/10/Sony-WH-1000XM5-Plata-04.jpg', 4, 3, 'SINERGICO', NOW(), NOW());
+
+-- ============================ NUEVOS PAQUETEBASEPRODUCTO ============================
+-- Pack Sonido Apple → AirPods Pro 2 (Producto 10)
+INSERT INTO PaqueteBaseProducto (productoId, paqueteBaseId)
+VALUES (10, 7);
+
+-- Pack Audio Pro Sony → Sony WH-1000XM5 (Producto 11)
+INSERT INTO PaqueteBaseProducto (productoId, paqueteBaseId)
+VALUES (11, 8);
+
+-- ============================ NUEVOS PAQUETEPUBLICADO ============================
+-- �� Pack Sonido Apple publicado en CABA (Activo)
+INSERT INTO PaquetePublicado 
+(paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
+VALUES
+(7, 1, 1, NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY), 10, 250.00, 'https://cdn.computerhoy.com/sites/navi.axelspringer.es/public/media/image/2019/10/Airpods-Pro-abiertos.jpg?tf=3840x', 'ENERGICO', 5.0, NOW(), NOW());
+
+-- 📦 Pack Audio Pro Sony publicado en Zona Norte (Activo)
+INSERT INTO PaquetePublicado 
+(paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
+VALUES
+(8, 1, 2, NOW(), DATE_ADD(NOW(), INTERVAL 3 DAY), 15, 350.00, 'https://fotos.perfil.com/2022/05/17/trim/950/534/sony-20220517-1358047.jpg', 'SINERGICO', 10.0, NOW(), NOW());

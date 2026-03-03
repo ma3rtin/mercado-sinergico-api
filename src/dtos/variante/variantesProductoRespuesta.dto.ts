@@ -73,7 +73,9 @@ export class VariantesProductoRespuestaDTO {
       precioExtra: v.precioExtra,
       activo: v.activo,
       opciones: v.opciones.map((vo) => ({
+        caracteristicaId: vo.caracteristicaId,
         caracteristica: { nombre: vo.caracteristica },
+        opcionId: vo.opcionId,
         opcion: { nombre: vo.opcion },
       })),
     }));
