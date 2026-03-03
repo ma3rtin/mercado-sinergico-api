@@ -59,10 +59,7 @@ export class PaquetePublicadoController {
 
   getPorCerrarse = asyncHandler(async (_req: Request, res: Response) => {
     const paquetes = await this.service.getPorCerrarse();
-    if (!paquetes || paquetes.length === 0)
-      throw new CustomError('No hay paquetes por cerrarse', 404);
-
-    res.status(200).json(paquetes);
+    res.status(200).json(paquetes || []);
   });
 
   async getByLocation(req: Request, res: Response, next: NextFunction) {
