@@ -742,7 +742,7 @@ VALUES
 ('LG OLED C3 55"', 'Televisor OLED de 55" con resolución 4K y soporte Dolby Vision.', 1800.00, 'https://www.lg.com/content/dam/channel/wcms/mx/images/televisores/oled55c3psa_awm_enms_mx_c/gallery/large06.jpg', 4, 3, 2, NULL, 'ENERGICO', 70.0, 123.0, 5.0, 18.0, NOW(), NOW()),
 ('Samsung QLED Q60C 50"', 'Televisor QLED de 50" con Quantum HDR y SmartThings integrado.', 1500.00, 'https://http2.mlstatic.com/D_NQ_NP_890431-MLU70332220536_072023-O.webp', 2, 3, 2, NULL, 'SINERGICO', 65.0, 112.0, 5.5, 16.5, NOW(), NOW()),
 ('Philips 43PUS8008', 'Televisor LED 4K UHD de 43" con Ambilight y Android TV.', 1000.00, 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTaqu-K9cZ2B7O7q_5s0qDuD78PC2l8_323oA&s', 5, 3, 2, NULL, 'ENERGICO', 55.0, 96.0, 5.0, 13.0, NOW(), NOW());
-('Philips 43PUS8008', 'Televisor LED 4K UHD de 43" con Ambilight y Android TV.', 1000.00, 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTaqu-K9cZ2B7O7q_5s0qDuD78PC2l8_323oA&s', 5, 3, 2, NULL, 'ENERGICO', 55.0, 96.0, 5.0, 13.0, NOW(), NOW());
+
 
 -- Notebooks (Plantilla 3, Categoría: Tecnología)
 INSERT INTO Producto 
@@ -751,7 +751,6 @@ VALUES
 ('MacBook Air M2', 'Notebook de Apple con chip M2, pantalla Retina y 8 GB de RAM.', 1900.00, 'https://http2.mlstatic.com/D_NQ_NP_663606-MLA78669752141_082024-O.webp', 1, 4, 3, NULL, 'ENERGICO', 1.1, 30.0, 21.0, 1.24, NOW(), NOW()),
 ('MacBook Air M2', 'Notebook de Apple con chip M2, pantalla Retina y 8 GB de RAM.', 1900.00, 'https://http2.mlstatic.com/D_NQ_NP_663606-MLA78669752141_082024-O.webp', 1, 4, 3, NULL, 'ENERGICO', 1.1, 30.0, 21.0, 1.24, NOW(), NOW()),
 ('HP Pavilion 15', 'Notebook HP con procesador Intel i5 y SSD de 512 GB.', 950.00, 'https://i5.walmartimages.com/asr/762e3ce1-4e52-40fe-abd1-1a1e056d4895_2.f2b9c74ed7d0701637b067a44f89cca6.jpeg', 6, 4, 3, NULL, 'SINERGICO', 1.9, 36.0, 24.0, 1.80, NOW(), NOW()),
-('Lenovo IdeaPad 3', 'Notebook Lenovo con AMD Ryzen 5, 8 GB de RAM y 256 GB SSD.', 800.00, 'https://i5.walmartimages.com/asr/812648ff-28b6-4a80-b19e-21a722a3a2ee.79a703c8f6fa9663ca7da697ea9f74d0.jpeg', 6, 4, 3, NULL, 'ENERGICO', 1.9, 36.0, 24.0, 1.65, NOW(), NOW());
 ('Lenovo IdeaPad 3', 'Notebook Lenovo con AMD Ryzen 5, 8 GB de RAM y 256 GB SSD.', 800.00, 'https://i5.walmartimages.com/asr/812648ff-28b6-4a80-b19e-21a722a3a2ee.79a703c8f6fa9663ca7da697ea9f74d0.jpeg', 6, 4, 3, NULL, 'ENERGICO', 1.9, 36.0, 24.0, 1.65, NOW(), NOW());
 
 -- ============================ PRODUCTOIMAGEN ============================
@@ -1170,21 +1169,21 @@ INSERT INTO PaquetePublicado
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
 VALUES
 (2, 1, 2, NOW(), DATE_ADD(NOW(), INTERVAL 4 DAY), 40, 1100.00, 'https://img.global.news.samsung.com/global/wp-content/uploads/2023/02/%EA%B8%80%EB%A1%9C%EB%B2%8C-Featured-Stories-Thumbnail-728x410.jpg', 'ENERGICO', 15.0, NOW(), NOW());
-(2, 1, 2, NOW(), DATE_ADD(NOW(), INTERVAL 4 DAY), 40, 1100.00, 'https://img.global.news.samsung.com/global/wp-content/uploads/2023/02/%EA%B8%80%EB%A1%9C%EB%B2%8C-Featured-Stories-Thumbnail-728x410.jpg', 'ENERGICO', 15.0, NOW(), NOW());
+
 
 -- 📦 Pack Smart TV LG publicado en Zona Sur (Activo)
 INSERT INTO PaquetePublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
 VALUES
 (3, 1, 4, NOW(), DATE_ADD(NOW(), INTERVAL 3 DAY), 25, 1800.00, 'https://www.lg.com/global/images/business/information-display/commercial-tv/md07574661/gallery/medium01.jpg', 'ENERGICO', 20.0, NOW(), NOW());
-(3, 1, 4, NOW(), DATE_ADD(NOW(), INTERVAL 3 DAY), 25, 1800.00, 'https://www.lg.com/global/images/business/information-display/commercial-tv/md07574661/gallery/medium01.jpg', 'ENERGICO', 20.0, NOW(), NOW());
+
 
 -- 📦 Pack Philips Ambilight publicado en Zona Oeste (Pendiente)
 INSERT INTO PaquetePublicado 
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
 VALUES
 (4, 3, 3, NOW(), DATE_ADD(NOW(), INTERVAL 2 DAY), 30, 1000.00, 'https://www.philips.es/c-dam/b2c/tv/categorypage/master/oled-2024/oled-2023-thumbnail-l-m.jpg', 'ENERGICO', 12.0, NOW(), NOW());
-(4, 3, 3, NOW(), DATE_ADD(NOW(), INTERVAL 2 DAY), 30, 1000.00, 'https://www.philips.es/c-dam/b2c/tv/categorypage/master/oled-2024/oled-2023-thumbnail-l-m.jpg', 'ENERGICO', 12.0, NOW(), NOW());
+
 
 -- 📦 Pack Oficina HP publicado en Zona Oeste (Activo)
 INSERT INTO PaquetePublicado 
@@ -1197,7 +1196,7 @@ INSERT INTO PaquetePublicado
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
 VALUES
 (6, 1, 5, NOW(), DATE_ADD(NOW(), INTERVAL 10 DAY), 30, 1900.00, 'https://i.ytimg.com/vi/P-UifawCilA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBx5Omr-Pgm8jU20l8i0KXkNUKAeQ', 'ENERGICO', 5.0, NOW(), NOW());
-(6, 1, 5, NOW(), DATE_ADD(NOW(), INTERVAL 10 DAY), 30, 1900.00, 'https://i.ytimg.com/vi/P-UifawCilA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBx5Omr-Pgm8jU20l8i0KXkNUKAeQ', 'ENERGICO', 5.0, NOW(), NOW());
+
 
 -- ============================ DISPONIBILIDADVARIANTEPAQUETE ============================
 -- Pack iPhone Experience (Paquete Publicado 1) - Variantes disponibles
@@ -1298,12 +1297,12 @@ INSERT INTO ProductoImagen (url, productoId, createdAt) VALUES
 
 -- ============================ NUEVOS PAQUETES BASE ============================
 INSERT INTO PaqueteBase 
-(nombre, descripcion, imagen_url, categoria_id, marcaId, tipo, createdAt, updatedAt)
+(nombre, descripcion, imagen_url, categoria_id, marcaId, createdAt, updatedAt)
 VALUES
 ('Pack Sonido Apple', 'Auriculares AirPods Pro 2 con funda protectora.', 
-'https://cdn.shopify.com/s/files/1/0259/3157/9476/products/AirPodsPro_MWP22_AV2_1080x_d6e1d5e5-3347-49f9-aa11-840938b819f7_grande.jpg', 4, 1, 'ENERGICO', NOW(), NOW()),
+'https://cdn.shopify.com/s/files/1/0259/3157/9476/products/AirPodsPro_MWP22_AV2_1080x_d6e1d5e5-3347-49f9-aa11-840938b819f7_grande.jpg', 4, 1, NOW(), NOW()),
 ('Pack Audio Pro Sony', 'Auriculares Sony WH-1000XM5 con soporte para auriculares.', 
-'https://www.tecnomari.es/wp-content/uploads/2022/10/Sony-WH-1000XM5-Plata-04.jpg', 4, 3, 'SINERGICO', NOW(), NOW());
+'https://www.tecnomari.es/wp-content/uploads/2022/10/Sony-WH-1000XM5-Plata-04.jpg', 4, 3, NOW(), NOW());
 
 -- ============================ NUEVOS PAQUETEBASEPRODUCTO ============================
 -- Pack Sonido Apple → AirPods Pro 2 (Producto 10)
