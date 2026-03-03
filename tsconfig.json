@@ -13,7 +13,8 @@
     "skipLibCheck": true
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "test/services/test-email.ts"
   ],
   "exclude": [
     "node_modules",

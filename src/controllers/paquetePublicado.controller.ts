@@ -130,4 +130,12 @@ export class PaquetePublicadoController {
     const resultado = await this.service.cancelarYReembolsar(Number(id));
     res.status(200).json(resultado);
   });
+
+  confirmarCompraFabricante = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
+
+    const result = await this.service.confirmarCompraFabricante(Number(id));
+    res.status(200).json(result);
+  });
 }

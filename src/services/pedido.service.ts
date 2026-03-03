@@ -114,7 +114,7 @@ export class PedidoService {
         throw new CustomError('La variante no existe para este producto', 400);
       }
 
-      if (paquete.tipo === 'ENERGETICO') {
+      if (paquete.tipo === 'ENERGICO') {
         stockAValidar = variante.stockFisico;
       }
 
@@ -128,7 +128,7 @@ export class PedidoService {
       }
     }
 
-    if (paquete.tipo === 'ENERGETICO') {
+    if (paquete.tipo === 'ENERGICO') {
       this.validarStockInformativo(stockAValidar, dto.cantidad);
     }
 
@@ -177,7 +177,7 @@ export class PedidoService {
     if (detalleExistente) {
       const nuevaCantidad = detalleExistente.cantidad + dto.cantidad;
 
-      if (paquete.tipo === 'ENERGETICO') {
+      if (paquete.tipo === 'ENERGICO') {
         this.validarStockInformativo(stockAValidar, nuevaCantidad);
       }
 
@@ -297,7 +297,7 @@ export class PedidoService {
       throw new CustomError('Producto no encontrado', 404);
     }
 
-    if (pedido.paquetePublicado.tipo === 'ENERGETICO') {
+    if (pedido.paquetePublicado.tipo === 'ENERGICO') {
       let stockAValidar = detalle.producto.stock;
 
       if (detalle.varianteId && detalle.variante) {
