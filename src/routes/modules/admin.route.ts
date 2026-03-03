@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { prisma } from '../../prisma/client.js';
 import { rolMiddleware } from '../../middlewares/auth.middleware.js';
 import { validarDto } from '../../middlewares/validateDTO.middleware.js';
 import { PaqueteBaseDTO } from '../../dtos/paquete/paqueteBase.dto.js';
