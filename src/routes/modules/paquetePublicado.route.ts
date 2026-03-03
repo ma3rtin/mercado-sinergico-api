@@ -25,3 +25,5 @@ paquetePublicadoRouter.get('/:id', controller.getById.bind(controller));
 paquetePublicadoRouter.post('/', controller.create.bind(controller));
 paquetePublicadoRouter.put('/:id', controller.update.bind(controller));
 paquetePublicadoRouter.delete('/:id', controller.delete.bind(controller));
+paquetePublicadoRouter.get('/:id/exportar-fabrica', controller.exportarFabrica.bind(controller));
+paquetePublicadoRouter.get('/:id/exportar-logistica', controller.exportarLogistica.bind(controller));

@@ -8,8 +8,7 @@ export class PaquetePublicadoController {
 
   getAll = asyncHandler(async (_req: Request, res: Response) => {
     const paquetes = await this.service.getAll();
-    if (!paquetes) throw new CustomError('Paquetes no encontrados', 404);
-    res.status(200).json(paquetes);
+    res.status(200).json(paquetes || []);
   });
 
   getById = asyncHandler(async (req: Request, res: Response) => {
@@ -59,10 +58,7 @@ export class PaquetePublicadoController {
 
   getPorCerrarse = asyncHandler(async (_req: Request, res: Response) => {
     const paquetes = await this.service.getPorCerrarse();
-    if (!paquetes || paquetes.length === 0)
-      throw new CustomError('No hay paquetes por cerrarse', 404);
-
-    res.status(200).json(paquetes);
+    res.status(200).json(paquetes || []);
   });
 
   async getByLocation(req: Request, res: Response, next: NextFunction) {
@@ -108,5 +104,27 @@ export class PaquetePublicadoController {
     if (!paquetes) throw new CustomError('No se pudieron obtener paquetes relacionados', 500);
 
     res.status(200).json(paquetes);
+  });
+
+  exportarFabrica = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
+
+    const buffer = await this.service.exportarFabrica(Number(id));
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="plantilla_fabrica_${id}.xlsx"`);
+    res.send(buffer);
+  });
+
+  exportarLogistica = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
+
+    const buffer = await this.service.exportarLogistica(Number(id));
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="plantilla_logistica_${id}.xlsx"`);
+    res.send(buffer);
   });
 }
