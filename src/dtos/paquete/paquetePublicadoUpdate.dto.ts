@@ -20,4 +20,20 @@ export class PaquetePublicadoUpdateDTO {
   @IsOptional()
   @IsDateString({}, { message: 'La fecha final debe ser una fecha válida (YYYY-MM-DD)' })
   fecha_fin?: Date;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'El ID del paquete base debe ser un numero' })
+  paqueteBaseId?: number;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'El ID de la zona debe ser un numero' })
+  zonaId?: number;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'La fecha de inicio debe ser una fecha válida (YYYY-MM-DD)' })
+  fecha_inicio?: Date;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'La cantidad de productos debe ser un numero' })
+  cant_productos?: number;
 }

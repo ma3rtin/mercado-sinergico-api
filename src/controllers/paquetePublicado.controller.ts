@@ -62,40 +62,34 @@ export class PaquetePublicadoController {
     res.status(200).json(paquetes || []);
   });
 
-  async getByLocation(req: Request, res: Response, next: NextFunction) {
-    try {
-      // 1. Intentar obtener ID de usuario autenticado (si middleware lo inyectó)
-      const userId = req.user?.id;
+  getByLocation = asyncHandler(async (req: Request, res: Response) => {
+    // 1. Intentar obtener ID de usuario autenticado (si middleware lo inyectó)
+    const userId = req.user?.id;
 
-      // 2. Intentar obtener ID de localidad de los query params
-      const localidadIdQuery = req.query.localidadId;
-      const localidadId = localidadIdQuery ? Number(localidadIdQuery) : undefined;
+    // 2. Intentar obtener ID de localidad de los query params
+    const localidadIdQuery = req.query.localidadId;
+    const localidadId = localidadIdQuery ? Number(localidadIdQuery) : undefined;
 
-      if (!userId && !localidadId) {
-        // Opción: Retornar error o lista vacía. Retornamos error para forzar selección.
-        return res.status(400).json({ message: 'Se requiere iniciar sesión o seleccionar una localidad.' });
-      }
-
-      const paquetes = await this.service.getByLocation(userId, localidadId);
-      res.status(200).json(paquetes);
-    } catch (error) {
-      next(error);
+    if (!userId && !localidadId) {
+      // Opción: Retornar error o lista vacía. Retornamos error para forzar selección.
+      res.status(400).json({ message: 'Se requiere iniciar sesión o seleccionar una localidad.' });
+      return;
     }
-  }
 
-  async getByProductId(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { id } = req.params;
-      if (!id) {
-        return res.status(400).json({ message: 'ID de producto no proporcionado' });
-      }
+    const paquetes = await this.service.getByLocation(userId, localidadId);
+    res.status(200).json(paquetes);
+  });
 
-      const paquetes = await this.service.getByProductId(Number(id));
-      res.status(200).json(paquetes);
-    } catch (error) {
-      next(error);
+  getByProductId = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) {
+      res.status(400).json({ message: 'ID de producto no proporcionado' });
+      return;
     }
-  }
+
+    const paquetes = await this.service.getByProductId(Number(id));
+    res.status(200).json(paquetes);
+  });
 
   getRelacionados = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
@@ -136,6 +130,21 @@ export class PaquetePublicadoController {
     if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
 
     const result = await this.service.confirmarCompraFabricante(Number(id));
+    res.status(200).json(result);
+  });
+
+  cerrar = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
+
+    const result = await this.service.cerrarManual(Number(id));
+    res.status(200).json(result);
+  });
+  notificar = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
+
+    const result = await this.service.notificarCompradores(Number(id));
     res.status(200).json(result);
   });
 }

@@ -219,8 +219,12 @@ export class PaquetePublicadoService {
       return await tx.paquetePublicado.update({
         where: { id_paquete_publicado: id },
         data: {
+          ...(dto.fecha_inicio && { fecha_inicio: new Date(dto.fecha_inicio) }),
           ...(dto.fecha_fin && { fecha_fin: new Date(dto.fecha_fin) }),
-          ...(dto.estadoId && { estado: { connect: { id_estado: dto.estadoId } } }),
+          ...(dto.cant_productos && { cant_productos: Number(dto.cant_productos) }),
+          ...(dto.zonaId && { zona: { connect: { id_zona: Number(dto.zonaId) } } }),
+          ...(dto.paqueteBaseId && { paqueteBase: { connect: { id_paquete_base: Number(dto.paqueteBaseId) } } }),
+          ...(dto.estadoId && { estado: { connect: { id_estado: Number(dto.estadoId) } } }),
           ...(dto.estadoNombre && { estado: { connect: { nombre: dto.estadoNombre } } }),
         },
       });
@@ -282,18 +286,124 @@ export class PaquetePublicadoService {
   }
 
   async completar(id: number) {
-    const estadoCerrado = await this.prisma.estadoPaquetePublicado.findUnique({
-      where: { nombre: 'Cerrado' },
+    const estadoFinalizado = await this.prisma.estadoPaquetePublicado.findUnique({
+      where: { nombre: 'Finalizado' },
     });
 
-    if (!estadoCerrado) throw new CustomError('Estado "Cerrado" no encontrado', 500);
+    if (!estadoFinalizado) throw new CustomError('Estado "Finalizado" no encontrado', 500);
 
-    return await this.prisma.paquetePublicado.update({
+    const result = await this.prisma.paquetePublicado.update({
       where: { id_paquete_publicado: id },
       data: {
-        estado: { connect: { id_estado: estadoCerrado.id_estado } },
+        estado: { connect: { id_estado: estadoFinalizado.id_estado } },
+      },
+      include: {
+        paqueteBase: { include: { marca: true, categoria: true } },
+        zona: true,
+        estado: true,
+        pedidos: true,
       },
     });
+
+    // 1. Ya tenemos el paquete con nombre en result
+    const paquete = result;
+
+    if (!paquete) throw new CustomError('Paquete no encontrado', 404);
+
+    // 2. Obtener compradores
+    const pedidosAprobados = await this.prisma.pedido.findMany({
+      where: {
+        paquetePublicadoId: id,
+        estadoId: 3, // Asumiendo que 3 = Aprobado
+      },
+      include: {
+        usuario: true,
+      },
+    });
+
+    const correosCompradores = [...new Set(pedidosAprobados.map((p) => p.usuario.email))];
+
+    // 3. Enviar correo a compradores
+    if (correosCompradores.length > 0) {
+      this.emailService.enviarEmail({
+        para: correosCompradores,
+        asunto: `🎉 ¡Paquete Completado! - ${paquete.paqueteBase?.nombre}`,
+        template: 'comprador-paquete-completado',
+        context: { nombrePaquete: paquete.paqueteBase?.nombre },
+      });
+    }
+
+    // 4. Enviar correo al admin
+    // Por simplicidad del ejemplo enviamos al mail maestro configurado en ENVS
+    this.emailService.enviarEmail({
+      para: process.env.MAILER_EMAIL || 'admin@mercadosinergico.com',
+      asunto: `🚨 Acción Requerida: Paquete Completado - ${paquete.paqueteBase?.nombre}`,
+      template: 'admin-paquete-completado',
+      context: {
+        nombrePaquete: paquete.paqueteBase?.nombre,
+        paqueteId: paquete.id_paquete_publicado
+      },
+    });
+
+    return result;
+  }
+
+  async cerrarManual(id: number) {
+    try {
+      const estadoEnPreparacion = await this.prisma.estadoPaquetePublicado.findUnique({
+        where: { nombre: 'En Preparación' },
+      });
+
+      if (!estadoEnPreparacion) {
+        throw new CustomError('Estado "En Preparación" no encontrado en la base de datos (solicita al admin agregarlo)', 500);
+      }
+
+      // 1. Obtener paquete y su capacidad
+      const paquete = await this.prisma.paquetePublicado.findUnique({
+        where: { id_paquete_publicado: id },
+        include: { paqueteBase: true },
+      });
+
+      if (!paquete) throw new CustomError('Paquete no encontrado', 404);
+
+      const result = await this.prisma.paquetePublicado.update({
+        where: { id_paquete_publicado: id },
+        data: {
+          estado: { connect: { id_estado: estadoEnPreparacion.id_estado } },
+        },
+        include: {
+          paqueteBase: { include: { marca: true, categoria: true } },
+          zona: true,
+          estado: true,
+          pedidos: true,
+        },
+      });
+
+      const faltantes = (paquete.cant_productos || 0) - (paquete.cant_usuarios_registrados || 0);
+
+      // 2. Obtener compradores
+      const pedidosActivos = await this.prisma.pedido.findMany({
+        where: { paquetePublicadoId: id, estadoId: { in: [1, 2, 3] } }, // Pagados o aprobados
+        include: { usuario: true },
+      });
+      const correos = [...new Set(pedidosActivos.map((p) => p.usuario.email))];
+
+      // 3. Enviar correo (Solo si hay compradores y el nombre de paquete existe)
+      if (correos.length > 0 && paquete.paqueteBase?.nombre) {
+        this.emailService.enviarEmail({
+          para: correos,
+          asunto: `📦 Preparación Anticipada - ${paquete.paqueteBase.nombre}`,
+          template: 'comprador-paquete-cerrado-anticipado',
+          context: { nombrePaquete: paquete.paqueteBase.nombre },
+        });
+      }
+
+      return { result, faltantes };
+    } catch (error: any) {
+      console.error('Error al cerrar manual:', error);
+      if (error instanceof CustomError) throw error;
+      throw new CustomError('Error interno al cerrar manualmente el paquete. ' + error.message, 500);
+    }
   }
 
   async cancelarYReembolsar(id: number) {
@@ -301,7 +411,7 @@ export class PaquetePublicadoService {
       // 1. Obtener paquete
       const paquete = await tx.paquetePublicado.findUnique({
         where: { id_paquete_publicado: id },
-        include: { pedidos: true },
+        include: { pedidos: true, paqueteBase: true },
       });
 
       if (!paquete) throw new CustomError('Paquete no encontrado', 404);
@@ -319,25 +429,57 @@ export class PaquetePublicadoService {
       });
 
       // 3. Obtener estado Cancelado/Reembolsado para Pedidos
-      const estadoPedido = await tx.estadoPedido.findUnique({
-        where: { nombre: 'Cancelado' }, // o equivalente
+      const estadoPedido = await tx.estadoPedido.findFirst({
+        where: { nombre: 'Reembolsando' },
       });
 
+      // Asegurarse de que exista el estado
+      if (!estadoPedido) {
+        throw new CustomError('Estado de pedido "Reembolsando" no encontrado en la base de datos (solicita al admin agregarlo)', 500);
+      }
+
       if (estadoPedido) {
-        // Marcamos los pedidos como cancelados
+        // Marcamos los pedidos como reembolsando
+        // ANTES del updateMany de pedidos
+        const pedidosAfectados = await tx.pedido.findMany({
+          where: { paquetePublicadoId: id, estadoId: { in: [1, 2, 3] } },
+          include: { usuario: true },
+        });
+        const correosCompradores = [...new Set(pedidosAfectados.map(p => p.usuario.email))];
+
+        // DESPUÉS hacés el updateMany
         await tx.pedido.updateMany({
           where: { paquetePublicadoId: id },
           data: { estadoId: estadoPedido.id_estado },
         });
+
+        if (correosCompradores.length > 0) {
+          this.emailService.enviarEmail({
+            para: correosCompradores,
+            asunto: `🚫 Paquete Cancelado - ${paquete.paqueteBase?.nombre}`,
+            template: 'comprador-paquete-cancelado',
+            context: { nombrePaquete: paquete.paqueteBase?.nombre },
+          });
+        }
+
+        // TODO: Aquí llamarías a mercadoPagoService.refund() si guardaras el payment_id en cada pedido
+        // Ejemplo:
+        // for (const pedido of paquete.pedidos) {
+        //   if (pedido.paymentId) await mercadoPagoService.obtenerPago(pedido.paymentId... refund);
+        // }
+
+        const paqueteCompleto = await tx.paquetePublicado.findUnique({
+          where: { id_paquete_publicado: id },
+          include: {
+            paqueteBase: { include: { marca: true, categoria: true } },
+            zona: true,
+            estado: true,
+            pedidos: true,
+          },
+        });
+
+        return paqueteCompleto;
       }
-
-      // TODO: Aquí llamarías a mercadoPagoService.refund() si guardaras el payment_id en cada pedido
-      // Ejemplo:
-      // for (const pedido of paquete.pedidos) {
-      //   if (pedido.paymentId) await mercadoPagoService.obtenerPago(pedido.paymentId... refund);
-      // }
-
-      return { mensaje: 'Publicación cancelada y pedidos listos para reembolso (simulado)', paqueteId: id };
     });
   }
 
@@ -495,5 +637,33 @@ export class PaquetePublicadoService {
     }
 
     return { message: 'Compra confirmada y usuarios notificados.' };
+  }
+  async notificarCompradores(id: number) {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: { paqueteBase: true },
+    });
+
+    if (!paquete) throw new CustomError('Paquete no encontrado', 404);
+
+    const pedidosActivos = await this.prisma.pedido.findMany({
+      where: { paquetePublicadoId: id, estadoId: { in: [1, 2, 3] } },
+      include: { usuario: true },
+    });
+
+    const correos = [...new Set(pedidosActivos.map(p => p.usuario.email))];
+
+    if (correos.length === 0) {
+      return { mensaje: 'No hay compradores activos para notificar.', notificados: 0 };
+    }
+
+    await this.emailService.enviarEmail({
+      para: correos,
+      asunto: `⏰ Recordatorio de cierre - ${paquete.paqueteBase?.nombre}`,
+      template: 'comprador-aviso-cierre',
+      context: { nombrePaquete: paquete.paqueteBase?.nombre },
+    });
+
+    return { mensaje: 'Notificación enviada correctamente.', notificados: correos.length };
   }
 }

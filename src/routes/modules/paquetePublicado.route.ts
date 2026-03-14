@@ -28,3 +28,5 @@ paquetePublicadoRouter.delete('/:id', controller.delete.bind(controller));
 paquetePublicadoRouter.post('/:id/duplicar', controller.duplicar.bind(controller));
 paquetePublicadoRouter.post('/:id/completar', controller.completar.bind(controller));
 paquetePublicadoRouter.post('/:id/cancelar', controller.cancelar.bind(controller));
+paquetePublicadoRouter.post('/:id/cerrar', controller.cerrar.bind(controller));
+paquetePublicadoRouter.post('/:id/notificar', controller.notificar.bind(controller));

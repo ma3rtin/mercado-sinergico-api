@@ -1325,3 +1325,10 @@ INSERT INTO PaquetePublicado
 (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt)
 VALUES
 (8, 1, 2, NOW(), DATE_ADD(NOW(), INTERVAL 3 DAY), 15, 350.00, 'https://fotos.perfil.com/2022/05/17/trim/950/534/sony-20220517-1358047.jpg', 'SINERGICO', 10.0, NOW(), NOW());
+
+-- Estados faltantes en EstadoPaquetePublicado
+INSERT INTO EstadoPaquetePublicado (nombre) VALUES ('En Preparación');
+INSERT INTO EstadoPaquetePublicado (nombre) VALUES ('Finalizado');
+
+-- Estado faltante en EstadoPedido
+INSERT INTO EstadoPedido (nombre) VALUES ('Reembolsando');
