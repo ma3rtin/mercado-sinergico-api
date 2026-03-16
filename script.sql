@@ -51,8 +51,7 @@ INSERT INTO EstadoPaquetePublicado (nombre) VALUES
 --     5=Entregado, 6=Cancelado, 7=Reembolsando
 INSERT INTO EstadoPedido (nombre) VALUES
 ('Pendiente'),
-('Confirmado'),
-('Pagado'),
+('En Preparación'),
 ('Enviado'),
 ('Entregado'),
 ('Cancelado'),

@@ -68,6 +68,7 @@ export class PedidoService {
       where: {
         usuarioId,
         paquetePublicadoId: paqueteId,
+        estadoId: 1,
       },
       select: { id_pedido: true },
     });
@@ -200,7 +201,7 @@ export class PedidoService {
       where: {
         pedidoId: pedido.id_pedido,
         productoId: producto.id_producto,
-        varianteId: varianteId,
+        varianteId: varianteId ?? null,
       },
     });
 
@@ -370,6 +371,7 @@ public async obtenerPedidosUsuario(usuarioId: number) {
               marca: true,
               categoria: true,
             },
+            zona: true,
           },
           zona: true,
           pedidos: {
@@ -379,16 +381,16 @@ public async obtenerPedidosUsuario(usuarioId: number) {
             }
           }
         },
-      },
-      detalles: {
-        include: {
-          producto: true,
-          variante: {
-            include: {
-              opciones: {
-                include: {
-                  caracteristica: true,
-                  opcion: true,
+        detalles: {
+          include: {
+            producto: true,
+            variante: {
+              include: {
+                opciones: {
+                  include: {
+                    caracteristica: true,
+                    opcion: true,
+                  },
                 },
               },
             },
@@ -445,14 +447,14 @@ public async obtenerPedidosUsuario(usuarioId: number) {
         },
       },
     });
-  
+
     if (!pedido) {
       throw new CustomError('Pedido no encontrado', 404);
     }
   
     return this._mapComputedFields(pedido);
   }
-  
+
   public async bajarseDePaquete(usuarioId: number, paqueteId: number) {
     const pedido = await this.prisma.pedido.findFirst({
       where: {
@@ -460,19 +462,19 @@ public async obtenerPedidosUsuario(usuarioId: number) {
         paquetePublicadoId: paqueteId
       },
     });
-  
+
     if (!pedido) {
       throw new CustomError('No hay un pedido activo en este paquete', 404);
     }
 
-    if(pedido.estadoId != 1){
+    if (pedido.estadoId != 1) {
       throw new CustomError('El pedido tiene que estar pendiente para poder bajarse');
     }
-  
+
     await this.prisma.pedido.delete({
       where: { id_pedido: pedido.id_pedido },
     });
-  
+
     return { ok: true };
   }
 }
