@@ -8,8 +8,33 @@ export class PaquetePublicadoService {
   private prisma = prisma;
   private emailService = new EmailService();
 
+  private _mapComputedFields(paquete: any) {
+    if (!paquete) return paquete;
+    const pedidosActivos = (paquete.pedidos || []).filter((p: any) => [1, 2, 3].includes(p.estadoId));
+    
+    const usuariosIds = new Set(pedidosActivos.map((p: any) => p.usuario?.id || p.usuarioId));
+    
+    let reservados = 0;
+    pedidosActivos.forEach((ped: any) => {
+      const arr = ped.detalles || ped.pedidoProductos || [];
+      reservados += arr.reduce((sum: number, det: any) => sum + (det.cantidad || 0), 0);
+    });
+
+    let recaudacion = 0;
+    pedidosActivos.forEach((ped: any) => {
+      recaudacion += Number(ped.monto_total || 0);
+    });
+
+    return {
+      ...paquete,
+      cant_usuarios_registrados: usuariosIds.size > 0 ? usuariosIds.size : paquete.cant_usuarios_registrados,
+      cant_productos_reservados: reservados > 0 ? reservados : paquete.cant_productos_reservados,
+      monto_total: recaudacion > 0 ? recaudacion : paquete.monto_total
+    };
+  }
+
   async getAll() {
-    return await this.prisma.paquetePublicado.findMany({
+    const paquetes = await this.prisma.paquetePublicado.findMany({
       include: {
         paqueteBase: {
           include: {
@@ -19,9 +44,15 @@ export class PaquetePublicadoService {
         },
         zona: true,
         estado: true,
-        pedidos: true,
+        pedidos: {
+          include: {
+            usuario: { select: { id: true, nombre: true, email: true } },
+            detalles: true
+          },
+        },
       },
     });
+    return paquetes.map((p: any) => this._mapComputedFields(p));
   }
 
   async getById(id: number) {
@@ -45,15 +76,41 @@ export class PaquetePublicadoService {
         },
         zona: true,
         estado: true,
-        pedidos: true,
+        pedidos: {
+          include: {
+            usuario: { select: { id: true, nombre: true, email: true } },
+            detalles: {
+              include: {
+                producto: {
+                  include: {
+                    imagenes: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
     if (paquete) {
-      return {
-        ...paquete,
+      // Mapear detalles a pedidoProductos para compatibilidad con el frontend
+      const { pedidos, ...rest } = paquete;
+      const mappedPedidos = pedidos.map((p: any) => {
+        const { detalles, ...pRest } = p;
+        return {
+          ...pRest,
+          pedidoProductos: detalles
+        };
+      });
+
+      const paqueteMapeado = {
+        ...rest,
+        pedidos: mappedPedidos,
         descuento: 10, // Descuento fijo del 10%
       };
+      
+      return this._mapComputedFields(paqueteMapeado);
     }
     return null;
   }
@@ -234,7 +291,13 @@ export class PaquetePublicadoService {
   async delete(id: number) {
     const paquete = await this.prisma.paquetePublicado.findUnique({
       where: { id_paquete_publicado: id },
-      include: { pedidos: true },
+      include: {
+        pedidos: {
+          include: {
+            usuario: { select: { id: true, nombre: true, email: true } },
+          },
+        },
+      },
     });
 
     if (!paquete) throw new CustomError('No encontrado', 404);
@@ -301,7 +364,11 @@ export class PaquetePublicadoService {
         paqueteBase: { include: { marca: true, categoria: true } },
         zona: true,
         estado: true,
-        pedidos: true,
+        pedidos: {
+          include: {
+            usuario: { select: { id: true, nombre: true, email: true } },
+          },
+        },
       },
     });
 
@@ -375,7 +442,11 @@ export class PaquetePublicadoService {
           paqueteBase: { include: { marca: true, categoria: true } },
           zona: true,
           estado: true,
-          pedidos: true,
+          pedidos: {
+            include: {
+              usuario: { select: { id: true, nombre: true, email: true } },
+            },
+          },
         },
       });
 
@@ -411,7 +482,14 @@ export class PaquetePublicadoService {
       // 1. Obtener paquete
       const paquete = await tx.paquetePublicado.findUnique({
         where: { id_paquete_publicado: id },
-        include: { pedidos: true, paqueteBase: true },
+        include: {
+          pedidos: {
+            include: {
+              usuario: { select: { id: true, nombre: true, email: true } },
+            },
+          },
+          paqueteBase: true,
+        },
       });
 
       if (!paquete) throw new CustomError('Paquete no encontrado', 404);
@@ -474,7 +552,11 @@ export class PaquetePublicadoService {
             paqueteBase: { include: { marca: true, categoria: true } },
             zona: true,
             estado: true,
-            pedidos: true,
+            pedidos: {
+              include: {
+                usuario: { select: { id: true, nombre: true, email: true } },
+              },
+            },
           },
         });
 
@@ -516,13 +598,18 @@ export class PaquetePublicadoService {
         estado: {
           select: { nombre: true, id_estado: true },
         },
-        pedidos: true,
+        pedidos: {
+          include: {
+            usuario: { select: { id: true, nombre: true, email: true } },
+            detalles: true
+          },
+        },
       },
       orderBy: { fecha_fin: 'asc' },
     });
 
     console.log(`✅ ${paquetes.length} paquetes encontrados`);
-    return paquetes;
+    return paquetes.map((p: any) => this._mapComputedFields(p));
   }
 
   async getRelacionados(id: number) {
@@ -554,7 +641,11 @@ export class PaquetePublicadoService {
         },
         zona: true,
         estado: true,
-        pedidos: true,
+        pedidos: {
+          include: {
+            usuario: { select: { id: true, nombre: true, email: true } },
+          },
+        },
       },
     });
 
