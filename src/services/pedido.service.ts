@@ -2,7 +2,7 @@ import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { CrearPedidoDTO } from '../dtos/pedido/crearPedido.dto.js';
 
-export type DetalleComputable = { cantidad?: number; [key: string]: unknown };
+export type DetalleComputable = { cantidad?: number;[key: string]: unknown };
 
 export type PedidoComputable = {
   estadoId?: number;
@@ -32,12 +32,12 @@ export class PedidoService {
 
   private _mapComputedFields<T extends PedidoConPaquete>(pedido: T) {
     if (!pedido || !pedido.paquetePublicado) return pedido;
-    
+
     const paquete = pedido.paquetePublicado;
     const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && [1, 2, 3].includes(p.estadoId));
-    
+
     const usuariosIds = new Set(pedidosActivos.map((p) => p.usuario?.id || p.usuarioId));
-    
+
     let reservados = 0;
     pedidosActivos.forEach((ped) => {
       const arr = ped.detalles || ped.pedidoProductos || [];
@@ -383,29 +383,12 @@ export class PedidoService {
     return { ok: true };
   }
 
-public async obtenerPedidosUsuario(usuarioId: number) {
-  const pedidos = await this.prisma.pedido.findMany({
-    where: { usuarioId },
-    include: {
-      usuario: { select: { id: true, nombre: true, email: true } },
-      estado: true,
-      paquetePublicado: {
-        include: {
-          paqueteBase: {
-            include: {
-              marca: true,
-              categoria: true,
-            },
-            zona: true,
-          },
-          zona: true,
-          pedidos: {
-            include: {
-              usuario: { select: { id: true } },
-              detalles: true
-            }
-          }
-        },
+  public async obtenerPedidosUsuario(usuarioId: number) {
+    const pedidos = await this.prisma.pedido.findMany({
+      where: { usuarioId },
+      include: {
+        usuario: { select: { id: true, nombre: true, email: true } },
+        estado: true,
         detalles: {
           include: {
             producto: true,
@@ -421,14 +404,29 @@ public async obtenerPedidosUsuario(usuarioId: number) {
             },
           },
         },
+        paquetePublicado: {
+          include: {
+            paqueteBase: {
+              include: {
+                marca: true,
+                categoria: true,
+              },
+            },
+            zona: true,
+            pedidos: {
+              include: {
+                usuario: { select: { id: true } },
+                detalles: true,
+              },
+            },
+          },
+        },
       },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+      orderBy: { createdAt: 'desc' },
+    });
 
-  return pedidos.map((p) => this._mapComputedFields(p as PedidoConPaquete));
-}
-  
+    return pedidos.map((p) => this._mapComputedFields(p as PedidoConPaquete));
+  }
   public async obtenerPedidoPorId(usuarioId: number, pedidoId: number) {
     const pedido = await this.prisma.pedido.findFirst({
       where: {
@@ -476,7 +474,7 @@ public async obtenerPedidosUsuario(usuarioId: number) {
     if (!pedido) {
       throw new CustomError('Pedido no encontrado', 404);
     }
-  
+
     return this._mapComputedFields(pedido as PedidoConPaquete);
   }
 

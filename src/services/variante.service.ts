@@ -60,7 +60,7 @@ export class VarianteService {
         stockFisico: v.stockFisico,
         precioExtra: v.precioExtra,
         activo: v.activo,
-        imagen_url: (v as any).imagen_url ?? null,
+        imagen_url: (v as { imagen_url?: string | null } & typeof v).imagen_url ?? null,
         opciones: v.opciones.map((vo) => ({
           caracteristica: vo.caracteristica.nombre,
           opcion: vo.opcion.nombre,
