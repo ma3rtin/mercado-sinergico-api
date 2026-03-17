@@ -4,24 +4,44 @@ import { CustomError } from '../errors/custom.error.js';
 import { prisma } from '../prisma/client.js';
 import { EmailService } from './email.service.js';
 
+export type DetalleComputable = { cantidad?: number; [key: string]: unknown };
+
+export type PedidoComputable = {
+  estadoId?: number;
+  usuario?: { id?: number };
+  usuarioId?: number;
+  detalles?: DetalleComputable[];
+  pedidoProductos?: DetalleComputable[];
+  monto_total?: string | number | null;
+  [key: string]: unknown;
+};
+
+export type PaqueteComputable = {
+  pedidos?: PedidoComputable[];
+  cant_usuarios_registrados?: number;
+  cant_productos_reservados?: number;
+  monto_total?: number | string | null;
+  [key: string]: unknown;
+};
+
 export class PaquetePublicadoService {
   private prisma = prisma;
   private emailService = new EmailService();
 
-  private _mapComputedFields(paquete: any) {
+  private _mapComputedFields<T extends PaqueteComputable>(paquete: T) {
     if (!paquete) return paquete;
-    const pedidosActivos = (paquete.pedidos || []).filter((p: any) => [1, 2, 3].includes(p.estadoId));
+    const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && [1, 2, 3].includes(p.estadoId));
     
-    const usuariosIds = new Set(pedidosActivos.map((p: any) => p.usuario?.id || p.usuarioId));
+    const usuariosIds = new Set(pedidosActivos.map((p) => p.usuario?.id || p.usuarioId));
     
     let reservados = 0;
-    pedidosActivos.forEach((ped: any) => {
+    pedidosActivos.forEach((ped) => {
       const arr = ped.detalles || ped.pedidoProductos || [];
-      reservados += arr.reduce((sum: number, det: any) => sum + (det.cantidad || 0), 0);
+      reservados += arr.reduce((sum: number, det) => sum + (det.cantidad || 0), 0);
     });
 
     let recaudacion = 0;
-    pedidosActivos.forEach((ped: any) => {
+    pedidosActivos.forEach((ped) => {
       recaudacion += Number(ped.monto_total || 0);
     });
 
@@ -52,7 +72,7 @@ export class PaquetePublicadoService {
         },
       },
     });
-    return paquetes.map((p: any) => this._mapComputedFields(p));
+    return paquetes.map((p) => this._mapComputedFields(p as PaqueteComputable));
   }
 
   async getById(id: number) {
@@ -96,8 +116,9 @@ export class PaquetePublicadoService {
     if (paquete) {
       // Mapear detalles a pedidoProductos para compatibilidad con el frontend
       const { pedidos, ...rest } = paquete;
-      const mappedPedidos = pedidos.map((p: any) => {
-        const { detalles, ...pRest } = p;
+      const mappedPedidos = pedidos.map((p) => {
+        const pRecord = p as PedidoComputable;
+        const { detalles, ...pRest } = pRecord;
         return {
           ...pRest,
           pedidoProductos: detalles
@@ -110,7 +131,7 @@ export class PaquetePublicadoService {
         descuento: 10, // Descuento fijo del 10%
       };
       
-      return this._mapComputedFields(paqueteMapeado);
+      return this._mapComputedFields(paqueteMapeado as PaqueteComputable);
     }
     return null;
   }
@@ -470,10 +491,11 @@ export class PaquetePublicadoService {
       }
 
       return { result, faltantes };
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error al cerrar manual:', error);
       if (error instanceof CustomError) throw error;
-      throw new CustomError('Error interno al cerrar manualmente el paquete. ' + error.message, 500);
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new CustomError('Error interno al cerrar manualmente el paquete. ' + msg, 500);
     }
   }
 
@@ -609,7 +631,7 @@ export class PaquetePublicadoService {
     });
 
     console.log(`✅ ${paquetes.length} paquetes encontrados`);
-    return paquetes.map((p: any) => this._mapComputedFields(p));
+    return paquetes.map((p) => this._mapComputedFields(p as PaqueteComputable));
   }
 
   async getRelacionados(id: number) {

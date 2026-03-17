@@ -2,25 +2,50 @@ import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { CrearPedidoDTO } from '../dtos/pedido/crearPedido.dto.js';
 
+export type DetalleComputable = { cantidad?: number; [key: string]: unknown };
+
+export type PedidoComputable = {
+  estadoId?: number;
+  usuario?: { id?: number };
+  usuarioId?: number;
+  detalles?: DetalleComputable[];
+  pedidoProductos?: DetalleComputable[];
+  monto_total?: string | number | null;
+  [key: string]: unknown;
+};
+
+export type PaqueteComputable = {
+  pedidos?: PedidoComputable[];
+  cant_usuarios_registrados?: number;
+  cant_productos_reservados?: number;
+  monto_total?: number | string | null;
+  [key: string]: unknown;
+};
+
+export type PedidoConPaquete = {
+  paquetePublicado?: PaqueteComputable;
+  [key: string]: unknown;
+};
+
 export class PedidoService {
   private prisma = prisma;
 
-  private _mapComputedFields(pedido: any) {
+  private _mapComputedFields<T extends PedidoConPaquete>(pedido: T) {
     if (!pedido || !pedido.paquetePublicado) return pedido;
     
     const paquete = pedido.paquetePublicado;
-    const pedidosActivos = (paquete.pedidos || []).filter((p: any) => [1, 2, 3].includes(p.estadoId));
+    const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && [1, 2, 3].includes(p.estadoId));
     
-    const usuariosIds = new Set(pedidosActivos.map((p: any) => p.usuario?.id || p.usuarioId));
+    const usuariosIds = new Set(pedidosActivos.map((p) => p.usuario?.id || p.usuarioId));
     
     let reservados = 0;
-    pedidosActivos.forEach((ped: any) => {
+    pedidosActivos.forEach((ped) => {
       const arr = ped.detalles || ped.pedidoProductos || [];
-      reservados += arr.reduce((sum: number, det: any) => sum + (det.cantidad || 0), 0);
+      reservados += arr.reduce((sum: number, det) => sum + (det.cantidad || 0), 0);
     });
 
     let recaudacion = 0;
-    pedidosActivos.forEach((ped: any) => {
+    pedidosActivos.forEach((ped) => {
       recaudacion += Number(ped.monto_total || 0);
     });
 
@@ -399,7 +424,7 @@ public async obtenerPedidosUsuario(usuarioId: number) {
     orderBy: { createdAt: 'desc' },
   });
 
-  return pedidos.map((p: any) => this._mapComputedFields(p));
+  return pedidos.map((p) => this._mapComputedFields(p as PedidoConPaquete));
 }
   
   public async obtenerPedidoPorId(usuarioId: number, pedidoId: number) {
@@ -450,7 +475,7 @@ public async obtenerPedidosUsuario(usuarioId: number) {
       throw new CustomError('Pedido no encontrado', 404);
     }
   
-    return this._mapComputedFields(pedido);
+    return this._mapComputedFields(pedido as PedidoConPaquete);
   }
   
   public async bajarseDePaquete(usuarioId: number, paqueteId: number) {

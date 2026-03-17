@@ -69,11 +69,11 @@ export class ProductoImportResultDto {
         errores: Array<{
             fila: number;
             mensaje: string;
-            datos: any;
+            datos: Record<string, unknown>;
         }>;
     };
 
-    constructor(success: boolean, message: string, data?: any) {
+    constructor(success: boolean, message: string, data?: ProductoImportResultDto['data']) {
         this.success = success;
         this.message = message;
         this.data = data;

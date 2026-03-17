@@ -76,7 +76,7 @@ despachadorEventosApp.on(
             }
 
         } catch (error) {
-            console.error(`[Event Listener Error] Fallo al procesar PAQUETE_COMPLETADO:`, error);
+            console.error('[Event Listener Error] Fallo al procesar PAQUETE_COMPLETADO:', error);
         }
     }
 );

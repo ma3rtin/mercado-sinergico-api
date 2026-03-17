@@ -24,11 +24,11 @@ export class ProductoExcelController {
             } else {
                 res.status(400).json(resultado);
             }
-        } catch (error: any) {
+        } catch (error) {
             res.status(500).json({
                 success: false,
                 message: 'Error al importar productos',
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
             });
         }
     }
@@ -47,11 +47,11 @@ export class ProductoExcelController {
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
             res.send(buffer);
-        } catch (error: any) {
+        } catch (error) {
             res.status(500).json({
                 success: false,
                 message: 'Error al exportar productos',
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
             });
         }
     }
@@ -67,11 +67,11 @@ export class ProductoExcelController {
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename="plantilla_productos.xlsx"');
             res.send(buffer);
-        } catch (error: any) {
+        } catch (error) {
             res.status(500).json({
                 success: false,
                 message: 'Error al generar plantilla',
-                error: error.message,
+                error: error instanceof Error ? error.message : String(error),
             });
         }
     }

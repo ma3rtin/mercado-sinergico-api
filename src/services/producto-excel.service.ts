@@ -1,7 +1,26 @@
 import * as XLSX from 'xlsx';
-import { ProductoImportDto, ProductoImportResultDto, TipoProducto } from '../dtos/producto-import.dto.js';
+import { ProductoImportResultDto } from '../dtos/producto-import.dto.js';
 import { prisma } from '../prisma/client.js';
-import { Prisma, TipoPaquete } from '@prisma/client';
+import { TipoPaquete } from '@prisma/client';
+
+export interface ExcelRow {
+    id_producto?: string;
+    sku?: string;
+    nombre?: string;
+    descripcion?: string;
+    precio?: string;
+    marca?: string;
+    categoria?: string;
+    plantilla?: string;
+    tipo?: string;
+    imagen_url?: string;
+    altura?: string;
+    ancho?: string;
+    profundidad?: string;
+    peso?: string;
+    stock?: string;
+    [key: string]: unknown;
+}
 
 export class ProductoExcelService {
     /**
@@ -15,13 +34,13 @@ export class ProductoExcelService {
             const worksheet = workbook.Sheets[sheetName];
 
             // Convertir la hoja a JSON
-            const data: any[] = XLSX.utils.sheet_to_json(worksheet);
+            const data: ExcelRow[] = XLSX.utils.sheet_to_json<ExcelRow>(worksheet);
 
             if (data.length === 0) {
                 return new ProductoImportResultDto(false, 'El archivo Excel está vacío');
             }
 
-            const errores: Array<{ fila: number; mensaje: string; datos: any }> = [];
+            const errores: Array<{ fila: number; mensaje: string; datos: ExcelRow }> = [];
             let creados = 0;
             let actualizados = 0;
 
@@ -183,10 +202,11 @@ export class ProductoExcelService {
                         });
                         creados++;
                     }
-                } catch (error: any) {
+                } catch (error) {
+                    const msg = error instanceof Error ? error.message : 'Error desconocido al procesar esta fila';
                     errores.push({
                         fila,
-                        mensaje: error.message || 'Error desconocido al procesar esta fila',
+                        mensaje: msg,
                         datos: row,
                     });
                 }
@@ -203,8 +223,9 @@ export class ProductoExcelService {
                     errores,
                 }
             );
-        } catch (error: any) {
-            return new ProductoImportResultDto(false, `Error al procesar el archivo: ${error.message}`);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            return new ProductoImportResultDto(false, `Error al procesar el archivo: ${msg}`);
         }
     }
 
@@ -277,8 +298,9 @@ export class ProductoExcelService {
             // Convertir a buffer
             const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
             return buffer as Buffer;
-        } catch (error: any) {
-            throw new Error(`Error al exportar productos: ${error.message}`);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            throw new Error(`Error al exportar productos: ${msg}`);
         }
     }
 
@@ -350,8 +372,9 @@ export class ProductoExcelService {
 
             const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
             return buffer as Buffer;
-        } catch (error: any) {
-            throw new Error(`Error al generar plantilla: ${error.message}`);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            throw new Error(`Error al generar plantilla: ${msg}`);
         }
     }
 }

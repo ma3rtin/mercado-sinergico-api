@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { PaquetePublicadoService } from '../services/paquetePublicado.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { CustomError } from '../errors/custom.error.js';
