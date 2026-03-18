@@ -213,7 +213,7 @@ model Producto {
   // Stock solo para productos SIN variantes (plantillaId = null)
   stock Int?
 
-  // Tipo de producto: ENERGETICO (con stock) o SINERGICO (bajo pedido)
+  // Tipo de producto: ENERGICO (con stock) o SINERGICO (bajo pedido)
   tipo TipoPaquete? @default(POR_DEFINIR)
 
   plantillaId  Int?
@@ -250,14 +250,15 @@ model ProductoImagen {
 // ============================================
 
 model PaqueteBase {
-  id_paquete_base Int       @id @default(autoincrement())
+  id_paquete_base Int         @id @default(autoincrement())
   nombre          String
   descripcion     String
   imagen_url      String?
   categoria_id    Int
-  categoria       Categoria @relation(fields: [categoria_id], references: [id_categoria])
+  categoria       Categoria   @relation(fields: [categoria_id], references: [id_categoria])
   marcaId         Int?
-  marca           Marca?    @relation(fields: [marcaId], references: [id_marca])
+  marca           Marca?      @relation(fields: [marcaId], references: [id_marca])
+  tipo            TipoPaquete @default(SINERGICO)
 
   productos  PaqueteBaseProducto[]
   publicados PaquetePublicado[]
@@ -278,7 +279,7 @@ model PaqueteBaseProducto {
 
 enum TipoPaquete {
   SINERGICO
-  ENERGETICO
+  ENERGICO
   POR_DEFINIR
 }
 

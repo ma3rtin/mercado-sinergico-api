@@ -8,7 +8,7 @@ import { procesarSubidaImagen } from '../../middlewares/uploadFiles.middleware.j
 import { ImagenService } from '../../services/imagen.service.js';
 import { GenerarVariantesDTO } from '../../dtos/variante/generarVariantes.dto.js';
 import { ActualizarStockVariantesDTO } from '../../dtos/variante/actualizarStockVariantes.dto.js';
-import { VarianteDTO } from '../../dtos/variante/variante.dto.js';
+import { ActualizarVarianteBulkDTO } from '../../dtos/variante/actualizarVarianteBulk.dto.js';
 import { ActualizarVarianteDTO } from '../../dtos/variante/actualizarVariante.dto.js';
 import { VarianteController } from '../../controllers/variante.controller.js';
 
@@ -78,6 +78,12 @@ router.patch(
   '/:id/variantes/stock',
   validarDto(ActualizarStockVariantesDTO),
   varianteController.actualizarStockBulk.bind(varianteController)
+);
+
+router.patch(
+  '/:id/variantes/bulk',
+  validarDto(ActualizarVarianteBulkDTO),
+  varianteController.actualizarVarianteBulk.bind(varianteController)
 );
 
 router.get(

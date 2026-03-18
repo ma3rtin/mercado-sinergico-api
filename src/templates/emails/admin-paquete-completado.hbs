@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acción Requerida - Paquete Completado</title>
+</head>
+
+<body style="margin:0; padding:0; background-color:#f9fafb; font-family:'Segoe UI', Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0"
+          style="max-width:600px; width:100%; background-color:#ffffff; border-radius:12px; overflow:hidden; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+
+          <!-- Decorative Top Bar -->
+          <tr>
+            <td style="background-color: #2E608C; height: 6px;"></td>
+          </tr>
+
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 32px 20px 32px; text-align:center;">
+              <p
+                style="margin:0 0 12px 0; font-size:12px; color:#6b7280; letter-spacing:1.5px; text-transform:uppercase; font-weight:700;">
+                Mercado Sinérgico • Administración
+              </p>
+              <h1 style="margin:0; color:#111827; font-size:24px; font-weight:800; line-height:1.2;">
+                🚨 Acción Requerida 🚨
+              </h1>
+              <p style="margin:8px 0 0 0; color:#4b5563; font-size:16px;">El grupo de compra ha alcanzado el objetivo.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding: 20px 40px 40px 40px;">
+
+              <p style="margin:0 0 20px 0; color:#374151; font-size:16px; line-height:1.5;">
+                Hola, <strong>Administrador</strong>:
+              </p>
+
+              <p style="margin:0 0 24px 0; color:#374151; font-size:15px; line-height:1.6;">
+                Te informamos que el paquete <strong style="color:#2E608C;">{{nombrePaquete}}</strong>
+                {{#if paqueteId}}(ID: <strong>#{{paqueteId}}</strong>){{/if}}
+                ha completado el <strong>100% de sus reservas</strong>.
+              </p>
+
+              <!-- Instructions Card -->
+              <table width="100%" cellpadding="0" cellspacing="0"
+                style="background-color:#f8fafc; border-radius:8px; border: 1px solid #e2e8f0; margin-bottom: 32px;">
+                <tr>
+                  <td style="padding:24px;">
+                    <h3
+                      style="margin:0 0 16px 0; color:#1e293b; font-size:14px; font-weight:700; text-transform:uppercase;">
+                      Pasos a seguir:
+                    </h3>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding-bottom:12px; color:#475569; font-size:14px; line-height:1.5;">
+                          <span style="color:#2E608C; font-weight:700; margin-right:8px;">1.</span>
+                          Contactar al proveedor para asegurar precio y disponibilidad.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-bottom:12px; color:#475569; font-size:14px; line-height:1.5;">
+                          <span style="color:#2E608C; font-weight:700; margin-right:8px;">2.</span>
+                          Ingresar al panel de control desde el botón inferior.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:0; color:#475569; font-size:14px; line-height:1.5;">
+                          <span style="color:#2E608C; font-weight:700; margin-right:8px;">3.</span>
+                          Hacer clic en <strong>"Confirmar y Notificar"</strong> para cerrar la etapa.
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Button -->
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center">
+                    <a href="{{adminUrl}}"
+                      style="display:inline-block; background-color:#FFD562; color:#000000; font-weight:700; font-size:15px; text-decoration:none; padding:16px 32px; border-radius:8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                      Gestionar Publicación →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#f9fafb; border-top:1px solid #e5e7eb; padding:32px 40px; text-align:center;">
+              <p style="margin:0 0 8px 0; color:#111827; font-weight:700; font-size:14px;">Mercado Sinérgico</p>
+              <p style="margin:0; color:#9ca3af; font-size:12px; line-height:1.5;">
+                Este es un mensaje automático enviado a la red de administradores.<br>
+                Por seguridad, no compartas el enlace de gestión con terceros.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+
+</html>

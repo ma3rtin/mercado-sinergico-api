@@ -10,7 +10,7 @@ export class PaqueteController {
   constructor(
     private paqueteService: PaqueteBaseService,
     private imagenService: ImagenService
-  ) {}
+  ) { }
 
   public getAll = asyncHandler(async (_req: Request, res: Response) => {
     const paquetes = await this.paqueteService.getAll();
@@ -29,7 +29,7 @@ export class PaqueteController {
     res.status(200).json(paquete);
   });
 
-  public create = asyncHandler(async (req: Request, res : Response) => {
+  public create = asyncHandler(async (req: Request, res: Response) => {
     const body = req.body;
 
     if (!body) {
@@ -126,7 +126,7 @@ export class PaqueteController {
     res.status(200).json(paquete);
   });
 
-    public getProductosByPaquete = asyncHandler(async (req: Request, res: Response) => {
+  public getProductosByPaquete = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
 
     if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
@@ -134,5 +134,15 @@ export class PaqueteController {
     const productos = await this.paqueteService.getProductosByPaquete(Number(id));
 
     res.status(200).json(productos);
+  });
+
+  public duplicar = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
+
+    const paqueteDuplicado = await this.paqueteService.duplicar(Number(id));
+
+    res.status(201).json(paqueteDuplicado);
   });
 }

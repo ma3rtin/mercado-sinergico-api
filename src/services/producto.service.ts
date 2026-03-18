@@ -87,7 +87,7 @@ export class ProductoService {
       );
     }
 
-    if (!plantillaId && tipo === TipoProducto.ENERGETICO && !rest.stock) {
+    if (!plantillaId && tipo === TipoProducto.ENERGICO && !rest.stock) {
       throw new CustomError(
         'Los productos energéticos sin variantes deben tener stock definido.',
         400
@@ -337,11 +337,11 @@ export class ProductoService {
       const sku = `${producto.nombre
         .substring(0, 10)
         .toUpperCase()}-${opcionesNombres
-        .map((o) => o?.nombre.substring(0, 4).toUpperCase())
-        .join('-')}`;
+          .map((o) => o?.nombre.substring(0, 4).toUpperCase())
+          .join('-')}`;
 
       let stockInicial: number | null;
-      if (tipo === TipoProducto.ENERGETICO) {
+      if (tipo === TipoProducto.ENERGICO) {
         stockInicial = 0;
       } else {
         stockInicial = null;

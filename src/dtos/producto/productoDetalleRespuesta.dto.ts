@@ -12,9 +12,11 @@ interface VarianteProductoData {
   precioExtra: number | null;
   activo: boolean;
   opciones: Array<{
+    caracteristicaId: number;
     caracteristica: {
       nombre: string;
     };
+    opcionId: number;
     opcion: {
       nombre: string;
     };

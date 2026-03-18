@@ -22,8 +22,13 @@ paquetePublicadoRouter.get('/zona', (req, res, next) => {
 paquetePublicadoRouter.get('/producto/:id', controller.getByProductId.bind(controller));
 paquetePublicadoRouter.get('/', controller.getAll.bind(controller));
 paquetePublicadoRouter.get('/:id', controller.getById.bind(controller));
-paquetePublicadoRouter.post('/', controller.create.bind(controller));
+paquetePublicadoRouter.post('/:id/confirmar', controller.confirmarCompraFabricante.bind(controller));
 paquetePublicadoRouter.put('/:id', controller.update.bind(controller));
 paquetePublicadoRouter.delete('/:id', controller.delete.bind(controller));
 paquetePublicadoRouter.get('/:id/exportar-fabrica', controller.exportarFabrica.bind(controller));
 paquetePublicadoRouter.get('/:id/exportar-logistica', controller.exportarLogistica.bind(controller));
+paquetePublicadoRouter.post('/:id/duplicar', controller.duplicar.bind(controller));
+paquetePublicadoRouter.post('/:id/completar', controller.completar.bind(controller));
+paquetePublicadoRouter.post('/:id/cancelar', controller.cancelar.bind(controller));
+paquetePublicadoRouter.post('/:id/cerrar', controller.cerrar.bind(controller));
+paquetePublicadoRouter.post('/:id/notificar', controller.notificar.bind(controller));

@@ -19,3 +19,4 @@ paqueteBaseRouter.put('/:id', validarDto(PaqueteBaseDTO), controller.update.bind
 paqueteBaseRouter.delete('/:id', controller.delete.bind(controller));
 paqueteBaseRouter.post('/agregar-productos', validarDto(AgregarProductoPaqueteDTO), controller.agregarProductos.bind(controller));
 paqueteBaseRouter.get('/:id/productos', controller.getProductosByPaquete.bind(controller));
+paqueteBaseRouter.post('/:id/duplicar', controller.duplicar.bind(controller));

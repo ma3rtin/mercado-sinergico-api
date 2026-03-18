@@ -11,7 +11,7 @@ import {
 
 export enum TipoProducto {
   SINERGICO = 'SINERGICO',
-  ENERGETICO = 'ENERGETICO',
+  ENERGICO = 'ENERGICO',
   POR_DEFINIR = 'POR_DEFINIR',
 }
 
@@ -83,7 +83,7 @@ export class ProductoDTO {
   @Type(() => Number)
   plantillaId?: number;
 
-  @IsEnum(TipoProducto, { message: 'El tipo debe ser SINERGICO, ENERGETICO o POR_DEFINIR' })
+  @IsEnum(TipoProducto, { message: 'El tipo debe ser SINERGICO, ENERGICO o POR_DEFINIR' })
   @IsOptional()
   tipo?: TipoProducto;
 

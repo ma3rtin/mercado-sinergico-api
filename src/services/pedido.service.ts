@@ -2,8 +2,63 @@ import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { CrearPedidoDTO } from '../dtos/pedido/crearPedido.dto.js';
 
+export type DetalleComputable = { cantidad?: number;[key: string]: unknown };
+
+export type PedidoComputable = {
+  estadoId?: number;
+  usuario?: { id?: number };
+  usuarioId?: number;
+  detalles?: DetalleComputable[];
+  pedidoProductos?: DetalleComputable[];
+  monto_total?: string | number | null;
+  [key: string]: unknown;
+};
+
+export type PaqueteComputable = {
+  pedidos?: PedidoComputable[];
+  cant_usuarios_registrados?: number;
+  cant_productos_reservados?: number;
+  monto_total?: number | string | null;
+  [key: string]: unknown;
+};
+
+export type PedidoConPaquete = {
+  paquetePublicado?: PaqueteComputable;
+  [key: string]: unknown;
+};
+
 export class PedidoService {
   private prisma = prisma;
+
+  private _mapComputedFields<T extends PedidoConPaquete>(pedido: T) {
+    if (!pedido || !pedido.paquetePublicado) return pedido;
+
+    const paquete = pedido.paquetePublicado;
+    const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && [1, 2, 3].includes(p.estadoId));
+
+    const usuariosIds = new Set(pedidosActivos.map((p) => p.usuario?.id || p.usuarioId));
+
+    let reservados = 0;
+    pedidosActivos.forEach((ped) => {
+      const arr = ped.detalles || ped.pedidoProductos || [];
+      reservados += arr.reduce((sum: number, det) => sum + (det.cantidad || 0), 0);
+    });
+
+    let recaudacion = 0;
+    pedidosActivos.forEach((ped) => {
+      recaudacion += Number(ped.monto_total || 0);
+    });
+
+    return {
+      ...pedido,
+      paquetePublicado: {
+        ...paquete,
+        cant_usuarios_registrados: usuariosIds.size > 0 ? usuariosIds.size : paquete.cant_usuarios_registrados,
+        cant_productos_reservados: reservados > 0 ? reservados : paquete.cant_productos_reservados,
+        monto_total: recaudacion > 0 ? recaudacion : paquete.monto_total
+      }
+    };
+  }
 
   private calcularPrecioConDescuento(precioBase: number, descuento: number) {
     return precioBase * (1 - descuento / 100);
@@ -38,6 +93,7 @@ export class PedidoService {
       where: {
         usuarioId,
         paquetePublicadoId: paqueteId,
+        estadoId: 1,
       },
       select: { id_pedido: true },
     });
@@ -114,7 +170,7 @@ export class PedidoService {
         throw new CustomError('La variante no existe para este producto', 400);
       }
 
-      if (paquete.tipo === 'ENERGETICO') {
+      if (paquete.tipo === 'ENERGICO') {
         stockAValidar = variante.stockFisico;
       }
 
@@ -128,7 +184,7 @@ export class PedidoService {
       }
     }
 
-    if (paquete.tipo === 'ENERGETICO') {
+    if (paquete.tipo === 'ENERGICO') {
       this.validarStockInformativo(stockAValidar, dto.cantidad);
     }
 
@@ -170,14 +226,14 @@ export class PedidoService {
       where: {
         pedidoId: pedido.id_pedido,
         productoId: producto.id_producto,
-        varianteId: varianteId,
+        varianteId: varianteId ?? null,
       },
     });
 
     if (detalleExistente) {
       const nuevaCantidad = detalleExistente.cantidad + dto.cantidad;
 
-      if (paquete.tipo === 'ENERGETICO') {
+      if (paquete.tipo === 'ENERGICO') {
         this.validarStockInformativo(stockAValidar, nuevaCantidad);
       }
 
@@ -297,7 +353,7 @@ export class PedidoService {
       throw new CustomError('Producto no encontrado', 404);
     }
 
-    if (pedido.paquetePublicado.tipo === 'ENERGETICO') {
+    if (pedido.paquetePublicado.tipo === 'ENERGICO') {
       let stockAValidar = detalle.producto.stock;
 
       if (detalle.varianteId && detalle.variante) {
@@ -327,42 +383,50 @@ export class PedidoService {
     return { ok: true };
   }
 
-public async obtenerPedidosUsuario(usuarioId: number) {
-  return this.prisma.pedido.findMany({
-    where: { usuarioId },
-    include: {
-      estado: true,
-      paquetePublicado: {
-        include: {
-          paqueteBase: {
-            include: {
-              marca: true,
-              categoria: true,
-            },
-          },
-          zona: true,
-        },
-      },
-      detalles: {
-        include: {
-          producto: true,
-          variante: {
-            include: {
-              opciones: {
-                include: {
-                  caracteristica: true,
-                  opcion: true,
+  public async obtenerPedidosUsuario(usuarioId: number) {
+    const pedidos = await this.prisma.pedido.findMany({
+      where: { usuarioId },
+      include: {
+        usuario: { select: { id: true, nombre: true, email: true } },
+        estado: true,
+        detalles: {
+          include: {
+            producto: true,
+            variante: {
+              include: {
+                opciones: {
+                  include: {
+                    caracteristica: true,
+                    opcion: true,
+                  },
                 },
               },
             },
           },
         },
+        paquetePublicado: {
+          include: {
+            paqueteBase: {
+              include: {
+                marca: true,
+                categoria: true,
+              },
+            },
+            zona: true,
+            pedidos: {
+              include: {
+                usuario: { select: { id: true } },
+                detalles: true,
+              },
+            },
+          },
+        },
       },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-}
-  
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return pedidos.map((p) => this._mapComputedFields(p as PedidoConPaquete));
+  }
   public async obtenerPedidoPorId(usuarioId: number, pedidoId: number) {
     const pedido = await this.prisma.pedido.findFirst({
       where: {
@@ -370,11 +434,18 @@ public async obtenerPedidosUsuario(usuarioId: number) {
         usuarioId,
       },
       include: {
+        usuario: { select: { id: true, nombre: true, email: true } },
         estado: true,
         paquetePublicado: {
           include: {
             paqueteBase: true,
             zona: true,
+            pedidos: {
+              include: {
+                usuario: { select: { id: true } },
+                detalles: true
+              }
+            }
           },
         },
         detalles: {
@@ -399,14 +470,14 @@ public async obtenerPedidosUsuario(usuarioId: number) {
         },
       },
     });
-  
+
     if (!pedido) {
       throw new CustomError('Pedido no encontrado', 404);
     }
-  
-    return pedido;
+
+    return this._mapComputedFields(pedido as PedidoConPaquete);
   }
-  
+
   public async bajarseDePaquete(usuarioId: number, paqueteId: number) {
     const pedido = await this.prisma.pedido.findFirst({
       where: {
@@ -414,19 +485,19 @@ public async obtenerPedidosUsuario(usuarioId: number) {
         paquetePublicadoId: paqueteId
       },
     });
-  
+
     if (!pedido) {
       throw new CustomError('No hay un pedido activo en este paquete', 404);
     }
 
-    if(pedido.estadoId != 1){
+    if (pedido.estadoId != 1) {
       throw new CustomError('El pedido tiene que estar pendiente para poder bajarse');
     }
-  
+
     await this.prisma.pedido.delete({
       where: { id_pedido: pedido.id_pedido },
     });
-  
+
     return { ok: true };
   }
 }

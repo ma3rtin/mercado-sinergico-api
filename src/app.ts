@@ -1,7 +1,8 @@
 import 'reflect-metadata';
-import { envs } from './config/envs.js';
 import { AppRoutes } from './routes/router.js';
 import { Server } from './server/server.js';
+
+import './events/oyentes/oyentePaquete.js';
 
 (async () => {
   main();
