@@ -12,7 +12,9 @@
     "start": "node dist/app.js",
     "lint": "eslint src/**/*.ts --fix",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "seed": "mysql -u root -pNuevaPasswordSegura123 mercado_sinergico < script.sql",
+    "reset-db": "npx prisma migrate reset --force && npm run seed"
   },
   "engines": {
     "node": "22.12.0"
@@ -49,6 +51,7 @@
     "@nestjs/common": "^11.1.6",
     "@prisma/adapter-mariadb": "^7.0.0",
     "@prisma/client": "^7.0.0",
+    "@types/xlsx": "^0.0.35",
     "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "canvas": "^3.2.0",
@@ -68,6 +71,7 @@
     "nodemailer": "^8.0.1",
     "reflect-metadata": "^0.2.2",
     "rimraf": "^6.0.1",
-    "streamifier": "^0.1.1"
+    "streamifier": "^0.1.1",
+    "xlsx": "^0.18.5"
   }
 }

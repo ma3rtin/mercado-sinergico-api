@@ -4,12 +4,57 @@ import { CustomError } from '../errors/custom.error.js';
 import { prisma } from '../prisma/client.js';
 import { EmailService } from './email.service.js';
 
+export type DetalleComputable = { cantidad?: number; [key: string]: unknown };
+
+export type PedidoComputable = {
+  estadoId?: number;
+  usuario?: { id?: number };
+  usuarioId?: number;
+  detalles?: DetalleComputable[];
+  pedidoProductos?: DetalleComputable[];
+  monto_total?: string | number | null;
+  [key: string]: unknown;
+};
+
+export type PaqueteComputable = {
+  pedidos?: PedidoComputable[];
+  cant_usuarios_registrados?: number;
+  cant_productos_reservados?: number;
+  monto_total?: number | string | null;
+  [key: string]: unknown;
+};
+
 export class PaquetePublicadoService {
   private prisma = prisma;
   private emailService = new EmailService();
 
+  private _mapComputedFields<T extends PaqueteComputable>(paquete: T) {
+    if (!paquete) return paquete;
+    const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && [1, 2, 3].includes(p.estadoId));
+    
+    const usuariosIds = new Set(pedidosActivos.map((p) => p.usuario?.id || p.usuarioId));
+    
+    let reservados = 0;
+    pedidosActivos.forEach((ped) => {
+      const arr = ped.detalles || ped.pedidoProductos || [];
+      reservados += arr.reduce((sum: number, det) => sum + (det.cantidad || 0), 0);
+    });
+
+    let recaudacion = 0;
+    pedidosActivos.forEach((ped) => {
+      recaudacion += Number(ped.monto_total || 0);
+    });
+
+    return {
+      ...paquete,
+      cant_usuarios_registrados: usuariosIds.size > 0 ? usuariosIds.size : paquete.cant_usuarios_registrados,
+      cant_productos_reservados: reservados > 0 ? reservados : paquete.cant_productos_reservados,
+      monto_total: recaudacion > 0 ? recaudacion : paquete.monto_total
+    };
+  }
+
   async getAll() {
-    return await this.prisma.paquetePublicado.findMany({
+    const paquetes = await this.prisma.paquetePublicado.findMany({
       include: {
         paqueteBase: {
           include: {
@@ -19,9 +64,15 @@ export class PaquetePublicadoService {
         },
         zona: true,
         estado: true,
-        pedidos: true,
+        pedidos: {
+          include: {
+            usuario: { select: { id: true, nombre: true, email: true } },
+            detalles: true
+          },
+        },
       },
     });
+    return paquetes.map((p) => this._mapComputedFields(p as PaqueteComputable));
   }
 
   async getById(id: number) {
@@ -45,15 +96,42 @@ export class PaquetePublicadoService {
         },
         zona: true,
         estado: true,
-        pedidos: true,
+        pedidos: {
+          include: {
+            usuario: { select: { id: true, nombre: true, email: true } },
+            detalles: {
+              include: {
+                producto: {
+                  include: {
+                    imagenes: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
     if (paquete) {
-      return {
-        ...paquete,
+      // Mapear detalles a pedidoProductos para compatibilidad con el frontend
+      const { pedidos, ...rest } = paquete;
+      const mappedPedidos = pedidos.map((p) => {
+        const pRecord = p as PedidoComputable;
+        const { detalles, ...pRest } = pRecord;
+        return {
+          ...pRest,
+          pedidoProductos: detalles
+        };
+      });
+
+      const paqueteMapeado = {
+        ...rest,
+        pedidos: mappedPedidos,
         descuento: 10, // Descuento fijo del 10%
       };
+      
+      return this._mapComputedFields(paqueteMapeado as PaqueteComputable);
     }
     return null;
   }
@@ -199,29 +277,313 @@ export class PaquetePublicadoService {
   }
 
   async update(id: number, dto: PaquetePublicadoUpdateDTO) {
-    return await this.prisma.paquetePublicado.update({
-      where: { id_paquete_publicado: id },
-      data: {
-        cant_productos: dto.cant_productos,
-        fecha_inicio: dto.fecha_inicio,
-        fecha_fin: dto.fecha_fin,
-        zona: {
-          connect: { id_zona: dto.zonaId },
+    return this.prisma.$transaction(async (tx) => {
+      const paqueteExistente = await tx.paquetePublicado.findUnique({
+        where: { id_paquete_publicado: id },
+      });
+
+      if (!paqueteExistente) throw new CustomError('No encontrado', 404);
+
+      if (dto.nombre || dto.descripcion) {
+        await tx.paqueteBase.update({
+          where: { id_paquete_base: paqueteExistente.paqueteBaseId },
+          data: {
+            ...(dto.nombre && { nombre: dto.nombre }),
+            ...(dto.descripcion && { descripcion: dto.descripcion }),
+          },
+        });
+      }
+
+      return await tx.paquetePublicado.update({
+        where: { id_paquete_publicado: id },
+        data: {
+          ...(dto.fecha_inicio && { fecha_inicio: new Date(dto.fecha_inicio) }),
+          ...(dto.fecha_fin && { fecha_fin: new Date(dto.fecha_fin) }),
+          ...(dto.cant_productos && { cant_productos: Number(dto.cant_productos) }),
+          ...(dto.zonaId && { zona: { connect: { id_zona: Number(dto.zonaId) } } }),
+          ...(dto.paqueteBaseId && { paqueteBase: { connect: { id_paquete_base: Number(dto.paqueteBaseId) } } }),
+          ...(dto.estadoId && { estado: { connect: { id_estado: Number(dto.estadoId) } } }),
+          ...(dto.estadoNombre && { estado: { connect: { nombre: dto.estadoNombre } } }),
         },
-        paqueteBase: {
-          connect: { id_paquete_base: dto.paqueteBaseId },
-        },
-        ...(dto.estadoNombre && {
-          estado: { connect: { nombre: dto.estadoNombre } },
-        }),
-      },
+      });
     });
   }
 
-  delete(id: number) {
+  async delete(id: number) {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: {
+        pedidos: {
+          include: {
+            usuario: { select: { id: true, nombre: true, email: true } },
+          },
+        },
+      },
+    });
+
+    if (!paquete) throw new CustomError('No encontrado', 404);
+    if (paquete.pedidos.length > 0) {
+      throw new CustomError('No se puede borrar: tiene pedidos asociados.', 400);
+    }
+
     return this.prisma.paquetePublicado.update({
       where: { id_paquete_publicado: id },
       data: { estado: { connect: { nombre: 'Eliminado' } } },
+    });
+  }
+
+  async duplicar(id: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const paqueteOriginal = await tx.paquetePublicado.findUnique({
+        where: { id_paquete_publicado: id },
+      });
+
+      if (!paqueteOriginal) {
+        throw new CustomError(`Publicación con id=${id} no encontrada`, 404);
+      }
+
+      const estadoActivo = await tx.estadoPaquetePublicado.findUnique({
+        where: { nombre: 'Activo' },
+      });
+
+      if (!estadoActivo) {
+        throw new CustomError('Estado "Activo" no encontrado en la BD', 500);
+      }
+
+      return await tx.paquetePublicado.create({
+        data: {
+          paqueteBaseId: paqueteOriginal.paqueteBaseId,
+          zonaId: paqueteOriginal.zonaId,
+          fecha_inicio: new Date(),
+          fecha_fin: paqueteOriginal.fecha_fin,
+          cant_productos: paqueteOriginal.cant_productos,
+          monto_total: paqueteOriginal.monto_total,
+          imagen_url: paqueteOriginal.imagen_url,
+          tipo: paqueteOriginal.tipo,
+          descuento: paqueteOriginal.descuento,
+          estadoId: estadoActivo.id_estado,
+          cant_productos_reservados: 0,
+          cant_usuarios_registrados: 0,
+        },
+      });
+    });
+  }
+
+  async completar(id: number) {
+    const estadoFinalizado = await this.prisma.estadoPaquetePublicado.findUnique({
+      where: { nombre: 'Finalizado' },
+    });
+
+    if (!estadoFinalizado) throw new CustomError('Estado "Finalizado" no encontrado', 500);
+
+    const result = await this.prisma.paquetePublicado.update({
+      where: { id_paquete_publicado: id },
+      data: {
+        estado: { connect: { id_estado: estadoFinalizado.id_estado } },
+      },
+      include: {
+        paqueteBase: { include: { marca: true, categoria: true } },
+        zona: true,
+        estado: true,
+        pedidos: {
+          include: {
+            usuario: { select: { id: true, nombre: true, email: true } },
+          },
+        },
+      },
+    });
+
+    // 1. Ya tenemos el paquete con nombre en result
+    const paquete = result;
+
+    if (!paquete) throw new CustomError('Paquete no encontrado', 404);
+
+    // 2. Obtener compradores
+    const pedidosAprobados = await this.prisma.pedido.findMany({
+      where: {
+        paquetePublicadoId: id,
+        estadoId: 3, // Asumiendo que 3 = Aprobado
+      },
+      include: {
+        usuario: true,
+      },
+    });
+
+    const correosCompradores = [...new Set(pedidosAprobados.map((p) => p.usuario.email))];
+
+    // 3. Enviar correo a compradores
+    if (correosCompradores.length > 0) {
+      this.emailService.enviarEmail({
+        para: correosCompradores,
+        asunto: `🎉 ¡Paquete Completado! - ${paquete.paqueteBase?.nombre}`,
+        template: 'comprador-paquete-completado',
+        context: { nombrePaquete: paquete.paqueteBase?.nombre },
+      });
+    }
+
+    // 4. Enviar correo al admin
+    // Por simplicidad del ejemplo enviamos al mail maestro configurado en ENVS
+    this.emailService.enviarEmail({
+      para: process.env.MAILER_EMAIL || 'admin@mercadosinergico.com',
+      asunto: `🚨 Acción Requerida: Paquete Completado - ${paquete.paqueteBase?.nombre}`,
+      template: 'admin-paquete-completado',
+      context: {
+        nombrePaquete: paquete.paqueteBase?.nombre,
+        paqueteId: paquete.id_paquete_publicado
+      },
+    });
+
+    return result;
+  }
+
+  async cerrarManual(id: number) {
+    try {
+      const estadoEnPreparacion = await this.prisma.estadoPaquetePublicado.findUnique({
+        where: { nombre: 'En Preparación' },
+      });
+
+      if (!estadoEnPreparacion) {
+        throw new CustomError('Estado "En Preparación" no encontrado en la base de datos (solicita al admin agregarlo)', 500);
+      }
+
+      // 1. Obtener paquete y su capacidad
+      const paquete = await this.prisma.paquetePublicado.findUnique({
+        where: { id_paquete_publicado: id },
+        include: { paqueteBase: true },
+      });
+
+      if (!paquete) throw new CustomError('Paquete no encontrado', 404);
+
+      const result = await this.prisma.paquetePublicado.update({
+        where: { id_paquete_publicado: id },
+        data: {
+          estado: { connect: { id_estado: estadoEnPreparacion.id_estado } },
+        },
+        include: {
+          paqueteBase: { include: { marca: true, categoria: true } },
+          zona: true,
+          estado: true,
+          pedidos: {
+            include: {
+              usuario: { select: { id: true, nombre: true, email: true } },
+            },
+          },
+        },
+      });
+
+      const faltantes = (paquete.cant_productos || 0) - (paquete.cant_usuarios_registrados || 0);
+
+      // 2. Obtener compradores
+      const pedidosActivos = await this.prisma.pedido.findMany({
+        where: { paquetePublicadoId: id, estadoId: { in: [1, 2, 3] } }, // Pagados o aprobados
+        include: { usuario: true },
+      });
+      const correos = [...new Set(pedidosActivos.map((p) => p.usuario.email))];
+
+      // 3. Enviar correo (Solo si hay compradores y el nombre de paquete existe)
+      if (correos.length > 0 && paquete.paqueteBase?.nombre) {
+        this.emailService.enviarEmail({
+          para: correos,
+          asunto: `📦 Preparación Anticipada - ${paquete.paqueteBase.nombre}`,
+          template: 'comprador-paquete-cerrado-anticipado',
+          context: { nombrePaquete: paquete.paqueteBase.nombre },
+        });
+      }
+
+      return { result, faltantes };
+    } catch (error) {
+      console.error('Error al cerrar manual:', error);
+      if (error instanceof CustomError) throw error;
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new CustomError('Error interno al cerrar manualmente el paquete. ' + msg, 500);
+    }
+  }
+
+  async cancelarYReembolsar(id: number) {
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Obtener paquete
+      const paquete = await tx.paquetePublicado.findUnique({
+        where: { id_paquete_publicado: id },
+        include: {
+          pedidos: {
+            include: {
+              usuario: { select: { id: true, nombre: true, email: true } },
+            },
+          },
+          paqueteBase: true,
+        },
+      });
+
+      if (!paquete) throw new CustomError('Paquete no encontrado', 404);
+
+      // 2. Cambiar estado a Cerrado (o Cancelado, pero las instrucciones dicen 'Cerrado')
+      const estadoCerrado = await tx.estadoPaquetePublicado.findUnique({
+        where: { nombre: 'Cerrado' },
+      });
+
+      if (!estadoCerrado) throw new CustomError('Estado "Cerrado" no encontrado', 500);
+
+      await tx.paquetePublicado.update({
+        where: { id_paquete_publicado: id },
+        data: { estadoId: estadoCerrado.id_estado },
+      });
+
+      // 3. Obtener estado Cancelado/Reembolsado para Pedidos
+      const estadoPedido = await tx.estadoPedido.findFirst({
+        where: { nombre: 'Reembolsando' },
+      });
+
+      // Asegurarse de que exista el estado
+      if (!estadoPedido) {
+        throw new CustomError('Estado de pedido "Reembolsando" no encontrado en la base de datos (solicita al admin agregarlo)', 500);
+      }
+
+      if (estadoPedido) {
+        // Marcamos los pedidos como reembolsando
+        // ANTES del updateMany de pedidos
+        const pedidosAfectados = await tx.pedido.findMany({
+          where: { paquetePublicadoId: id, estadoId: { in: [1, 2, 3] } },
+          include: { usuario: true },
+        });
+        const correosCompradores = [...new Set(pedidosAfectados.map(p => p.usuario.email))];
+
+        // DESPUÉS hacés el updateMany
+        await tx.pedido.updateMany({
+          where: { paquetePublicadoId: id },
+          data: { estadoId: estadoPedido.id_estado },
+        });
+
+        if (correosCompradores.length > 0) {
+          this.emailService.enviarEmail({
+            para: correosCompradores,
+            asunto: `🚫 Paquete Cancelado - ${paquete.paqueteBase?.nombre}`,
+            template: 'comprador-paquete-cancelado',
+            context: { nombrePaquete: paquete.paqueteBase?.nombre },
+          });
+        }
+
+        // TODO: Aquí llamarías a mercadoPagoService.refund() si guardaras el payment_id en cada pedido
+        // Ejemplo:
+        // for (const pedido of paquete.pedidos) {
+        //   if (pedido.paymentId) await mercadoPagoService.obtenerPago(pedido.paymentId... refund);
+        // }
+
+        const paqueteCompleto = await tx.paquetePublicado.findUnique({
+          where: { id_paquete_publicado: id },
+          include: {
+            paqueteBase: { include: { marca: true, categoria: true } },
+            zona: true,
+            estado: true,
+            pedidos: {
+              include: {
+                usuario: { select: { id: true, nombre: true, email: true } },
+              },
+            },
+          },
+        });
+
+        return paqueteCompleto;
+      }
     });
   }
 
@@ -258,13 +620,18 @@ export class PaquetePublicadoService {
         estado: {
           select: { nombre: true, id_estado: true },
         },
-        pedidos: true,
+        pedidos: {
+          include: {
+            usuario: { select: { id: true, nombre: true, email: true } },
+            detalles: true
+          },
+        },
       },
       orderBy: { fecha_fin: 'asc' },
     });
 
     console.log(`✅ ${paquetes.length} paquetes encontrados`);
-    return paquetes;
+    return paquetes.map((p) => this._mapComputedFields(p as PaqueteComputable));
   }
 
   async getRelacionados(id: number) {
@@ -296,7 +663,11 @@ export class PaquetePublicadoService {
         },
         zona: true,
         estado: true,
-        pedidos: true,
+        pedidos: {
+          include: {
+            usuario: { select: { id: true, nombre: true, email: true } },
+          },
+        },
       },
     });
 
@@ -379,5 +750,33 @@ export class PaquetePublicadoService {
     }
 
     return { message: 'Compra confirmada y usuarios notificados.' };
+  }
+  async notificarCompradores(id: number) {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: { paqueteBase: true },
+    });
+
+    if (!paquete) throw new CustomError('Paquete no encontrado', 404);
+
+    const pedidosActivos = await this.prisma.pedido.findMany({
+      where: { paquetePublicadoId: id, estadoId: { in: [1, 2, 3] } },
+      include: { usuario: true },
+    });
+
+    const correos = [...new Set(pedidosActivos.map(p => p.usuario.email))];
+
+    if (correos.length === 0) {
+      return { mensaje: 'No hay compradores activos para notificar.', notificados: 0 };
+    }
+
+    await this.emailService.enviarEmail({
+      para: correos,
+      asunto: `⏰ Recordatorio de cierre - ${paquete.paqueteBase?.nombre}`,
+      template: 'comprador-aviso-cierre',
+      context: { nombrePaquete: paquete.paqueteBase?.nombre },
+    });
+
+    return { mensaje: 'Notificación enviada correctamente.', notificados: correos.length };
   }
 }

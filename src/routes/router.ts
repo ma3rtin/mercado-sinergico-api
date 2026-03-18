@@ -10,6 +10,7 @@ import marcaRouter from './modules/marca.route.js';
 import categoriaRouter from './modules/categorias.route.js';
 import pedidoRouter from './modules/pedido.route.js';
 import { mercadoPagoRouter } from '../payments/mercadopago/mercadopago.routes.js';
+import productoExcelRouter from './producto-excel.routes.js';
 
 export class AppRoutes {
   static get routes(): Router {
@@ -17,6 +18,7 @@ export class AppRoutes {
 
     router.use('/api/usuarios', usuarioRouter);
     router.use('/api/productos', productoRouter);
+    router.use('/api/productos/excel', productoExcelRouter);
     router.use('/api/paquetes-base', paqueteBaseRouter);
     router.use('/api/paquetes-publicados', paquetePublicadoRouter);
     router.use('/api/zonas', zonaRouter);
