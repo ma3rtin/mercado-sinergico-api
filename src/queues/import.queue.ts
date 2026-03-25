@@ -1,7 +1,6 @@
 import { Queue, Worker, Job } from 'bullmq';
 import { prisma } from '../prisma/client.js';
 import { productoExcelService } from '../services/producto-excel.service.js';
-import { envs } from '../config/envs.js';
 
 // --- CONFIGURACIÓN DE REDIS ---
 const connection = {

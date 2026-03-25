@@ -143,7 +143,7 @@ export class PaquetePublicadoService {
     }
 
     // Dynamic import to avoid issues if xlsx is large
-    // eslint-disable-next-line @typescript-eslint/naming-convention
+     
     const XLSX = await import('xlsx');
 
     const worksheet = XLSX.utils.json_to_sheet(factoryData);
@@ -227,7 +227,7 @@ export class PaquetePublicadoService {
       });
     }
 
-    // eslint-disable-next-line @typescript-eslint/naming-convention
+     
     const XLSX = await import('xlsx');
 
     const worksheet = XLSX.utils.json_to_sheet(logisticsData);

@@ -1,6 +1,5 @@
 import * as XLSX from 'xlsx';
 import { prisma } from '../prisma/client.js';
-import { TipoPaquete } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 
@@ -118,7 +117,6 @@ export class ProductoExcelService {
                         const v = await prisma.productoVariante.findUnique({ where: { sku }, include: { producto: true } });
                         if (v) {
                             await prisma.producto.update({ where: { id_producto: v.productoId }, data: commonData });
-                            await prisma.auditoriaProducto.create({ data: { productoId: v.productoId, accion: 'ACTUALIZAR_V', valorAnterior: `SKU:${v.sku}`, valorNuevo: `Stock:${commonData.stock}` } });
                             actualizados++;
                         } else {
                             const p = await prisma.producto.create({ data: commonData });
@@ -126,7 +124,7 @@ export class ProductoExcelService {
                             creados++;
                         }
                     } else {
-                        const p = await prisma.producto.create({ data: commonData });
+                        await prisma.producto.create({ data: commonData });
                         creados++;
                     }
                 } catch (err) {
@@ -144,7 +142,7 @@ export class ProductoExcelService {
                 data: {
                     estado: 'COMPLETADO', progreso: 100, procesadas: totalRows,
                     duracionMs, filasPorSegundo: totalRows > 0 ? (totalRows / (duracionMs / 1000)) : 0,
-                    errores: errores.length > 0 ? errores : null,
+                    errores: errores.length > 0 ? errores : undefined,
                     resultado: { creados, actualizados, total: creados + actualizados }
                 }
             });
