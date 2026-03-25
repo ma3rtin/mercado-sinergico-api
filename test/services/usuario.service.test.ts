@@ -29,6 +29,12 @@ jest.mock("../../src/prisma/client", () => {
       rol: {
         findUnique: mockRolFindUnique,
       },
+      refreshToken: {
+        create: jest.fn().mockResolvedValue({}),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
+      },
       $transaction: mockTransaction,
     },
     __mocks: {
@@ -43,6 +49,7 @@ jest.mock("../../src/prisma/client", () => {
 
 jest.mock("../../src/auth/jwt", () => ({
   crearToken: jest.fn().mockResolvedValue("fakeToken123"),
+  crearRefreshToken: jest.fn().mockResolvedValue("fakeRefreshToken123"),
   decodificarToken: jest.fn(),
 }));
 
@@ -93,8 +100,10 @@ describe("UsuarioService", () => {
       contraseña: "Password123",
     });
 
-    expect(typeof result).toBe("string");
-    expect(result).toBe("fakeToken123");
+    expect(result).toEqual({
+      token: "fakeToken123",
+      refreshToken: "fakeRefreshToken123",
+    });
   });
 
   it("debería devolver null al iniciar sesión con credenciales incorrectas", async () => {

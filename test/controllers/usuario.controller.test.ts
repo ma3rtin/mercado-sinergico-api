@@ -13,6 +13,14 @@ jest.mock("../../src/utils/asyncHandler", () => ({
   },
 }));
 
+jest.mock("../../src/prisma/client", () => ({
+  prisma: {
+    securityAudit: {
+      create: jest.fn().mockResolvedValue({}),
+    },
+  },
+}));
+
 describe("UsuarioController", () => {
   let service: UsuarioService;
   let imagenService: ImagenService;
@@ -48,8 +56,10 @@ describe("UsuarioController", () => {
 
     res = {
       status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-      send: jest.fn().mockReturnThis()
+      json: jest.fn().mockReturnThis(),
+      send: jest.fn().mockReturnThis(),
+      cookie: jest.fn().mockReturnThis(),
+      clearCookie: jest.fn().mockReturnThis()
     };
     next = jest.fn();
   });
@@ -78,7 +88,7 @@ describe("UsuarioController", () => {
   });
 
   it("debería iniciar sesión y devolver un token con estado 200", async () => {
-    (service.iniciarSesion as jest.Mock).mockResolvedValue("fakeToken123");
+    (service.iniciarSesion as jest.Mock).mockResolvedValue({ token: "fakeToken123", refreshToken: "fakeRefreshToken123" });
     req.body = { email: "test@example.com", contraseña: "Password123" };
 
     await controller.iniciarSesion(req, res, next);
