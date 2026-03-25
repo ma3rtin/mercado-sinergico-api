@@ -51,7 +51,12 @@ export class Server {
     this.app.use(cookieParser()); // Habilitar lectura de cookies
 
     // Configuración de CORS de élite (Restrictiva)
-    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
+    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+      'http://localhost:4200',
+      'http://localhost:3000',
+      'http://localhost:5173'
+    ];
+
     
     this.app.use(cors({ 
       origin: (origin, callback) => {
