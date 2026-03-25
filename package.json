@@ -13,7 +13,7 @@
     "lint": "eslint src/**/*.ts --fix",
     "lint:fix": "eslint src/**/*.ts --fix",
     "postinstall": "prisma generate",
-    "seed": "mysql -u root -pSinergico123! mercado_sinergico < script.sql",
+    "seed": "dotenv -e .env -- sh -c 'mysql -h \"$DB_HOST\" -u \"$DB_USER\" -p\"$DB_PASSWORD\" \"$DB_NAME\" < script.sql'",
     "reset-db": "npx prisma migrate reset --force && npm run seed"
   },
   "engines": {
@@ -37,6 +37,7 @@
     "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^8.46.1",
     "@typescript-eslint/parser": "^8.46.1",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9.37.0",
     "eslint-plugin-unused-imports": "^4.4.1",
     "jest": "^30.1.3",
