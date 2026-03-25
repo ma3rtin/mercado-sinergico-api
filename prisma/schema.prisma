@@ -118,9 +118,11 @@ model Usuario {
   localidadId Int?
   localidad   Localidad? @relation(fields: [localidadId], references: [id_localidad])
 
-  pedidos   Pedido[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  pedidos        Pedido[]
+  importaciones  ImportacionExcel[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
 }
 
 model Rol {
@@ -226,9 +228,11 @@ model Producto {
   imagenes       ProductoImagen[]
   pedidoDetalles PedidoDetalle[]
   variantes      ProductoVariante[]
+  auditoria      AuditoriaProducto[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
 
   @@index([plantillaId])
   @@index([categoria_id])
@@ -368,3 +372,57 @@ model EstadoPedido {
   nombre    String   @unique
   pedidos   Pedido[]
 }
+
+// ============================================
+// SEGUIMIENTO DE IMPORTACIONES (BULK JOBS)
+// ============================================
+
+model ImportacionExcel {
+  id            Int      @id @default(autoincrement())
+  nombreArchivo String
+  hashArchivo   String?  // Idempotencia: hash del contenido del archivo
+  estado        String   @default("PENDIENTE") // PENDIENTE, PROCESANDO, COMPLETADO, FALLIDO
+  progreso      Int      @default(0)
+  totalFilas    Int      @default(0)
+  procesadas    Int      @default(0)
+  errores       Json?
+  resultado     Json?
+  
+  // Métricas de Rendimiento
+  duracionMs     Int?
+  filasPorSegundo Float?
+  
+  errorFatal    String?  @db.Text
+  
+  // Relación con el autor
+  usuarioId     Int?
+  usuario       Usuario? @relation(fields: [usuarioId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([estado])
+  @@index([hashArchivo])
+}
+
+
+// ============================================
+// AUDITORÍA DE PRODUCTOS
+// ============================================
+
+model AuditoriaProducto {
+  id           Int      @id @default(autoincrement())
+  productoId   Int
+  producto     Producto @relation(fields: [productoId], references: [id_producto], onDelete: Cascade)
+  accion       String   // CREAR, ACTUALIZAR, ELIMINAR
+  campo        String?  // Ej: sku, precio, stock
+  valorAnterior String?  @db.Text
+  valorNuevo    String?  @db.Text
+  motivo       String   @default("IMPORTACION_EXCEL") // O MANUAL
+  
+  createdAt DateTime @default(now())
+
+  @@index([productoId])
+}
+
+
