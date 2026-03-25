@@ -120,10 +120,24 @@ model Usuario {
 
   pedidos        Pedido[]
   importaciones  ImportacionExcel[]
+  refreshTokens  RefreshToken[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
 }
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique @db.VarChar(512)
+  usuarioId Int
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  revocado  Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([usuarioId])
+}
+
 
 model Rol {
   id       Int       @id @default(autoincrement())
@@ -423,6 +437,24 @@ model AuditoriaProducto {
   createdAt DateTime @default(now())
 
   @@index([productoId])
+}
+
+
+// ============================================
+// AUDITORÍA DE SEGURIDAD
+// ============================================
+
+model SecurityAudit {
+  id        Int      @id @default(autoincrement())
+  evento    String   // LOGIN_FALLIDO, REUSE_TOKEN_DETECTED, RATE_LIMIT_HIT...
+  idUsuario Int?
+  email     String?
+  ip        String?
+  detalles  String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([idUsuario])
+  @@index([email])
 }
 
 

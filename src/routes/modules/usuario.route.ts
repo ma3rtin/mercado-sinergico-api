@@ -12,6 +12,8 @@ import { procesarSubidaImagen } from './../../middlewares/uploadFiles.middleware
 import { ImagenService } from '../../services/imagen.service.js';
 import multer from 'multer';
 
+import { authLimiter } from '../../middlewares/rateLimiter.middleware.js';
+
 const upload = multer();
 const usuarioService = new UsuarioService();
 const imagenService = new ImagenService();
@@ -20,7 +22,11 @@ export const usuarioRouter = Router();
 
 usuarioRouter.get('/me', authMiddleware, usuarioController.obtenerUsuario);
 usuarioRouter.patch('/me', authMiddleware, upload.single('imagen'), validarDto(UsuarioUpdateDTO), usuarioController.actualizarUsuario);
-usuarioRouter.post('/registrar', validarDto(UsuarioDTO),usuarioController.registrar.bind(usuarioController));
-usuarioRouter.post('/login', validarDto(LoginDTO), usuarioController.iniciarSesion.bind(usuarioController));
-usuarioRouter.post('/login-firebase', firebaseAuthMiddleware, usuarioController.loginConFirebase.bind(usuarioController));
+usuarioRouter.post('/registrar', authLimiter, validarDto(UsuarioDTO),usuarioController.registrar.bind(usuarioController));
+usuarioRouter.post('/login', authLimiter, validarDto(LoginDTO), usuarioController.iniciarSesion.bind(usuarioController));
+usuarioRouter.post('/refresh', authLimiter, usuarioController.refrescarSesion.bind(usuarioController));
+usuarioRouter.post('/logout', usuarioController.cerrarSesion.bind(usuarioController));
+usuarioRouter.post('/login-firebase', authLimiter, firebaseAuthMiddleware, usuarioController.loginConFirebase.bind(usuarioController));
+
+
 usuarioRouter.post('/direccion', authMiddleware, procesarSubidaImagen('imagen'), validarDto(DireccionDTO), usuarioController.registrarDireccion.bind(usuarioController));

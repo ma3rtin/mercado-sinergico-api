@@ -115,6 +115,9 @@ export class ProductoExcelController {
     async consultarEstado(req: Request, res: Response): Promise<void> {
         try {
             const { id } = req.params;
+            const userId = req.user?.id;
+            const userRol = req.user?.rol;
+
             const tracker = await prisma.importacionExcel.findUnique({
                 where: { id: parseInt(id) }
             });
@@ -124,10 +127,17 @@ export class ProductoExcelController {
                 return;
             }
 
+            // Security: Only the owner or an Admin can see the status
+            if (tracker.usuarioId !== userId && userRol !== 'Admin') {
+                res.status(403).json({ success: false, message: 'No tienes permiso para ver esta importación' });
+                return;
+            }
+
             res.status(200).json({
                 success: true,
                 data: tracker
             });
+
         } catch (error) {
             res.status(500).json({
                 success: false,

@@ -3,6 +3,10 @@ import { MercadoPagoController } from './mercadopago.controller.js';
 import { PedidoPagoService } from '../../services/pedidoPago.service.js';
 import { MercadoPagoService } from './mercadopago.service.js';
 
+import { mercadoPagoSignatureMiddleware } from '../../middlewares/mercadopago-signature.middleware.js';
+
+import { webhookLimiter } from '../../middlewares/rateLimiter.middleware.js';
+
 export const mercadoPagoRouter = Router();
 
 const mercadoPagoService = new MercadoPagoService();
@@ -11,8 +15,12 @@ const mercadoPagoController = new MercadoPagoController(pedidoService);
 
 mercadoPagoRouter.post(
   '/webhook',
+  webhookLimiter,
+  mercadoPagoSignatureMiddleware,
   mercadoPagoController.webhook.bind(mercadoPagoController)
 );
+
+
 
 mercadoPagoRouter.get('/success', (req, res) => {
   res.redirect(

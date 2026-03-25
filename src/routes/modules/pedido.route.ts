@@ -8,8 +8,9 @@ import { PedidoService } from '../../services/pedido.service.js';
 import { PedidoPagoService } from '../../services/pedidoPago.service.js';
 import { MercadoPagoService } from '../../payments/mercadopago/mercadopago.service.js';
 
-const router = Router();
+import { validateNumericParams } from '../../middlewares/validateParams.middleware.js';
 
+const router = Router();
 // Instanciar dependencias
 const mercadoPagoService = new MercadoPagoService();
 const pedidoService = new PedidoService();
@@ -22,23 +23,26 @@ router.get('/', authMiddleware, controller.getAll);
 router.post(
   '/:paqueteId',
   authMiddleware,
+  validateNumericParams(['paqueteId']),
   validarDto(CrearPedidoDTO),
   controller.crearPedido
 );
 
-router.delete('/:paqueteId/bajarse', authMiddleware, controller.bajarse);
+router.delete('/:paqueteId/bajarse', authMiddleware, validateNumericParams(['paqueteId']), controller.bajarse);
 
-router.get('/:id', authMiddleware, controller.getById);
+router.get('/:id', authMiddleware, validateNumericParams(['id']), controller.getById);
 
 router.delete(
   '/:pedidoId/detalle/:detalleId',
   authMiddleware,
+  validateNumericParams(['pedidoId', 'detalleId']),
   controller.eliminarProducto
 );
 
 router.patch(
   '/:pedidoId/detalle/:detalleId/cantidad',
   authMiddleware,
+  validateNumericParams(['pedidoId', 'detalleId']),
   validarDto(ActualizarCantidadDTO),
   controller.actualizarCantidad
 );
@@ -46,7 +50,9 @@ router.patch(
 router.post(
   '/:pedidoId/checkout',
   authMiddleware,
+  validateNumericParams(['pedidoId']),
   controller.iniciarPago
 );
+
 
 export default router;

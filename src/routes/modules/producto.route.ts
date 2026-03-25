@@ -10,7 +10,9 @@ import { GenerarVariantesDTO } from '../../dtos/variante/generarVariantes.dto.js
 import { ActualizarStockVariantesDTO } from '../../dtos/variante/actualizarStockVariantes.dto.js';
 import { ActualizarVarianteBulkDTO } from '../../dtos/variante/actualizarVarianteBulk.dto.js';
 import { ActualizarVarianteDTO } from '../../dtos/variante/actualizarVariante.dto.js';
+import { authMiddleware, rolMiddleware } from '../../middlewares/auth.middleware.js';
 import { VarianteController } from '../../controllers/variante.controller.js';
+
 
 const productoService = new ProductoService();
 const varianteService = new VarianteService();
@@ -35,6 +37,8 @@ router.get('/:id', productoController.getProductoById.bind(productoController));
 
 router.post(
   '/',
+  authMiddleware,
+  rolMiddleware(['Admin']),
   procesarSubidaImagen([
     { name: 'icono', maxCount: 1 },
     { name: 'imagenes', maxCount: 5 },
@@ -45,6 +49,8 @@ router.post(
 
 router.put(
   '/:id',
+  authMiddleware,
+  rolMiddleware(['Admin']),
   procesarSubidaImagen([
     { name: 'icono', maxCount: 1 },
     { name: 'imagenes', maxCount: 5 },
@@ -55,11 +61,15 @@ router.put(
 
 router.delete(
   '/:id',
+  authMiddleware,
+  rolMiddleware(['Admin']),
   productoController.deleteProducto.bind(productoController)
 );
 
 router.post(
   '/:id/duplicate',
+  authMiddleware,
+  rolMiddleware(['Admin']),
   productoController.duplicateProducto.bind(productoController)
 );
 
@@ -76,12 +86,16 @@ router.post(
 
 router.patch(
   '/:id/variantes/stock',
+  authMiddleware,
+  rolMiddleware(['Admin']),
   validarDto(ActualizarStockVariantesDTO),
   varianteController.actualizarStockBulk.bind(varianteController)
 );
 
 router.patch(
   '/:id/variantes/bulk',
+  authMiddleware,
+  rolMiddleware(['Admin']),
   validarDto(ActualizarVarianteBulkDTO),
   varianteController.actualizarVarianteBulk.bind(varianteController)
 );
@@ -93,6 +107,8 @@ router.get(
 
 router.patch(
   '/variantes/:id',
+  authMiddleware,
+  rolMiddleware(['Admin']),
   procesarSubidaImagen('imagen'),
   validarDto(ActualizarVarianteDTO),
   varianteController.actualizarVariante.bind(varianteController)
@@ -100,6 +116,8 @@ router.patch(
 
 router.delete(
   '/variantes/:id',
+  authMiddleware,
+  rolMiddleware(['Admin']),
   varianteController.eliminarVariante.bind(varianteController)
 );
 

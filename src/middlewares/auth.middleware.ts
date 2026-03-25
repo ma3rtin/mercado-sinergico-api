@@ -16,27 +16,21 @@ export async function authMiddleware(
 ) {
   try {
     const authHeader = req.headers.authorization;
-    //console.log('🔎 Header recibido:', authHeader);
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ message: 'Token no proporcionado' });
+      res.status(401).json({ success: false, message: 'Authorization header missing or invalid' });
       return;
     }
 
     const token = authHeader.split(' ')[1];
-    //console.log('🧩 Token a verificar:', token);
     const user = await decodificarToken(token);
-    //console.log('✅ Token decodificado:', user);
 
     req.user = user;
-
     next();
-  } catch (error: unknown) {
-    const err = error as Error;
-    console.error('❌ Error al verificar token:', err.message);
-
-    res.status(401).json({ message: 'Token inválido o expirado' });
-    return;
+  } catch (error: any) {
+    console.error('❌ Token Verification Error:', error.message);
+    const message = error.name === 'TokenExpiredError' ? 'Token expired' : 'Invalid token';
+    res.status(401).json({ success: false, message });
   }
 }
 
@@ -45,15 +39,16 @@ export function rolMiddleware(rolesPermitidos: string[]) {
     const user = req.user;
 
     if (!user) {
-      res.status(401).json({ message: 'Usuario no autenticado' });
+      res.status(401).json({ success: false, message: 'Authentication required' });
       return;
     }
 
     if (!rolesPermitidos.includes(user.rol)) {
-      res.status(403).json({ message: 'Acceso denegado' });
+      res.status(403).json({ success: false, message: 'Forbidden: Insufficient privileges' });
       return;
     }
 
     next();
   };
 }
+

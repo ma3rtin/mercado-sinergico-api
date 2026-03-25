@@ -1,5 +1,6 @@
 import { cifrarContraseña, compararContraseñas } from '../auth/bcrypt.js';
-import { crearToken } from '../auth/jwt.js';
+import { crearToken, crearRefreshToken, verificarRefreshToken } from '../auth/jwt.js';
+
 import { DireccionDTO } from '../dtos/direccion/direccion.dto.js';
 import { LoginDTO } from '../dtos/usuario/login.dto.js';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto.js';
@@ -45,7 +46,7 @@ export class UsuarioService {
     });
   }
 
-  public async iniciarSesion(credenciales: LoginDTO): Promise<string | null> {
+  public async iniciarSesion(credenciales: LoginDTO): Promise<{ token: string, refreshToken: string } | null> {
     const { email, contraseña } = credenciales;
 
     const usuario = (await this.buscarPorEmail(email)) as Usuario & {
@@ -54,18 +55,90 @@ export class UsuarioService {
 
     if (!usuario) return null;
 
-    const contraseñaCorrecta = await compararContraseñas(
-      contraseña,
-      usuario.contraseña
-    );
+    const contraseñaCorrecta = await compararContraseñas(contraseña, usuario.contraseña);
     if (!contraseñaCorrecta) return null;
 
-    return await crearToken({
+    const token = await crearToken({
       email: usuario.email,
       id: usuario.id,
       rol: usuario.rol?.nombre,
     });
+
+    const refreshTokenString = await crearRefreshToken({ id: usuario.id });
+
+    // Store in DB
+    await this.prismaClient.refreshToken.create({
+      data: {
+        token: refreshTokenString,
+        usuarioId: usuario.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+      }
+    });
+
+    return { token, refreshToken: refreshTokenString };
   }
+
+  public async refrescarSesion(rToken: string): Promise<{ token: string, refreshToken: string }> {
+    const { id } = await verificarRefreshToken(rToken);
+    
+    // Check if token exists and is not revoked
+    const storedToken = await this.prismaClient.refreshToken.findUnique({
+      where: { token: rToken }
+    });
+
+    if (!storedToken || storedToken.revocado || storedToken.expiresAt < new Date()) {
+       // Risk detected: If a revoked token is used, someone might be trying to reuse an old one.
+       if (storedToken && storedToken.revocado) {
+          // REVOKE ALL TOKENS FOR THIS USER AS A PRECAUTION
+          await this.prismaClient.refreshToken.updateMany({
+             where: { usuarioId: id },
+             data: { revocado: true }
+          });
+       }
+       throw new CustomError('Invalid or expired refresh token', 401);
+    }
+
+    const usuario = await this.prismaClient.usuario.findUnique({
+      where: { id },
+      include: { rol: { select: { nombre: true } } }
+    });
+
+    if (!usuario) throw new CustomError('User not found', 404);
+
+    // INVALIDE OLD TOKEN (Rotation)
+    await this.prismaClient.refreshToken.update({
+      where: { id: storedToken.id },
+      data: { revocado: true }
+    });
+
+    const token = await crearToken({
+      email: usuario.email,
+      id: usuario.id,
+      rol: usuario.rol?.nombre,
+    });
+
+    const newRefreshTokenString = await crearRefreshToken({ id: usuario.id });
+
+    // Store NEW one
+    await this.prismaClient.refreshToken.create({
+      data: {
+        token: newRefreshTokenString,
+        usuarioId: usuario.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      }
+    });
+
+    return { token, refreshToken: newRefreshTokenString };
+  }
+
+  public async logout(rToken: string): Promise<void> {
+    await this.prismaClient.refreshToken.update({
+      where: { token: rToken },
+      data: { revocado: true }
+    });
+  }
+
+
 
   public async registrarDireccion(
     userId: number,
@@ -196,11 +269,25 @@ export class UsuarioService {
 
   public async crearTokenPersonalizado(
     usuario: Usuario & { rol: { nombre: string } }
-  ): Promise<string> {
-    return await crearToken({
+  ): Promise<{ token: string, refreshToken: string }> {
+    const token = await crearToken({
       id: usuario.id,
       email: usuario.email,
       rol: usuario.rol?.nombre || 'Usuario',
     });
+
+    const refreshTokenString = await crearRefreshToken({ id: usuario.id });
+
+    await this.prismaClient.refreshToken.create({
+      data: {
+        token: refreshTokenString,
+        usuarioId: usuario.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      }
+    });
+
+    return { token, refreshToken: refreshTokenString };
   }
+
+
 }
