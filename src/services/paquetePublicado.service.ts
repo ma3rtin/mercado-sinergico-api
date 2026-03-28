@@ -3,8 +3,9 @@ import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdat
 import { CustomError } from '../errors/custom.error.js';
 import { prisma } from '../prisma/client.js';
 import { EmailService } from './email.service.js';
+import { ImagenService } from './imagen.service.js';
 
-export type DetalleComputable = { cantidad?: number; [key: string]: unknown };
+export type DetalleComputable = { cantidad?: number;[key: string]: unknown };
 
 export type PedidoComputable = {
   estadoId?: number;
@@ -27,13 +28,14 @@ export type PaqueteComputable = {
 export class PaquetePublicadoService {
   private prisma = prisma;
   private emailService = new EmailService();
+  private imagenService = new ImagenService();
 
   private _mapComputedFields<T extends PaqueteComputable>(paquete: T) {
     if (!paquete) return paquete;
     const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && [1, 2, 3].includes(p.estadoId));
-    
+
     const usuariosIds = new Set(pedidosActivos.map((p) => p.usuario?.id || p.usuarioId));
-    
+
     let reservados = 0;
     pedidosActivos.forEach((ped) => {
       const arr = ped.detalles || ped.pedidoProductos || [];
@@ -130,7 +132,7 @@ export class PaquetePublicadoService {
         pedidos: mappedPedidos,
         descuento: 10, // Descuento fijo del 10%
       };
-      
+
       return this._mapComputedFields(paqueteMapeado as PaqueteComputable);
     }
     return null;
@@ -246,7 +248,7 @@ export class PaquetePublicadoService {
     });
   }
 
-  async create(dto: PaquetePublicadoDTO) {
+  async create(dto: Omit<PaquetePublicadoDTO, 'imagen_base64'>, imagenBuffer?: Buffer) {
     const fecha_inicio = new Date(dto.fecha_inicio);
     const fecha_fin = new Date(dto.fecha_fin);
 
@@ -264,11 +266,23 @@ export class PaquetePublicadoService {
 
     if (!paqueteBase) throw new CustomError('El paquete base no existe', 404);
 
+    let imagen_url: string | undefined = undefined;
+    if (imagenBuffer) {
+      try {
+        imagen_url = await this.imagenService.uploadToCloudinary(imagenBuffer, 'mercado_sinergico/paquetes_publicados');
+      } catch (error) {
+        console.error("Error al subir imagen de paquete publicado:", error);
+      }
+    }
+
     return this.prisma.paquetePublicado.create({
       data: {
+        nombre: dto.nombre,
         cant_productos: dto.cant_productos,
         fecha_inicio,
         fecha_fin,
+        descuento: dto.descuento,
+        ...(imagen_url && { imagen_url }),
         zona: { connect: { id_zona: Number(dto.zonaId) } },
         paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
         estado: { connect: { nombre: 'Activo' } },
@@ -276,7 +290,7 @@ export class PaquetePublicadoService {
     });
   }
 
-  async update(id: number, dto: PaquetePublicadoUpdateDTO) {
+  async update(id: number, dto: PaquetePublicadoUpdateDTO, imagenBuffer?: Buffer) {
     return this.prisma.$transaction(async (tx) => {
       const paqueteExistente = await tx.paquetePublicado.findUnique({
         where: { id_paquete_publicado: id },
@@ -294,9 +308,19 @@ export class PaquetePublicadoService {
         });
       }
 
+      let imagen_url: string | undefined = undefined;
+      if (imagenBuffer) {
+        try {
+          imagen_url = await this.imagenService.uploadToCloudinary(imagenBuffer, 'mercado_sinergico/paquetes_publicados');
+        } catch (error) {
+          console.error("Error al subir imagen de paquete publicado:", error);
+        }
+      }
+
       return await tx.paquetePublicado.update({
         where: { id_paquete_publicado: id },
         data: {
+          ...(dto.nombre && { nombre: dto.nombre }),
           ...(dto.fecha_inicio && { fecha_inicio: new Date(dto.fecha_inicio) }),
           ...(dto.fecha_fin && { fecha_fin: new Date(dto.fecha_fin) }),
           ...(dto.cant_productos && { cant_productos: Number(dto.cant_productos) }),
@@ -304,6 +328,7 @@ export class PaquetePublicadoService {
           ...(dto.paqueteBaseId && { paqueteBase: { connect: { id_paquete_base: Number(dto.paqueteBaseId) } } }),
           ...(dto.estadoId && { estado: { connect: { id_estado: Number(dto.estadoId) } } }),
           ...(dto.estadoNombre && { estado: { connect: { nombre: dto.estadoNombre } } }),
+          ...(imagen_url && { imagen_url }),
         },
       });
     });
@@ -352,6 +377,7 @@ export class PaquetePublicadoService {
 
       return await tx.paquetePublicado.create({
         data: {
+          nombre: paqueteOriginal.nombre,
           paqueteBaseId: paqueteOriginal.paqueteBaseId,
           zonaId: paqueteOriginal.zonaId,
           fecha_inicio: new Date(),
@@ -361,9 +387,7 @@ export class PaquetePublicadoService {
           imagen_url: paqueteOriginal.imagen_url,
           tipo: paqueteOriginal.tipo,
           descuento: paqueteOriginal.descuento,
-          estadoId: estadoActivo.id_estado,
-          cant_productos_reservados: 0,
-          cant_usuarios_registrados: 0,
+          estadoId: estadoActivo.id_estado
         },
       });
     });
@@ -602,7 +626,6 @@ export class PaquetePublicadoService {
           nombre: { in: ['Activo', 'Pendiente'] },
         },
         fecha_fin: {
-          gte: hoy,
           lte: dentroDexDias,
         },
       },

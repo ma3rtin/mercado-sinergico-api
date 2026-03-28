@@ -36,4 +36,8 @@ export class PaquetePublicadoUpdateDTO {
   @IsOptional()
   @IsNumber({}, { message: 'La cantidad de productos debe ser un numero' })
   cant_productos?: number;
+
+  @IsOptional()
+  @IsNumber()
+  descuento?: number;
 }

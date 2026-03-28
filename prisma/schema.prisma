@@ -285,6 +285,7 @@ enum TipoPaquete {
 
 model PaquetePublicado {
   id_paquete_publicado      Int                    @id @default(autoincrement())
+  nombre                    String
   paqueteBaseId             Int
   paqueteBase               PaqueteBase            @relation(fields: [paqueteBaseId], references: [id_paquete_base])
   estadoId                  Int
