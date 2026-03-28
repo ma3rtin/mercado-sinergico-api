@@ -332,6 +332,7 @@ model Pedido {
   estado             EstadoPedido     @relation(fields: [estadoId], references: [id_estado])
   monto_total        Float
   descuento_aplicado Float?
+  paymentId          String?
   fecha              DateTime         @default(now())
 
   detalles  PedidoDetalle[]
