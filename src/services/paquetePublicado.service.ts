@@ -271,7 +271,7 @@ export class PaquetePublicadoService {
       try {
         imagen_url = await this.imagenService.uploadToCloudinary(imagenBuffer, 'mercado_sinergico/paquetes_publicados');
       } catch (error) {
-        console.error("Error al subir imagen de paquete publicado:", error);
+        console.error('Error al subir imagen de paquete publicado:', error);
       }
     }
 
@@ -313,7 +313,7 @@ export class PaquetePublicadoService {
         try {
           imagen_url = await this.imagenService.uploadToCloudinary(imagenBuffer, 'mercado_sinergico/paquetes_publicados');
         } catch (error) {
-          console.error("Error al subir imagen de paquete publicado:", error);
+          console.error('Error al subir imagen de paquete publicado:', error);
         }
       }
 
