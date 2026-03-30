@@ -178,7 +178,6 @@ export class PedidoPagoService {
           where: { id_pedido: pedidoId },
           data: {
             estadoId: 2,
-            // @ts-ignore
             paymentId: pago.id?.toString()
           },
         });
@@ -237,7 +236,6 @@ export class PedidoPagoService {
         pedidos: {
           where: {
             estadoId: 2, // Pedidos que fueron pagados
-            // @ts-ignore
             paymentId: { not: null }
           },
           include: {
@@ -291,7 +289,7 @@ export class PedidoPagoService {
             }
           }
         } else {
-          totalProductosPedido = pedido.detalles.reduce((sum: number, d: any) => sum + d.cantidad, 0);
+          totalProductosPedido = pedido.detalles.reduce((sum: number, d: { cantidad: number }) => sum + d.cantidad, 0);
         }
 
         // Restamos las cantidades reservadas del paquete
