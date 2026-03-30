@@ -1,20 +1,86 @@
-<div
-    style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
-    <div style="text-align: center; margin-bottom: 20px;">
-        <h1 style="color: #E53935;">Paquete Cancelado 😞</h1>
-    </div>
-    <div>
-        <p>Hola,</p>
-        <p>Te escribimos para avisarte que el paquetenom de <strong>{{nombrePaquete}}</strong> en el cual estabas
-            inscripto fue cancelado.</p>
-        <p>Lamentablemente, no se alcanzó el grupo mínimo requerido para efectuar la compra.</p>
-        <p><strong>Tu dinero será reembolsado a la brevedad</strong> a tu medio de pago original.</p>
-        <br>
-        <p>Pedimos disculpas por los inconvenientes ocasionados.</p>
-        <p>Gracias por confiar en <strong>Mercado Sinérgico</strong>.</p>
-    </div>
-    <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;">
-    <div style="text-align: center; font-size: 12px; color: #888;">
-        <p>Éste es un mensaje automático. Por favor, no lo respondas.</p>
-    </div>
-</div>
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paquete Cancelado - Mercado Sinérgico</title>
+</head>
+
+<body style="margin:0; padding:0; background-color:#f9fafb; font-family:'Segoe UI', Arial, sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb; padding: 32px 16px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0"
+                    style="max-width:600px; width:100%; background-color:#ffffff; border-radius:12px; overflow:hidden; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 40px 32px 32px 32px; text-align:center;">
+                            <p
+                                style="margin:0 0 12px 0; font-size:12px; color:#6b7280; letter-spacing:1.5px; text-transform:uppercase; font-weight:700;">
+                                Mercado Sinérgico
+                            </p>
+                            <h1 style="margin:0; color:#ef4444; font-size:26px; font-weight:800; line-height:1.2;">
+                                🚫 Paquete Cancelado
+                            </h1>
+                            <p style="margin:8px 0 0 0; color:#4b5563; font-size:16px;">La compra grupal no se concretó</p>
+                        </td>
+                    </tr>
+
+                    <!-- Body -->
+                    <tr>
+                        <td style="padding: 0 40px 40px 40px;">
+
+                            <p style="margin:0 0 20px 0; color:#374151; font-size:16px;">
+                                Hola{{#if nombreUsuario}}, <strong>{{nombreUsuario}}</strong>{{/if}}:
+                            </p>
+
+                            <p style="margin:0 0 24px 0; color:#374151; font-size:15px; line-height:1.7;">
+                                Te escribimos para avisarte que el paquete de
+                                <strong style="color:#2E608C;">{{nombrePaquete}}</strong>
+                                en el cual estabas inscripto fue <strong style="color:#ef4444;">cancelado</strong> porque lamentablemente no se alcanzó el grupo mínimo o hubo un inconveniente con el stock del proveedor.
+                            </p>
+
+                            <!-- Refund Details -->
+                            <table width="100%" cellpadding="0" cellspacing="0"
+                                style="background-color:#fef2f2; border-radius:12px; border: 1px solid #fecaca; margin-bottom: 32px;">
+                                <tr>
+                                    <td style="padding:24px;">
+                                        <h3
+                                            style="margin:0 0 12px 0; color:#b91c1c; font-size:14px; font-weight:700; text-transform:uppercase;">
+                                            💸 Reembolso Garantizado
+                                        </h3>
+                                        <p style="margin:0; color:#991b1b; font-size:14px; line-height:1.6;">
+                                            <strong>No te preocupes por tu dinero.</strong> Acabamos de procesar la devolución total de tu pago a través de MercadoPago. El dinero regresará al mismo medio de pago que utilizaste (puede demorar desde unos minutos hasta algunos días hábiles dependiendo de tu banco o tarjeta).
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin:0; color:#6b7280; font-size:14px; line-height:1.7; text-align:center;">
+                                Pedimos disculpas por los posibles inconvenientes ocasionados.<br>
+                                ¡Gracias por confiar en <strong>Mercado Sinérgico</strong>!
+                            </p>
+
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td
+                            style="background-color:#f9fafb; border-top:1px solid #e5e7eb; padding:32px 40px; text-align:center;">
+                            <p style="margin:0 0 8px 0; color:#111827; font-weight:700; font-size:14px;">Mercado
+                                Sinérgico</p>
+                            <p style="margin:0; color:#9ca3af; font-size:12px;">Este es un mensaje automático. Por
+                                favor, no lo respondas.</p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>
