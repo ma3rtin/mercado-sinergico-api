@@ -3,8 +3,10 @@ import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdat
 import { CustomError } from '../errors/custom.error.js';
 import { prisma } from '../prisma/client.js';
 import { EmailService } from './email.service.js';
+import { PedidoPagoService } from './pedidoPago.service.js';
+import { mercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
 
-export type DetalleComputable = { cantidad?: number; [key: string]: unknown };
+export type DetalleComputable = { cantidad?: number;[key: string]: unknown };
 
 export type PedidoComputable = {
   estadoId?: number;
@@ -31,9 +33,9 @@ export class PaquetePublicadoService {
   private _mapComputedFields<T extends PaqueteComputable>(paquete: T) {
     if (!paquete) return paquete;
     const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && [1, 2, 3].includes(p.estadoId));
-    
+
     const usuariosIds = new Set(pedidosActivos.map((p) => p.usuario?.id || p.usuarioId));
-    
+
     let reservados = 0;
     pedidosActivos.forEach((ped) => {
       const arr = ped.detalles || ped.pedidoProductos || [];
@@ -130,7 +132,7 @@ export class PaquetePublicadoService {
         pedidos: mappedPedidos,
         descuento: 10, // Descuento fijo del 10%
       };
-      
+
       return this._mapComputedFields(paqueteMapeado as PaqueteComputable);
     }
     return null;
@@ -500,91 +502,33 @@ export class PaquetePublicadoService {
   }
 
   async cancelarYReembolsar(id: number) {
-    return this.prisma.$transaction(async (tx) => {
-      // 1. Obtener paquete
-      const paquete = await tx.paquetePublicado.findUnique({
-        where: { id_paquete_publicado: id },
-        include: {
-          pedidos: {
-            include: {
-              usuario: { select: { id: true, nombre: true, email: true } },
-            },
-          },
-          paqueteBase: true,
-        },
-      });
-
-      if (!paquete) throw new CustomError('Paquete no encontrado', 404);
-
-      // 2. Cambiar estado a Cerrado (o Cancelado, pero las instrucciones dicen 'Cerrado')
-      const estadoCerrado = await tx.estadoPaquetePublicado.findUnique({
-        where: { nombre: 'Cerrado' },
-      });
-
-      if (!estadoCerrado) throw new CustomError('Estado "Cerrado" no encontrado', 500);
-
-      await tx.paquetePublicado.update({
-        where: { id_paquete_publicado: id },
-        data: { estadoId: estadoCerrado.id_estado },
-      });
-
-      // 3. Obtener estado Cancelado/Reembolsado para Pedidos
-      const estadoPedido = await tx.estadoPedido.findFirst({
-        where: { nombre: 'Reembolsando' },
-      });
-
-      // Asegurarse de que exista el estado
-      if (!estadoPedido) {
-        throw new CustomError('Estado de pedido "Reembolsando" no encontrado en la base de datos (solicita al admin agregarlo)', 500);
-      }
-
-      if (estadoPedido) {
-        // Marcamos los pedidos como reembolsando
-        // ANTES del updateMany de pedidos
-        const pedidosAfectados = await tx.pedido.findMany({
-          where: { paquetePublicadoId: id, estadoId: { in: [1, 2, 3] } },
-          include: { usuario: true },
-        });
-        const correosCompradores = [...new Set(pedidosAfectados.map(p => p.usuario.email))];
-
-        // DESPUÉS hacés el updateMany
-        await tx.pedido.updateMany({
-          where: { paquetePublicadoId: id },
-          data: { estadoId: estadoPedido.id_estado },
-        });
-
-        if (correosCompradores.length > 0) {
-          this.emailService.enviarEmail({
-            para: correosCompradores,
-            asunto: `🚫 Paquete Cancelado - ${paquete.paqueteBase?.nombre}`,
-            template: 'comprador-paquete-cancelado',
-            context: { nombrePaquete: paquete.paqueteBase?.nombre },
-          });
-        }
-
-        // TODO: Aquí llamarías a mercadoPagoService.refund() si guardaras el payment_id en cada pedido
-        // Ejemplo:
-        // for (const pedido of paquete.pedidos) {
-        //   if (pedido.paymentId) await mercadoPagoService.obtenerPago(pedido.paymentId... refund);
-        // }
-
-        const paqueteCompleto = await tx.paquetePublicado.findUnique({
-          where: { id_paquete_publicado: id },
-          include: {
-            paqueteBase: { include: { marca: true, categoria: true } },
-            zona: true,
-            estado: true,
-            pedidos: {
-              include: {
-                usuario: { select: { id: true, nombre: true, email: true } },
-              },
-            },
-          },
-        });
-
-        return paqueteCompleto;
-      }
+    // 1. Obtener correos antes de cancelar para poder notificar
+    const pedidosAfectados = await this.prisma.pedido.findMany({
+      where: { paquetePublicadoId: id, estadoId: { in: [1, 2, 3] } },
+      include: { usuario: true },
     });
+    const correosCompradores = [...new Set(pedidosAfectados.map(p => p.usuario.email))];
+
+    // 2. Usar el PedidoPagoService para reembolsar y devolver stock
+    const pedidoPagoService = new PedidoPagoService(mercadoPagoService);
+    await pedidoPagoService.cancelarPaqueteYReembolsar(id);
+
+    // 3. Notificar a los compradores
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: { paqueteBase: true }
+    });
+
+    if (correosCompradores.length > 0 && paquete?.paqueteBase?.nombre) {
+      this.emailService.enviarEmail({
+        para: correosCompradores,
+        asunto: `🚫 Paquete Cancelado y Reembolsado - ${paquete.paqueteBase.nombre}`,
+        template: 'comprador-paquete-cancelado',
+        context: { nombrePaquete: paquete.paqueteBase.nombre },
+      });
+    }
+
+    return paquete;
   }
 
   // 🔥 ESTE ES EL MÉTODO QUE NECESITA ARREGLARSE sisi, eso....
