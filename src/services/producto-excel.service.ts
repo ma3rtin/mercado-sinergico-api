@@ -93,9 +93,15 @@ export class ProductoExcelService {
                     // Determinar el tipo de producto
                     let tipo: TipoPaquete = TipoPaquete.POR_DEFINIR;
                     if (row.tipo) {
-                        const tipoUpper = row.tipo.toString().toUpperCase();
-                        if (tipoUpper === 'SINERGICO' || tipoUpper === 'ENERGETICO' || tipoUpper === 'POR_DEFINIR') {
-                            tipo = tipoUpper as TipoPaquete;
+                        const tipoUpper = row.tipo.toString().toUpperCase().trim();
+                        if (tipoUpper === 'SINERGICO') {
+                            tipo = TipoPaquete.SINERGICO;
+                        } else if (tipoUpper === 'ENERGICO' || tipoUpper === 'ENERGETICO') {
+                            tipo = TipoPaquete.ENERGICO;
+                        } else if (tipoUpper === 'POR_DEFINIR') {
+                            tipo = TipoPaquete.POR_DEFINIR;
+                        } else {
+                            throw new Error(`El valor '${row.tipo}' en la columna 'tipo' no es válido. Usa 'Sinergico' o 'Energetico'.`);
                         }
                     }
 
@@ -203,7 +209,26 @@ export class ProductoExcelService {
                         creados++;
                     }
                 } catch (error) {
-                    const msg = error instanceof Error ? error.message : 'Error desconocido al procesar esta fila';
+                    let msg = error instanceof Error ? error.message : 'Error desconocido al procesar esta fila';
+                    
+                    // Hacer que los errores de Prisma sean amigables para el administrador
+                    if (msg.includes('Invalid `prisma.')) {
+                        if (msg.includes('Unique constraint failed')) {
+                            msg = 'Ya existe un producto con este registro único (ej: SKU repetido).';
+                        } else if (msg.includes('Foreign key constraint failed')) {
+                            msg = 'Hay una referencia a un dato que no existe o es inválido.';
+                        } else if (msg.includes('Invalid value for argument')) {
+                            const match = msg.match(/Invalid value for argument `(.*?)`/);
+                            if (match) {
+                                msg = `El valor en la columna '${match[1]}' tiene un formato incorrecto o no es permitido.`;
+                            } else {
+                                msg = 'Un dato en esta fila tiene un formato equivocado o un tipo incorrecto.';
+                            }
+                        } else {
+                            msg = 'Hubo un problema de validación al intentar guardar este producto en la base de datos.';
+                        }
+                    }
+
                     errores.push({
                         fila,
                         mensaje: msg,
@@ -323,7 +348,7 @@ export class ProductoExcelService {
                     profundidad: 15,
                     peso: 2.5,
                     stock: 100,
-                    tipo: 'ENERGETICO',
+                    tipo: 'ENERGICO',
                     plantilla: '',
                     sku: 'SKU-001',
                 },

@@ -24,11 +24,22 @@ export class PaquetePublicadoController {
   });
 
   create = asyncHandler(async (req: Request, res: Response) => {
-    const paquetePublicadoDTO = req.body;
-    if (!paquetePublicadoDTO)
-      throw new CustomError('Paquete no proporcionado', 400);
+    const body = req.body;
+    const file = req.file as Express.Multer.File | undefined;
 
-    const paquetePublicado = await this.service.create(paquetePublicadoDTO);
+    if (!body) throw new CustomError('Datos del paquete no proporcionados', 400);
+
+    const dto = {
+      nombre: body.nombre,
+      paqueteBaseId: Number(body.paqueteBaseId),
+      zonaId: Number(body.zonaId),
+      cant_productos: body.cant_productos ? Number(body.cant_productos) : undefined,
+      fecha_inicio: body.fecha_inicio,
+      fecha_fin: body.fecha_fin,
+      descuento: body.descuento ? Number(body.descuento) : undefined,
+    };
+
+    const paquetePublicado = await this.service.create(dto, file?.buffer);
     if (!paquetePublicado) throw new CustomError('Error al crear paquete', 400);
 
     res.status(201).json(paquetePublicado);
@@ -38,7 +49,9 @@ export class PaquetePublicadoController {
     const { id } = req.params;
     if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
 
-    const paquetePublicado = await this.service.update(Number(id), req.body);
+    const file = req.file as Express.Multer.File | undefined;
+
+    const paquetePublicado = await this.service.update(Number(id), req.body, file?.buffer);
     if (!paquetePublicado)
       throw new CustomError('Error al actualizar paquete', 400);
 
