@@ -49,9 +49,9 @@ export class PaqueteBaseService {
           nombre: data.nombre,
           descripcion: data.descripcion,
           imagen_url: data.imagen_url,
-          categoria: {
-            connect: { id_categoria: data.categoria_id },
-          },
+          tipo: data.tipo,
+          marcaId: data.marcaId || null,
+          categoria_id: data.categoria_id,
         },
       });
 
@@ -86,9 +86,9 @@ export class PaqueteBaseService {
           nombre: data.nombre,
           descripcion: data.descripcion,
           imagen_url: data.imagen_url,
-          categoria: {
-            connect: { id_categoria: data.categoria_id },
-          },
+          tipo: data.tipo,
+          marcaId: data.marcaId || null,
+          categoria_id: data.categoria_id,
         },
       });
     } catch {
@@ -174,6 +174,7 @@ export class PaqueteBaseService {
           descripcion: paqueteOriginal.descripcion,
           imagen_url: paqueteOriginal.imagen_url,
           categoria_id: paqueteOriginal.categoria_id,
+          tipo: paqueteOriginal.tipo,
           marcaId: paqueteOriginal.marcaId,
         },
       });

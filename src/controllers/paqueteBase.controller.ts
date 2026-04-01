@@ -74,6 +74,7 @@ export class PaqueteController {
       descripcion: body.descripcion,
       categoria_id: Number(body.categoria_id),
       marcaId: Number(body.marcaId),
+      tipo: body.tipo,
       productos: productosArray,
       imagen_url: '',
     };

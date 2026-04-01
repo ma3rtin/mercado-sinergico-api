@@ -283,6 +283,7 @@ export class PaquetePublicadoService {
         cant_productos: dto.cant_productos,
         fecha_inicio,
         fecha_fin,
+        tipo: paqueteBase.tipo,
         descuento: dto.descuento,
         ...(imagen_url && { imagen_url }),
         zona: { connect: { id_zona: Number(dto.zonaId) } },
