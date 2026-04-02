@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { PedidoController } from '../../controllers/pedido.controller.js';
-import { authMiddleware } from '../../middlewares/auth.middleware.js';
+import { authMiddleware, rolMiddleware } from '../../middlewares/auth.middleware.js';
 import { validarDto } from '../../middlewares/validateDTO.middleware.js';
 import { CrearPedidoDTO } from '../../dtos/pedido/crearPedido.dto.js';
+import { NotificarEnvioDTO } from '../../dtos/pedido/notificarEnvio.dto.js';
 import { ActualizarCantidadDTO } from '../../dtos/pedido/actualizarCantidad.dto.js';
 import { PedidoService } from '../../services/pedido.service.js';
 import { PedidoPagoService } from '../../services/pedidoPago.service.js';
@@ -27,6 +28,14 @@ router.post(
 );
 
 router.delete('/:paqueteId/bajarse', authMiddleware, controller.bajarse);
+
+router.patch(
+  '/notificar-envio',
+  authMiddleware,
+  rolMiddleware(['Administrador']),
+  validarDto(NotificarEnvioDTO),
+  controller.notificarEnvio
+);
 
 router.get('/:id', authMiddleware, controller.getById);
 

@@ -2,10 +2,31 @@ import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { MercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
 import { despachadorEventosApp, DespachadorEventos } from '../events/despachadorEventos.js';
+
+// ─── Estados canónicos ──────────────────────────────────────────────────────
+// EstadoPedido: Pendiente | Confirmado | Completo | Recibido | Cancelado | Reembolsando
+//
+// Flujo de pago:
+//  MP approved  → Pedido "Pendiente"  (usuario pagó, espera que el grupo se llene)
+//  MP rejected  → Pedido "Cancelado"
+//  MP pending   → Pedido "Pendiente"  (pago aún en proceso)
+//
+//  Cuando el paquete se llena → evento PAQUETE_COMPLETADO → paquete y pedidos pasan a "Completo"
+//  El admin confirma el PAQUETE ENTERO → paquete y pedidos pasan a "Confirmado" (dinero acreditado a Pablo)
+// ────────────────────────────────────────────────────────────────────────────
+
 export class PedidoPagoService {
   private prisma = prisma;
 
-  constructor(private readonly mercadoPagoService: MercadoPagoService) { }
+  constructor(private readonly mercadoPagoService: MercadoPagoService) {}
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  private async getEstadoPedido(nombre: string) {
+    const estado = await this.prisma.estadoPedido.findUnique({ where: { nombre } });
+    if (!estado) throw new CustomError(`Estado de pedido "${nombre}" no encontrado en la BD`, 500);
+    return estado;
+  }
 
   private validarStockFinal(
     stock: number | null,
@@ -17,7 +38,11 @@ export class PedidoPagoService {
     }
   }
 
+  // ─── Operaciones ───────────────────────────────────────────────────────────
+
   public async iniciarPago(pedidoId: number, usuarioId: number) {
+    const estadoPendiente = await this.getEstadoPedido('Pendiente');
+
     const pedido = await this.prisma.pedido.findUnique({
       where: { id_pedido: pedidoId },
       include: {
@@ -64,8 +89,9 @@ export class PedidoPagoService {
       throw new CustomError('No autorizado', 403);
     }
 
-    if (pedido.estadoId !== 1) {
-      throw new CustomError('El pedido no puede pagarse', 400);
+    // Solo se puede iniciar pago en pedidos "Pendiente"
+    if (pedido.estadoId !== estadoPendiente.id_estado) {
+      throw new CustomError('El pedido no puede pagarse en su estado actual', 400);
     }
 
     const disponibles =
@@ -145,9 +171,14 @@ export class PedidoPagoService {
         0
       );
 
+      // El pago se acredita en la cuenta del admin.
+      // El pedido queda en "Pendiente" hasta que el admin lo confirme.
+      const estadoPendiente = await this.getEstadoPedido('Pendiente');
+
       let emitirEvento = false;
 
       await this.prisma.$transaction(async (prisma) => {
+        // Incrementar reservas en el paquete
         await prisma.paquetePublicado.update({
           where: { id_paquete_publicado: pedido.paquetePublicadoId },
           data: {
@@ -155,6 +186,7 @@ export class PedidoPagoService {
           },
         });
 
+        // Descontar stock físico si es ENERGICO
         if (pedido.paquetePublicado.tipo === 'ENERGICO') {
           for (const detalle of pedido.detalles) {
             if (detalle.varianteId) {
@@ -174,36 +206,47 @@ export class PedidoPagoService {
             }
           }
         }
+
+        // El pedido pasa a "Pendiente" (pago recibido, esperando confirmación admin)
         await prisma.pedido.update({
           where: { id_pedido: pedidoId },
-          data: { estadoId: 2 },
+          data: { estadoId: estadoPendiente.id_estado },
         });
 
+        // Verificar si el paquete se completó
         const paqueteActualizado = await prisma.paquetePublicado.findUnique({
-          where: { id_paquete_publicado: pedido.paquetePublicadoId }
+          where: { id_paquete_publicado: pedido.paquetePublicadoId },
         });
 
-        if (paqueteActualizado && paqueteActualizado.cant_productos_reservados >= (paqueteActualizado.cant_productos || 0)) {
+        if (
+          paqueteActualizado &&
+          paqueteActualizado.cant_productos_reservados >= (paqueteActualizado.cant_productos || 0)
+        ) {
           emitirEvento = true;
         }
       });
 
       if (emitirEvento) {
-        despachadorEventosApp.emit(DespachadorEventos.PAQUETE_COMPLETADO, pedido.paquetePublicadoId);
+        despachadorEventosApp.emit(
+          DespachadorEventos.PAQUETE_COMPLETADO,
+          pedido.paquetePublicadoId
+        );
       }
     }
 
     if (pago.status === 'rejected') {
+      const estadoCancelado = await this.getEstadoPedido('Cancelado');
       await this.prisma.pedido.update({
         where: { id_pedido: pedidoId },
-        data: { estadoId: 5 },
+        data: { estadoId: estadoCancelado.id_estado },
       });
     }
 
     if (pago.status === 'pending' || pago.status === 'in_process') {
+      const estadoPendiente = await this.getEstadoPedido('Pendiente');
       await this.prisma.pedido.update({
         where: { id_pedido: pedidoId },
-        data: { estadoId: 1 },
+        data: { estadoId: estadoPendiente.id_estado },
       });
     }
 

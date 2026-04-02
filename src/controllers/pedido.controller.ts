@@ -107,4 +107,10 @@ export class PedidoController {
 
     res.status(200).json({ ok: true });
   });
+
+  public notificarEnvio = asyncHandler(async (req: Request, res: Response) => {
+    const { pedidoIds } = req.body;
+    const result = await this.pedidoService.notificarEnvio(pedidoIds as number[]);
+    res.status(200).json(result);
+  });
 }

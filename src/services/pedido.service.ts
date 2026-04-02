@@ -1,11 +1,17 @@
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { CrearPedidoDTO } from '../dtos/pedido/crearPedido.dto.js';
+import { EmailService } from './email.service.js';
 
-export type DetalleComputable = { cantidad?: number;[key: string]: unknown };
+// ─── Estados canónicos ──────────────────────────────────────────────────────
+// EstadoPedido: Pendiente | Confirmado | Completo | Recibido | Cancelado | Reembolsando
+// ────────────────────────────────────────────────────────────────────────────
+
+export type DetalleComputable = { cantidad?: number; [key: string]: unknown };
 
 export type PedidoComputable = {
   estadoId?: number;
+  estado?: { nombre?: string } | null;
   usuario?: { id?: number };
   usuarioId?: number;
   detalles?: DetalleComputable[];
@@ -27,14 +33,31 @@ export type PedidoConPaquete = {
   [key: string]: unknown;
 };
 
+// Pedidos considerados "activos" para el cómputo de métricas del paquete
+const ESTADOS_PEDIDO_ACTIVOS = ['Pendiente', 'Confirmado', 'Completo', 'Enviado', 'Recibido'];
+
 export class PedidoService {
   private prisma = prisma;
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  /** Busca un EstadoPedido por nombre y lanza error si no existe. */
+  private async getEstadoPedido(nombre: string) {
+    const estado = await this.prisma.estadoPedido.findUnique({ where: { nombre } });
+    if (!estado) throw new CustomError(`Estado de pedido "${nombre}" no encontrado en la BD`, 500);
+    return estado;
+  }
 
   private _mapComputedFields<T extends PedidoConPaquete>(pedido: T) {
     if (!pedido || !pedido.paquetePublicado) return pedido;
 
     const paquete = pedido.paquetePublicado;
-    const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && [1, 2, 3].includes(p.estadoId));
+
+    // Filtra pedidos activos: usa el nombre si viene incluido, o excluye Cancelado(5)/Reembolsando(6) por ID como fallback
+    const pedidosActivos = (paquete.pedidos || []).filter((p) => {
+      if (p.estado?.nombre) return ESTADOS_PEDIDO_ACTIVOS.includes(p.estado.nombre);
+      return p.estadoId !== undefined && ![5, 6].includes(p.estadoId);
+    });
 
     const usuariosIds = new Set(pedidosActivos.map((p) => p.usuario?.id || p.usuarioId));
 
@@ -55,8 +78,8 @@ export class PedidoService {
         ...paquete,
         cant_usuarios_registrados: usuariosIds.size > 0 ? usuariosIds.size : paquete.cant_usuarios_registrados,
         cant_productos_reservados: reservados > 0 ? reservados : paquete.cant_productos_reservados,
-        monto_total: recaudacion > 0 ? recaudacion : paquete.monto_total
-      }
+        monto_total: recaudacion > 0 ? recaudacion : paquete.monto_total,
+      },
     };
   }
 
@@ -89,15 +112,19 @@ export class PedidoService {
   }
 
   private async getPedidoCarrito(usuarioId: number, paqueteId: number) {
+    // Busca el pedido en estado "Pendiente" (carrito activo)
+    const estadoPendiente = await this.getEstadoPedido('Pendiente');
     return this.prisma.pedido.findFirst({
       where: {
         usuarioId,
         paquetePublicadoId: paqueteId,
-        estadoId: 1,
+        estadoId: estadoPendiente.id_estado,
       },
       select: { id_pedido: true },
     });
   }
+
+  // ─── Operaciones de pedido ─────────────────────────────────────────────────
 
   public async crearPedido(
     usuarioId: number,
@@ -143,6 +170,7 @@ export class PedidoService {
       throw new CustomError('Paquete no encontrado', 404);
     }
 
+    // Solo se puede comprar en paquetes Activos
     if (paquete.estado.nombre !== 'Activo') {
       throw new CustomError('El paquete no está activo', 400);
     }
@@ -162,9 +190,7 @@ export class PedidoService {
     let precioExtra = 0;
 
     if (dto.varianteId) {
-      const variante = producto.variantes.find(
-        (v) => v.id === dto.varianteId
-      );
+      const variante = producto.variantes.find((v) => v.id === dto.varianteId);
 
       if (!variante) {
         throw new CustomError('La variante no existe para este producto', 400);
@@ -177,10 +203,7 @@ export class PedidoService {
       precioExtra = variante.precioExtra || 0;
     } else {
       if (producto.plantillaId !== null && producto.variantes.length > 0) {
-        throw new CustomError(
-          'Debe seleccionar una variante para este producto',
-          400
-        );
+        throw new CustomError('Debe seleccionar una variante para este producto', 400);
       }
     }
 
@@ -189,21 +212,19 @@ export class PedidoService {
     }
 
     const precioBase = producto.precio + precioExtra;
-    const precioUnitario = this.calcularPrecioConDescuento(
-      precioBase,
-      paquete.descuento || 0
-    );
-
+    const precioUnitario = this.calcularPrecioConDescuento(precioBase, paquete.descuento || 0);
     const subtotal = precioUnitario * dto.cantidad;
 
+    // Buscar carrito existente
     let pedido = await this.getPedidoCarrito(usuarioId, paqueteId);
 
     if (!pedido) {
+      const estadoPendiente = await this.getEstadoPedido('Pendiente');
       const nuevo = await this.prisma.pedido.create({
         data: {
           usuarioId,
           paquetePublicadoId: paqueteId,
-          estadoId: 1,
+          estadoId: estadoPendiente.id_estado,
           monto_total: subtotal,
           descuento_aplicado: paquete.descuento || 0,
           detalles: {
@@ -267,11 +288,12 @@ export class PedidoService {
     pedidoId: number,
     detalleId: number
   ) {
+    const estadoPendiente = await this.getEstadoPedido('Pendiente');
     const pedido = await this.prisma.pedido.findFirst({
       where: {
         id_pedido: pedidoId,
         usuarioId,
-        estadoId: 1,
+        estadoId: estadoPendiente.id_estado,
       },
       include: { detalles: true },
     });
@@ -311,11 +333,12 @@ export class PedidoService {
     detalleId: number,
     nuevaCantidad: number
   ) {
+    const estadoPendiente = await this.getEstadoPedido('Pendiente');
     const pedido = await this.prisma.pedido.findFirst({
       where: {
         id_pedido: pedidoId,
         usuarioId,
-        estadoId: 1,
+        estadoId: estadoPendiente.id_estado,
       },
       include: {
         paquetePublicado: {
@@ -363,8 +386,7 @@ export class PedidoService {
       this.validarStockInformativo(stockAValidar, nuevaCantidad);
     }
 
-    const precioBase =
-      detalle.producto.precio + (detalle.variante?.precioExtra || 0);
+    const precioBase = detalle.producto.precio + (detalle.variante?.precioExtra || 0);
     const precioUnitario = this.calcularPrecioConDescuento(
       precioBase,
       pedido.paquetePublicado.descuento || 0
@@ -381,6 +403,50 @@ export class PedidoService {
     await this.recalcularMontoTotal(pedidoId);
 
     return { ok: true };
+  }
+
+  public async notificarEnvio(pedidoIds: number[]) {
+    const estadoEnviado = await this.getEstadoPedido('Enviado');
+
+    const pedidos = await this.prisma.pedido.findMany({
+      where: {
+        id_pedido: { in: pedidoIds },
+        estado: { nombre: 'Confirmado' },
+      },
+      include: {
+        usuario: { select: { email: true, nombre: true } },
+        paquetePublicado: {
+          include: { paqueteBase: { select: { nombre: true } } },
+        },
+      },
+    });
+
+    if (pedidos.length === 0) {
+      throw new CustomError('No se encontraron pedidos válidos para notificar. Deben estar en estado "Confirmado".', 400);
+    }
+
+    await this.prisma.pedido.updateMany({
+      where: { id_pedido: { in: pedidos.map((p) => p.id_pedido) } },
+      data: { estadoId: estadoEnviado.id_estado },
+    });
+
+    const emailService = new EmailService();
+    for (const pedido of pedidos) {
+      await emailService.enviarEmail({
+        para: pedido.usuario.email,
+        asunto: `🚚 ¡Tu pedido está en camino! - ${pedido.paquetePublicado?.paqueteBase?.nombre}`,
+        template: 'comprador-pedido-enviado',
+        context: {
+          nombreComprador: pedido.usuario.nombre,
+          nombrePaquete: pedido.paquetePublicado?.paqueteBase?.nombre,
+        },
+      });
+    }
+
+    return {
+      pedidosActualizados: pedidos.length,
+      notificados: pedidos.length,
+    };
   }
 
   public async obtenerPedidosUsuario(usuarioId: number) {
@@ -415,6 +481,7 @@ export class PedidoService {
             zona: true,
             pedidos: {
               include: {
+                estado: { select: { nombre: true } },
                 usuario: { select: { id: true } },
                 detalles: true,
               },
@@ -427,6 +494,7 @@ export class PedidoService {
 
     return pedidos.map((p) => this._mapComputedFields(p as PedidoConPaquete));
   }
+
   public async obtenerPedidoPorId(usuarioId: number, pedidoId: number) {
     const pedido = await this.prisma.pedido.findFirst({
       where: {
@@ -442,10 +510,11 @@ export class PedidoService {
             zona: true,
             pedidos: {
               include: {
+                estado: { select: { nombre: true } },
                 usuario: { select: { id: true } },
-                detalles: true
-              }
-            }
+                detalles: true,
+              },
+            },
           },
         },
         detalles: {
@@ -479,10 +548,12 @@ export class PedidoService {
   }
 
   public async bajarseDePaquete(usuarioId: number, paqueteId: number) {
+    const estadoPendiente = await this.getEstadoPedido('Pendiente');
+
     const pedido = await this.prisma.pedido.findFirst({
       where: {
         usuarioId,
-        paquetePublicadoId: paqueteId
+        paquetePublicadoId: paqueteId,
       },
     });
 
@@ -490,8 +561,9 @@ export class PedidoService {
       throw new CustomError('No hay un pedido activo en este paquete', 404);
     }
 
-    if (pedido.estadoId != 1) {
-      throw new CustomError('El pedido tiene que estar pendiente para poder bajarse');
+    // Solo se puede bajar si el pedido está en estado "Pendiente"
+    if (pedido.estadoId !== estadoPendiente.id_estado) {
+      throw new CustomError('El pedido ya no puede cancelarse: el paquete está en proceso de compra', 400);
     }
 
     await this.prisma.pedido.delete({

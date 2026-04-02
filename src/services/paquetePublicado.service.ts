@@ -4,10 +4,16 @@ import { CustomError } from '../errors/custom.error.js';
 import { prisma } from '../prisma/client.js';
 import { EmailService } from './email.service.js';
 
+// ─── Estados canónicos ──────────────────────────────────────────────────────
+// EstadoPaquetePublicado: Activo | Completo | Confirmado | Recibido | Cancelado | Eliminado
+// EstadoPedido          : Pendiente | Confirmado | Completo | Recibido | Cancelado | Reembolsando
+// ────────────────────────────────────────────────────────────────────────────
+
 export type DetalleComputable = { cantidad?: number; [key: string]: unknown };
 
 export type PedidoComputable = {
   estadoId?: number;
+  estado?: { nombre?: string } | null;
   usuario?: { id?: number };
   usuarioId?: number;
   detalles?: DetalleComputable[];
@@ -24,16 +30,46 @@ export type PaqueteComputable = {
   [key: string]: unknown;
 };
 
+// Pedidos considerados "activos" para el cómputo de métricas del paquete
+const ESTADOS_PEDIDO_ACTIVOS = ['Pendiente', 'Confirmado', 'Completo', 'Recibido'];
+
 export class PaquetePublicadoService {
   private prisma = prisma;
   private emailService = new EmailService();
 
+  // ─── Helpers de estado ─────────────────────────────────────────────────────
+
+  /** Busca un EstadoPaquetePublicado por nombre y lanza error si no existe. */
+  private async getEstadoPaquete(nombre: string) {
+    const estado = await this.prisma.estadoPaquetePublicado.findUnique({
+      where: { nombre },
+    });
+    if (!estado) throw new CustomError(`Estado de publicación "${nombre}" no encontrado en la BD`, 500);
+    return estado;
+  }
+
+  /** Busca un EstadoPedido por nombre y lanza error si no existe. */
+  private async getEstadoPedido(nombre: string) {
+    const estado = await this.prisma.estadoPedido.findUnique({
+      where: { nombre },
+    });
+    if (!estado) throw new CustomError(`Estado de pedido "${nombre}" no encontrado en la BD`, 500);
+    return estado;
+  }
+
+  // ─── Cómputo de métricas ───────────────────────────────────────────────────
+
   private _mapComputedFields<T extends PaqueteComputable>(paquete: T) {
     if (!paquete) return paquete;
-    const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && [1, 2, 3].includes(p.estadoId));
-    
+
+    // Filtra pedidos activos: usa el nombre si viene incluido, o excluye Cancelado(5)/Reembolsando(6) por ID como fallback
+    const pedidosActivos = (paquete.pedidos || []).filter((p) => {
+      if (p.estado?.nombre) return ESTADOS_PEDIDO_ACTIVOS.includes(p.estado.nombre);
+      return p.estadoId !== undefined && ![5, 6].includes(p.estadoId);
+    });
+
     const usuariosIds = new Set(pedidosActivos.map((p) => p.usuario?.id || p.usuarioId));
-    
+
     let reservados = 0;
     pedidosActivos.forEach((ped) => {
       const arr = ped.detalles || ped.pedidoProductos || [];
@@ -49,9 +85,23 @@ export class PaquetePublicadoService {
       ...paquete,
       cant_usuarios_registrados: usuariosIds.size > 0 ? usuariosIds.size : paquete.cant_usuarios_registrados,
       cant_productos_reservados: reservados > 0 ? reservados : paquete.cant_productos_reservados,
-      monto_total: recaudacion > 0 ? recaudacion : paquete.monto_total
+      monto_total: recaudacion > 0 ? recaudacion : paquete.monto_total,
     };
   }
+
+  // ─── Pedidos include con estado ────────────────────────────────────────────
+
+  private get pedidosIncludeConEstado() {
+    return {
+      include: {
+        estado: { select: { nombre: true } },
+        usuario: { select: { id: true, nombre: true, email: true } },
+        detalles: true,
+      },
+    };
+  }
+
+  // ─── Queries ───────────────────────────────────────────────────────────────
 
   async getAll() {
     const paquetes = await this.prisma.paquetePublicado.findMany({
@@ -64,12 +114,7 @@ export class PaquetePublicadoService {
         },
         zona: true,
         estado: true,
-        pedidos: {
-          include: {
-            usuario: { select: { id: true, nombre: true, email: true } },
-            detalles: true
-          },
-        },
+        pedidos: this.pedidosIncludeConEstado,
       },
     });
     return paquetes.map((p) => this._mapComputedFields(p as PaqueteComputable));
@@ -98,6 +143,7 @@ export class PaquetePublicadoService {
         estado: true,
         pedidos: {
           include: {
+            estado: { select: { nombre: true } },
             usuario: { select: { id: true, nombre: true, email: true } },
             detalles: {
               include: {
@@ -114,23 +160,22 @@ export class PaquetePublicadoService {
     });
 
     if (paquete) {
-      // Mapear detalles a pedidoProductos para compatibilidad con el frontend
       const { pedidos, ...rest } = paquete;
       const mappedPedidos = pedidos.map((p) => {
         const pRecord = p as PedidoComputable;
         const { detalles, ...pRest } = pRecord;
         return {
           ...pRest,
-          pedidoProductos: detalles
+          pedidoProductos: detalles,
         };
       });
 
       const paqueteMapeado = {
         ...rest,
         pedidos: mappedPedidos,
-        descuento: 10, // Descuento fijo del 10%
+        descuento: 10,
       };
-      
+
       return this._mapComputedFields(paqueteMapeado as PaqueteComputable);
     }
     return null;
@@ -139,7 +184,6 @@ export class PaquetePublicadoService {
   async getByLocation(userId?: number, localidadId?: number) {
     let zonaIds: number[] = [];
 
-    // 1. Si se proporciona localidadId explícitamente, usarla
     if (localidadId) {
       console.log('🔎 Buscando zonas para localidad ID:', localidadId);
       const localidad = await this.prisma.localidad.findUnique({
@@ -150,19 +194,15 @@ export class PaquetePublicadoService {
       if (localidad) {
         zonaIds = localidad.zonas.map((z: { id: number; localidadId: number; zonaId: number }) => z.zonaId);
       }
-    }
-    // 2. Si no hay localidadId pero hay userId, buscar la del usuario
-    else if (userId) {
+    } else if (userId) {
       console.log('🔎 Buscando zonas para usuario ID:', userId);
       const usuario = await this.prisma.usuario.findUnique({
         where: { id: userId },
         include: {
           localidad: {
-            // Primero revisar preferencia de localidad
             include: { zonas: true },
           },
           direccion: {
-            // Fallback a dirección física
             include: {
               localidad: {
                 include: {
@@ -250,14 +290,12 @@ export class PaquetePublicadoService {
     const fecha_inicio = new Date(dto.fecha_inicio);
     const fecha_fin = new Date(dto.fecha_fin);
 
-    // Validar zona
     const zona = await this.prisma.zona.findUnique({
       where: { id_zona: Number(dto.zonaId) },
     });
 
     if (!zona) throw new CustomError('La zona no existe', 404);
 
-    // Validar paquete base
     const paqueteBase = await this.prisma.paqueteBase.findUnique({
       where: { id_paquete_base: dto.paqueteBaseId },
     });
@@ -302,8 +340,12 @@ export class PaquetePublicadoService {
           ...(dto.cant_productos && { cant_productos: Number(dto.cant_productos) }),
           ...(dto.zonaId && { zona: { connect: { id_zona: Number(dto.zonaId) } } }),
           ...(dto.paqueteBaseId && { paqueteBase: { connect: { id_paquete_base: Number(dto.paqueteBaseId) } } }),
-          ...(dto.estadoId && { estado: { connect: { id_estado: Number(dto.estadoId) } } }),
-          ...(dto.estadoNombre && { estado: { connect: { nombre: dto.estadoNombre } } }),
+          // Priorizar nombre sobre ID para evitar desincronización
+          ...(dto.estadoNombre
+            ? { estado: { connect: { nombre: dto.estadoNombre } } }
+            : dto.estadoId
+              ? { estado: { connect: { id_estado: Number(dto.estadoId) } } }
+              : {}),
         },
       });
     });
@@ -369,17 +411,19 @@ export class PaquetePublicadoService {
     });
   }
 
+  /**
+   * Marca el paquete como "Completo" (cupo lleno).
+   * Actualiza en cascada todos los pedidos activos a estado "Completo".
+   * El usuario NO puede cancelar a partir de este momento.
+   */
   async completar(id: number) {
-    const estadoFinalizado = await this.prisma.estadoPaquetePublicado.findUnique({
-      where: { nombre: 'Finalizado' },
-    });
-
-    if (!estadoFinalizado) throw new CustomError('Estado "Finalizado" no encontrado', 500);
+    const estadoCompleto = await this.getEstadoPaquete('Completo');
+    const estadoPedidoCompleto = await this.getEstadoPedido('Completo');
 
     const result = await this.prisma.paquetePublicado.update({
       where: { id_paquete_publicado: id },
       data: {
-        estado: { connect: { id_estado: estadoFinalizado.id_estado } },
+        estado: { connect: { id_estado: estadoCompleto.id_estado } },
       },
       include: {
         paqueteBase: { include: { marca: true, categoria: true } },
@@ -393,25 +437,29 @@ export class PaquetePublicadoService {
       },
     });
 
-    // 1. Ya tenemos el paquete con nombre en result
-    const paquete = result;
-
-    if (!paquete) throw new CustomError('Paquete no encontrado', 404);
-
-    // 2. Obtener compradores
-    const pedidosAprobados = await this.prisma.pedido.findMany({
+    // Actualizar en cascada todos los pedidos activos del paquete (excepto Cancelado y Reembolsando)
+    await this.prisma.pedido.updateMany({
       where: {
         paquetePublicadoId: id,
-        estadoId: 3, // Asumiendo que 3 = Aprobado
+        estado: { nombre: { notIn: ['Cancelado', 'Reembolsando'] } },
       },
-      include: {
-        usuario: true,
-      },
+      data: { estadoId: estadoPedidoCompleto.id_estado },
     });
 
-    const correosCompradores = [...new Set(pedidosAprobados.map((p) => p.usuario.email))];
+    const paquete = result;
+    if (!paquete) throw new CustomError('Paquete no encontrado', 404);
 
-    // 3. Enviar correo a compradores
+    // Obtener compradores para notificación
+    const pedidosActivos = await this.prisma.pedido.findMany({
+      where: {
+        paquetePublicadoId: id,
+        estado: { nombre: 'Completo' },
+      },
+      include: { usuario: true },
+    });
+
+    const correosCompradores = [...new Set(pedidosActivos.map((p) => p.usuario.email))];
+
     if (correosCompradores.length > 0) {
       this.emailService.enviarEmail({
         para: correosCompradores,
@@ -421,32 +469,29 @@ export class PaquetePublicadoService {
       });
     }
 
-    // 4. Enviar correo al admin
-    // Por simplicidad del ejemplo enviamos al mail maestro configurado en ENVS
+    // Notificar al admin
     this.emailService.enviarEmail({
       para: process.env.MAILER_EMAIL || 'admin@mercadosinergico.com',
       asunto: `🚨 Acción Requerida: Paquete Completado - ${paquete.paqueteBase?.nombre}`,
       template: 'admin-paquete-completado',
       context: {
         nombrePaquete: paquete.paqueteBase?.nombre,
-        paqueteId: paquete.id_paquete_publicado
+        paqueteId: paquete.id_paquete_publicado,
       },
     });
 
     return result;
   }
 
+  /**
+   * Cierre manual del paquete por el admin (antes de llegar al cupo).
+   * El paquete pasa igualmente a "Completo" y los pedidos también.
+   */
   async cerrarManual(id: number) {
     try {
-      const estadoEnPreparacion = await this.prisma.estadoPaquetePublicado.findUnique({
-        where: { nombre: 'En Preparación' },
-      });
+      const estadoCompleto = await this.getEstadoPaquete('Completo');
+      const estadoPedidoCompleto = await this.getEstadoPedido('Completo');
 
-      if (!estadoEnPreparacion) {
-        throw new CustomError('Estado "En Preparación" no encontrado en la base de datos (solicita al admin agregarlo)', 500);
-      }
-
-      // 1. Obtener paquete y su capacidad
       const paquete = await this.prisma.paquetePublicado.findUnique({
         where: { id_paquete_publicado: id },
         include: { paqueteBase: true },
@@ -457,7 +502,7 @@ export class PaquetePublicadoService {
       const result = await this.prisma.paquetePublicado.update({
         where: { id_paquete_publicado: id },
         data: {
-          estado: { connect: { id_estado: estadoEnPreparacion.id_estado } },
+          estado: { connect: { id_estado: estadoCompleto.id_estado } },
         },
         include: {
           paqueteBase: { include: { marca: true, categoria: true } },
@@ -471,20 +516,28 @@ export class PaquetePublicadoService {
         },
       });
 
+      // Actualizar pedidos activos en cascada
+      await this.prisma.pedido.updateMany({
+        where: {
+          paquetePublicadoId: id,
+          estado: { nombre: { notIn: ['Cancelado', 'Reembolsando'] } },
+        },
+        data: { estadoId: estadoPedidoCompleto.id_estado },
+      });
+
       const faltantes = (paquete.cant_productos || 0) - (paquete.cant_usuarios_registrados || 0);
 
-      // 2. Obtener compradores
+      // Notificar compradores
       const pedidosActivos = await this.prisma.pedido.findMany({
-        where: { paquetePublicadoId: id, estadoId: { in: [1, 2, 3] } }, // Pagados o aprobados
+        where: { paquetePublicadoId: id, estadoId: estadoPedidoCompleto.id_estado },
         include: { usuario: true },
       });
       const correos = [...new Set(pedidosActivos.map((p) => p.usuario.email))];
 
-      // 3. Enviar correo (Solo si hay compradores y el nombre de paquete existe)
       if (correos.length > 0 && paquete.paqueteBase?.nombre) {
         this.emailService.enviarEmail({
           para: correos,
-          asunto: `📦 Preparación Anticipada - ${paquete.paqueteBase.nombre}`,
+          asunto: `📦 Paquete Completo - ${paquete.paqueteBase.nombre}`,
           template: 'comprador-paquete-cerrado-anticipado',
           context: { nombrePaquete: paquete.paqueteBase.nombre },
         });
@@ -499,9 +552,12 @@ export class PaquetePublicadoService {
     }
   }
 
+  /**
+   * Cancela el paquete y dispara el reembolso de todos los pedidos pendientes.
+   * Los pedidos ya cancelados o en reembolso se omiten.
+   */
   async cancelarYReembolsar(id: number) {
     return this.prisma.$transaction(async (tx) => {
-      // 1. Obtener paquete
       const paquete = await tx.paquetePublicado.findUnique({
         where: { id_paquete_publicado: id },
         include: {
@@ -516,78 +572,74 @@ export class PaquetePublicadoService {
 
       if (!paquete) throw new CustomError('Paquete no encontrado', 404);
 
-      // 2. Cambiar estado a Cerrado (o Cancelado, pero las instrucciones dicen 'Cerrado')
-      const estadoCerrado = await tx.estadoPaquetePublicado.findUnique({
-        where: { nombre: 'Cerrado' },
+      // 1. Cambiar estado del paquete a "Cancelado"
+      const estadoCancelado = await tx.estadoPaquetePublicado.findUnique({
+        where: { nombre: 'Cancelado' },
       });
-
-      if (!estadoCerrado) throw new CustomError('Estado "Cerrado" no encontrado', 500);
+      if (!estadoCancelado) throw new CustomError('Estado "Cancelado" no encontrado', 500);
 
       await tx.paquetePublicado.update({
         where: { id_paquete_publicado: id },
-        data: { estadoId: estadoCerrado.id_estado },
+        data: { estadoId: estadoCancelado.id_estado },
       });
 
-      // 3. Obtener estado Cancelado/Reembolsado para Pedidos
-      const estadoPedido = await tx.estadoPedido.findFirst({
+      // 2. Obtener estado "Reembolsando" para pedidos
+      const estadoReembolsando = await tx.estadoPedido.findUnique({
         where: { nombre: 'Reembolsando' },
       });
-
-      // Asegurarse de que exista el estado
-      if (!estadoPedido) {
-        throw new CustomError('Estado de pedido "Reembolsando" no encontrado en la base de datos (solicita al admin agregarlo)', 500);
+      if (!estadoReembolsando) {
+        throw new CustomError('Estado de pedido "Reembolsando" no encontrado en la base de datos', 500);
       }
 
-      if (estadoPedido) {
-        // Marcamos los pedidos como reembolsando
-        // ANTES del updateMany de pedidos
-        const pedidosAfectados = await tx.pedido.findMany({
-          where: { paquetePublicadoId: id, estadoId: { in: [1, 2, 3] } },
-          include: { usuario: true },
+      // 3. Obtener los pedidos afectados ANTES de actualizarlos (para extraer correos)
+      const pedidosAfectados = await tx.pedido.findMany({
+        where: {
+          paquetePublicadoId: id,
+          estado: { nombre: { notIn: ['Cancelado', 'Reembolsando'] } },
+        },
+        include: { usuario: true },
+      });
+      const correosCompradores = [...new Set(pedidosAfectados.map((p) => p.usuario.email))];
+
+      // 4. Marcar pedidos activos como "Reembolsando"
+      await tx.pedido.updateMany({
+        where: {
+          paquetePublicadoId: id,
+          estado: { nombre: { notIn: ['Cancelado', 'Reembolsando'] } },
+        },
+        data: { estadoId: estadoReembolsando.id_estado },
+      });
+
+      // 5. Notificar compradores
+      if (correosCompradores.length > 0) {
+        this.emailService.enviarEmail({
+          para: correosCompradores,
+          asunto: `🚫 Paquete Cancelado - ${paquete.paqueteBase?.nombre}`,
+          template: 'comprador-paquete-cancelado',
+          context: { nombrePaquete: paquete.paqueteBase?.nombre },
         });
-        const correosCompradores = [...new Set(pedidosAfectados.map(p => p.usuario.email))];
+      }
 
-        // DESPUÉS hacés el updateMany
-        await tx.pedido.updateMany({
-          where: { paquetePublicadoId: id },
-          data: { estadoId: estadoPedido.id_estado },
-        });
+      // TODO: Llamar a mercadoPagoService.refund() por cada pedido si se guarda el paymentId
 
-        if (correosCompradores.length > 0) {
-          this.emailService.enviarEmail({
-            para: correosCompradores,
-            asunto: `🚫 Paquete Cancelado - ${paquete.paqueteBase?.nombre}`,
-            template: 'comprador-paquete-cancelado',
-            context: { nombrePaquete: paquete.paqueteBase?.nombre },
-          });
-        }
-
-        // TODO: Aquí llamarías a mercadoPagoService.refund() si guardaras el payment_id en cada pedido
-        // Ejemplo:
-        // for (const pedido of paquete.pedidos) {
-        //   if (pedido.paymentId) await mercadoPagoService.obtenerPago(pedido.paymentId... refund);
-        // }
-
-        const paqueteCompleto = await tx.paquetePublicado.findUnique({
-          where: { id_paquete_publicado: id },
-          include: {
-            paqueteBase: { include: { marca: true, categoria: true } },
-            zona: true,
-            estado: true,
-            pedidos: {
-              include: {
-                usuario: { select: { id: true, nombre: true, email: true } },
-              },
+      const paqueteCompleto = await tx.paquetePublicado.findUnique({
+        where: { id_paquete_publicado: id },
+        include: {
+          paqueteBase: { include: { marca: true, categoria: true } },
+          zona: true,
+          estado: true,
+          pedidos: {
+            include: {
+              usuario: { select: { id: true, nombre: true, email: true } },
             },
           },
-        });
+        },
+      });
 
-        return paqueteCompleto;
-      }
+      return paqueteCompleto;
     });
   }
 
-  // 🔥 ESTE ES EL MÉTODO QUE NECESITA ARREGLARSE sisi, eso....
   async getPorCerrarse() {
     const hoy = new Date();
     const dentroDexDias = new Date(hoy);
@@ -595,11 +647,11 @@ export class PaquetePublicadoService {
 
     console.log('🔎 Buscando paquetes entre:', hoy, 'y', dentroDexDias);
 
-    // ✅ CAMBIO IMPORTANTE: Agregar el include de paqueteBase
     const paquetes = await this.prisma.paquetePublicado.findMany({
       where: {
         estado: {
-          nombre: { in: ['Activo', 'Pendiente'] },
+          // Solo paquetes Activos pueden "cerrarse" próximamente
+          nombre: 'Activo',
         },
         fecha_fin: {
           gte: hoy,
@@ -607,11 +659,10 @@ export class PaquetePublicadoService {
         },
       },
       include: {
-        // ✅ ESTO FALTABA - Ahora trae la info de paqueteBase
         paqueteBase: {
           include: {
-            marca: true, // ✅ Trae la marca
-            categoria: true, // ✅ Trae la categoría
+            marca: true,
+            categoria: true,
           },
         },
         zona: {
@@ -620,12 +671,7 @@ export class PaquetePublicadoService {
         estado: {
           select: { nombre: true, id_estado: true },
         },
-        pedidos: {
-          include: {
-            usuario: { select: { id: true, nombre: true, email: true } },
-            detalles: true
-          },
-        },
+        pedidos: this.pedidosIncludeConEstado,
       },
       orderBy: { fecha_fin: 'asc' },
     });
@@ -635,7 +681,6 @@ export class PaquetePublicadoService {
   }
 
   async getRelacionados(id: number) {
-    // 1. Obtener el paquete actual para contexto
     const currentPaquete = await this.prisma.paquetePublicado.findUnique({
       where: { id_paquete_publicado: id },
       include: {
@@ -648,11 +693,11 @@ export class PaquetePublicadoService {
     const currentZonaId = currentPaquete.zonaId;
     const currentCategoriaId = currentPaquete.paqueteBase?.categoria_id;
 
-    // 2. Buscar candidatos (Activos y no el actual)
+    // Solo paquetes activos (los únicos a los que puede sumarse un usuario)
     const candidatos = await this.prisma.paquetePublicado.findMany({
       where: {
         id_paquete_publicado: { not: id },
-        estado: { nombre: { in: ['Activo', 'Abierto'] } },
+        estado: { nombre: 'Activo' },
       },
       include: {
         paqueteBase: {
@@ -671,41 +716,37 @@ export class PaquetePublicadoService {
       },
     });
 
-    // 3. Puntuar
     const scoredPackages = candidatos.map((p) => {
       let score = 0;
 
-      // Criterio 1: Misma Zona (+1000)
       if (p.zonaId === currentZonaId) {
         score += 1000;
       }
 
-      // Criterio 2: FOMO / Hot Packages (>80%) (+500)
       const capacidad = p.cant_productos || 1;
       const ocupacion = (p.cant_usuarios_registrados || 0) / capacidad;
       if (ocupacion >= 0.8) {
         score += 500;
       }
 
-      // Criterio 3: Misma Categoría (+200)
-      if (
-        currentCategoriaId &&
-        p.paqueteBase?.categoria_id === currentCategoriaId
-      ) {
+      if (currentCategoriaId && p.paqueteBase?.categoria_id === currentCategoriaId) {
         score += 200;
       }
 
       return { paquete: p, score };
     });
 
-    // 4. Ordenar y devolver Top 4
     scoredPackages.sort((a, b) => b.score - a.score);
 
     return scoredPackages.slice(0, 4).map((x) => x.paquete);
   }
 
+  /**
+   * El admin confirma la compra con el fabricante.
+   * El paquete pasa a "Confirmado" y los pedidos (excepto Cancelado/Reembolsando) también.
+   * El pago ya no es reembolsable.
+   */
   async confirmarCompraFabricante(id: number) {
-    // 1. Verificar paquete
     const paquete = await this.prisma.paquetePublicado.findUnique({
       where: { id_paquete_publicado: id },
       include: { paqueteBase: true },
@@ -713,44 +754,47 @@ export class PaquetePublicadoService {
 
     if (!paquete) throw new CustomError('Paquete no encontrado', 404);
 
-    // 2. Obtener estado "Cerrado"
-    const estadoCerrado = await this.prisma.estadoPaquetePublicado.findFirst({
-      where: { nombre: { in: ['Cerrado'] } }
-    });
+    const estadoConfirmado = await this.getEstadoPaquete('Confirmado');
+    const estadoPedidoConfirmado = await this.getEstadoPedido('Confirmado');
 
-    // 3. Actualizar estado
+    // Actualizar paquete
     await this.prisma.paquetePublicado.update({
       where: { id_paquete_publicado: id },
-      data: {
-        ...(estadoCerrado && { estado: { connect: { id_estado: estadoCerrado.id_estado } } })
-      },
+      data: { estado: { connect: { id_estado: estadoConfirmado.id_estado } } },
     });
 
-    // 4. Obtener compradores
-    const pedidosAprobados = await this.prisma.pedido.findMany({
+    // Actualizar en cascada pedidos activos (excluye Cancelado y Reembolsando)
+    await this.prisma.pedido.updateMany({
       where: {
         paquetePublicadoId: id,
-        estadoId: 3,
+        estado: { nombre: { notIn: ['Cancelado', 'Reembolsando'] } },
       },
-      include: {
-        usuario: true,
-      },
+      data: { estadoId: estadoPedidoConfirmado.id_estado },
     });
 
-    const correosCompradores = [...new Set(pedidosAprobados.map(p => p.usuario.email))];
+    // Obtener compradores confirmados para notificación
+    const pedidosConfirmados = await this.prisma.pedido.findMany({
+      where: {
+        paquetePublicadoId: id,
+        estadoId: estadoPedidoConfirmado.id_estado,
+      },
+      include: { usuario: true },
+    });
 
-    // 5. Enviar correo final
+    const correosCompradores = [...new Set(pedidosConfirmados.map((p) => p.usuario.email))];
+
     if (correosCompradores.length > 0) {
       await this.emailService.enviarEmail({
         para: correosCompradores,
         asunto: `✅ Compra Confirmada - ${paquete.paqueteBase.nombre}`,
         template: 'comprador-compra-confirmada',
-        context: { nombrePaquete: paquete.paqueteBase.nombre }
+        context: { nombrePaquete: paquete.paqueteBase.nombre },
       });
     }
 
     return { message: 'Compra confirmada y usuarios notificados.' };
   }
+
   async notificarCompradores(id: number) {
     const paquete = await this.prisma.paquetePublicado.findUnique({
       where: { id_paquete_publicado: id },
@@ -759,12 +803,16 @@ export class PaquetePublicadoService {
 
     if (!paquete) throw new CustomError('Paquete no encontrado', 404);
 
+    // Notificar a todos los pedidos activos (no cancelados ni reembolsando)
     const pedidosActivos = await this.prisma.pedido.findMany({
-      where: { paquetePublicadoId: id, estadoId: { in: [1, 2, 3] } },
+      where: {
+        paquetePublicadoId: id,
+        estado: { nombre: { notIn: ['Cancelado', 'Reembolsando'] } },
+      },
       include: { usuario: true },
     });
 
-    const correos = [...new Set(pedidosActivos.map(p => p.usuario.email))];
+    const correos = [...new Set(pedidosActivos.map((p) => p.usuario.email))];
 
     if (correos.length === 0) {
       return { mensaje: 'No hay compradores activos para notificar.', notificados: 0 };

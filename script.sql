@@ -33,29 +33,31 @@ INSERT INTO Marca (nombre, createdAt, updatedAt) VALUES
 ('Otras',   NOW(), NOW());
 
 -- ============================ ESTADOPAQUETEPUBLICADO ============================
--- id: 1=Activo, 2=Inactivo, 3=Pendiente, 4=Cancelado, 5=Cerrado
---     6=Incompleto, 7=Eliminado, 8=En Preparación, 9=Finalizado
+-- id: 1=Activo, 2=Completo, 3=Confirmado, 4=Recibido, 5=Cancelado, 6=Eliminado
 INSERT INTO EstadoPaquetePublicado (nombre) VALUES
 ('Activo'),
-('Inactivo'),
-('Pendiente'),
+('Completo'),
+('Confirmado'),
+('Recibido'),
 ('Cancelado'),
-('Cerrado'),
-('Incompleto'),
-('Eliminado'),
-('En Preparación'),
-('Finalizado');
+('Eliminado');
 
 -- ============================ ESTADOPEDIDO ============================
--- id: 1=Pendiente, 2=Confirmado, 3=Pagado, 4=Enviado
---     5=Entregado, 6=Cancelado, 7=Reembolsando
+-- id: 1=Pendiente, 2=Confirmado, 3=Completo, 4=Recibido, 5=Cancelado, 6=Reembolsando
+--   Pendiente    = usuario pagó, esperando que el grupo se complete
+--   Completo     = grupo lleno, Pablo compra los productos (el usuario ya NO puede cancelar)
+--   Confirmado   = admin confirmó la compra con el fabricante (dinero acreditado a Pablo)
+--   Recibido     = el usuario recibió su producto (se confirma por pedido individual)
+--   Cancelado    = pedido cancelado
+--   Reembolsando = en proceso de devolución automática
 INSERT INTO EstadoPedido (nombre) VALUES
 ('Pendiente'),
-('En Preparación'),
-('Enviado'),
-('Entregado'),
+('Confirmado'),
+('Completo'),
+('Recibido'),
 ('Cancelado'),
-('Reembolsando');
+('Reembolsando'),
+('Enviado');
 
 -- ============================ LOCALIDAD ============================
 INSERT INTO Localidad (nombre, codigo_postal) VALUES
@@ -476,24 +478,25 @@ INSERT INTO PaqueteBaseProducto (productoId, paqueteBaseId) VALUES
 (3,11);         -- Sony Mobile → Sony
 
 -- ============================ PAQUETEPUBLICADO ============================
+-- EstadoPaquetePublicado: 1=Activo, 2=Completo, 3=Confirmado, 4=Recibido, 5=Cancelado, 6=Eliminado
 -- id: 1=iPhone CABA Activo        2=Galaxy ZNorte Activo
---     3=LG ZSur Activo            4=Philips ZOeste Pendiente
+--     3=LG ZSur Activo            4=Philips ZOeste Activo
 --     5=HP ZOeste Activo          6=Apple ZLP Activo
---     7=TechCombo ZNorte Activo   8=Entretenimiento CABA EnPrep(8)
---     9=HomeOffice ZOeste Final(9) 10=AppleEco ZSur Activo
---     11=Sony ZLP Cancelado(4)
+--     7=TechCombo ZNorte Activo   8=Entretenimiento CABA Completo(2)
+--     9=HomeOffice ZOeste Confirmado(3) 10=AppleEco ZSur Activo
+--     11=Sony ZLP Cancelado(5)
 INSERT INTO PaquetePublicado (paqueteBaseId, estadoId, zonaId, fecha_inicio, fecha_fin, cant_productos, cant_productos_reservados, cant_usuarios_registrados, monto_total, imagen_url, tipo, descuento, createdAt, updatedAt) VALUES
 ( 1, 1, 1, NOW(),                            DATE_ADD(NOW(), INTERVAL  5 DAY), 50,  0,  0, 1200.00, 'https://static.rfstat.com/renderforest/images/v2/landing-pics/mockups/iphone/hero_slide_0.jpeg?v=18',                                                                                                            'SINERGICO',  10.0, NOW(), NOW()),
 ( 2, 1, 2, NOW(),                            DATE_ADD(NOW(), INTERVAL  4 DAY), 40,  0,  0, 1100.00, 'https://img.global.news.samsung.com/global/wp-content/uploads/2023/02/%EA%B8%80%EB%A1%9C%EB%B2%8C-Featured-Stories-Thumbnail-728x410.jpg',                                                                     'ENERGICO', 15.0, NOW(), NOW()),
 ( 3, 1, 4, NOW(),                            DATE_ADD(NOW(), INTERVAL  3 DAY), 25,  0,  0, 1800.00, 'https://www.lg.com/global/images/business/information-display/commercial-tv/md07574661/gallery/medium01.jpg',                                                                                                   'ENERGICO', 20.0, NOW(), NOW()),
-( 4, 3, 3, NOW(),                            DATE_ADD(NOW(), INTERVAL  2 DAY), 30,  0,  0, 1000.00, 'https://www.philips.es/c-dam/b2c/tv/categorypage/master/oled-2024/oled-2023-thumbnail-l-m.jpg',                                                                                                                 'ENERGICO', 12.0, NOW(), NOW()),
+( 4, 1, 3, NOW(),                            DATE_ADD(NOW(), INTERVAL  2 DAY), 30,  0,  0, 1000.00, 'https://www.philips.es/c-dam/b2c/tv/categorypage/master/oled-2024/oled-2023-thumbnail-l-m.jpg',                                                                                                                 'ENERGICO', 12.0, NOW(), NOW()),
 ( 5, 1, 3, NOW(),                            DATE_ADD(NOW(), INTERVAL  1 DAY), 45,  0,  0,  950.00, 'https://www.muycomputerpro.com/wp-content/uploads/2015/03/HP_Care_Pack-1.jpeg',                                                                                                                                 'SINERGICO',   8.0, NOW(), NOW()),
 ( 6, 1, 5, NOW(),                            DATE_ADD(NOW(), INTERVAL 10 DAY), 30,  0,  0, 1900.00, 'https://i.ytimg.com/vi/P-UifawCilA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBx5Omr-Pgm8jU20l8i0KXkNUKAeQ',                                                              'ENERGICO',  5.0, NOW(), NOW()),
 ( 7, 1, 2, NOW(),                            DATE_ADD(NOW(), INTERVAL  7 DAY), 60,  0,  0, 1900.00, 'https://img.global.news.samsung.com/global/wp-content/uploads/2023/02/%EA%B8%80%EB%A1%9C%EB%B2%8C-Featured-Stories-Thumbnail-728x410.jpg',                                                                     'ENERGICO', 12.0, NOW(), NOW()),
-( 8, 8, 1, DATE_SUB(NOW(), INTERVAL 10 DAY), DATE_SUB(NOW(), INTERVAL  2 DAY), 30, 22, 18, 2800.00, 'https://www.lg.com/global/images/business/information-display/commercial-tv/md07574661/gallery/medium01.jpg',                                                                                                   'ENERGICO', 18.0, NOW(), NOW()),
-( 9, 9, 3, DATE_SUB(NOW(), INTERVAL 20 DAY), DATE_SUB(NOW(), INTERVAL  5 DAY), 50, 50, 40, 1750.00, 'https://www.muycomputerpro.com/wp-content/uploads/2015/03/HP_Care_Pack-1.jpeg',                                                                                                                                 'SINERGICO',  10.0, NOW(), NOW()),
+( 8, 2, 1, DATE_SUB(NOW(), INTERVAL 10 DAY), DATE_SUB(NOW(), INTERVAL  2 DAY), 30, 22, 18, 2800.00, 'https://www.lg.com/global/images/business/information-display/commercial-tv/md07574661/gallery/medium01.jpg',                                                                                                   'ENERGICO', 18.0, NOW(), NOW()),
+( 9, 3, 3, DATE_SUB(NOW(), INTERVAL 20 DAY), DATE_SUB(NOW(), INTERVAL  5 DAY), 50, 50, 40, 1750.00, 'https://www.muycomputerpro.com/wp-content/uploads/2015/03/HP_Care_Pack-1.jpeg',                                                                                                                                 'SINERGICO',  10.0, NOW(), NOW()),
 (10, 1, 4, NOW(),                            DATE_ADD(NOW(), INTERVAL  6 DAY), 40,  0,  0, 3100.00, 'https://i.ytimg.com/vi/P-UifawCilA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBx5Omr-Pgm8jU20l8i0KXkNUKAeQ',                                                              'SINERGICO',   7.0, NOW(), NOW()),
-(11, 4, 5, DATE_SUB(NOW(), INTERVAL 15 DAY), DATE_SUB(NOW(), INTERVAL  8 DAY), 25, 10,  8,  800.00, 'https://images-cdn.ubuy.co.in/66faadc7e1426368995da054-sony-xperia-10-v-xq-dc72-5g-dual-128gb.jpg',                                                                                                            'ENERGICO',  5.0, NOW(), NOW());
+(11, 5, 5, DATE_SUB(NOW(), INTERVAL 15 DAY), DATE_SUB(NOW(), INTERVAL  8 DAY), 25, 10,  8,  800.00, 'https://images-cdn.ubuy.co.in/66faadc7e1426368995da054-sony-xperia-10-v-xq-dc72-5g-dual-128gb.jpg',                                                                                                            'ENERGICO',  5.0, NOW(), NOW());
 
 -- ============================ DISPONIBILIDADVARIANTEPAQUETE ============================
 INSERT INTO DisponibilidadVariantePaquete (varianteId, paquetePublicadoId, activo, createdAt, updatedAt) VALUES
@@ -521,25 +524,26 @@ INSERT INTO DisponibilidadVariantePaquete (varianteId, paquetePublicadoId, activ
 (10,11,true,NOW(),NOW()),(11,11,true,NOW(),NOW()),(12,11,true,NOW(),NOW());
 
 -- ============================ PEDIDO ============================
+-- EstadoPedido: 1=Pendiente, 2=Confirmado, 3=Completo, 4=Recibido, 5=Cancelado, 6=Reembolsando
 -- id 1-5: originales  |  id 6-15: usuarios ficticios
 INSERT INTO Pedido (usuarioId, paquetePublicadoId, estadoId, monto_total, descuento_aplicado, fecha, createdAt, updatedAt) VALUES
 -- Originales
-(1, 1, 2, 1080.00, 10.0, NOW(),                            NOW(), NOW()),
-(1, 2, 3,  935.00, 15.0, NOW(),                            NOW(), NOW()),
-(1, 3, 1, 1440.00, 20.0, NOW(),                            NOW(), NOW()),
-(1, 5, 4, 1610.00,  8.0, NOW(),                            NOW(), NOW()),
-(2, 6, 2, 1805.00,  5.0, NOW(),                            NOW(), NOW()),
+(1, 1, 2, 1080.00, 10.0, NOW(),                            NOW(), NOW()),  -- Confirmado
+(1, 2, 3,  935.00, 15.0, NOW(),                            NOW(), NOW()),  -- Completo (paquete completado)
+(1, 3, 1, 1440.00, 20.0, NOW(),                            NOW(), NOW()),  -- Pendiente
+(1, 5, 4, 1610.00,  8.0, NOW(),                            NOW(), NOW()),  -- Recibido
+(2, 6, 2, 1805.00,  5.0, NOW(),                            NOW(), NOW()),  -- Confirmado
 -- Nuevos (usuarios ficticios)
-(3, 7, 2, 1672.00, 12.0, NOW(),                            NOW(), NOW()),
-(4, 7, 1,  704.00, 12.0, NOW(),                            NOW(), NOW()),
-(5, 8, 3, 1476.00, 18.0, DATE_SUB(NOW(), INTERVAL 5 DAY),  NOW(), NOW()),
-(6, 8, 3,  820.00, 18.0, DATE_SUB(NOW(), INTERVAL 4 DAY),  NOW(), NOW()),
-(7, 8, 4, 1476.00, 18.0, DATE_SUB(NOW(), INTERVAL 3 DAY),  NOW(), NOW()),
-(3, 9, 5,  720.00, 10.0, DATE_SUB(NOW(), INTERVAL 8 DAY),  NOW(), NOW()),
-(4, 9, 5, 1485.00, 10.0, DATE_SUB(NOW(), INTERVAL 7 DAY),  NOW(), NOW()),
-(5,10, 1, 2883.00,  7.0, NOW(),                            NOW(), NOW()),
-(7,10, 2, 1116.00,  7.0, NOW(),                            NOW(), NOW()),
-(6,11, 6,  760.00,  5.0, DATE_SUB(NOW(), INTERVAL 10 DAY), NOW(), NOW());
+(3, 7, 2, 1672.00, 12.0, NOW(),                            NOW(), NOW()),  -- Confirmado
+(4, 7, 1,  704.00, 12.0, NOW(),                            NOW(), NOW()),  -- Pendiente
+(5, 8, 3, 1476.00, 18.0, DATE_SUB(NOW(), INTERVAL 5 DAY),  NOW(), NOW()), -- Completo (paquete en estado Completo)
+(6, 8, 3,  820.00, 18.0, DATE_SUB(NOW(), INTERVAL 4 DAY),  NOW(), NOW()), -- Completo
+(7, 8, 4, 1476.00, 18.0, DATE_SUB(NOW(), INTERVAL 3 DAY),  NOW(), NOW()), -- Recibido (individual)
+(3, 9, 5,  720.00, 10.0, DATE_SUB(NOW(), INTERVAL 8 DAY),  NOW(), NOW()), -- Cancelado
+(4, 9, 5, 1485.00, 10.0, DATE_SUB(NOW(), INTERVAL 7 DAY),  NOW(), NOW()), -- Cancelado
+(5,10, 1, 2883.00,  7.0, NOW(),                            NOW(), NOW()),  -- Pendiente
+(7,10, 2, 1116.00,  7.0, NOW(),                            NOW(), NOW()),  -- Confirmado
+(6,11, 6,  760.00,  5.0, DATE_SUB(NOW(), INTERVAL 10 DAY), NOW(), NOW()); -- Reembolsando
 
 -- ============================ PEDIDODETALLE ============================
 INSERT INTO PedidoDetalle (pedidoId, productoId, varianteId, cantidad, precio_unitario, subtotal) VALUES
