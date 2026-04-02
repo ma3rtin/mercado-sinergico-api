@@ -1,4 +1,4 @@
-import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
+import { MercadoPagoConfig, Preference, Payment, PaymentRefund } from 'mercadopago';
 import { envs } from '../../config/envs.js';
 
 export class MercadoPagoService {
@@ -48,6 +48,11 @@ export class MercadoPagoService {
   async obtenerPago(paymentId: number) {
     const payment = new Payment(this.client);
     return await payment.get({ id: paymentId });
+  }
+
+  async reembolsarPago(paymentId: number) {
+    const refund = new PaymentRefund(this.client);
+    return await refund.create({ payment_id: paymentId });
   }
 }
 

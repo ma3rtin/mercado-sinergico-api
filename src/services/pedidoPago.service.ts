@@ -210,7 +210,10 @@ export class PedidoPagoService {
         // El pedido pasa a "Pendiente" (pago recibido, esperando confirmación admin)
         await prisma.pedido.update({
           where: { id_pedido: pedidoId },
-          data: { estadoId: estadoPendiente.id_estado },
+          data: {
+            estadoId: estadoPendiente.id_estado,
+            paymentId: pago.id?.toString()
+          },
         });
 
         // Verificar si el paquete se completó
@@ -251,5 +254,101 @@ export class PedidoPagoService {
     }
 
     return { pedidoId, status: pago.status };
+  }
+
+  public async procesarPaqueteCompletado(paqueteId: number) {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: paqueteId }
+    });
+
+    if (!paquete) throw new CustomError('Paquete no encontrado', 404);
+
+    // Actualizamos el paquete a estado Finalizado o en proceso
+    await this.prisma.paquetePublicado.update({
+      where: { id_paquete_publicado: paqueteId },
+      data: { estadoId: 9 } // 9 = Finalizado
+    });
+
+    return { message: 'Paquete procesado correctamente', paqueteId };
+  }
+
+  public async cancelarPaqueteYReembolsar(paqueteId: number) {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: paqueteId },
+      include: {
+        pedidos: {
+          where: {
+            estadoId: 2, // Pedidos que fueron pagados
+            paymentId: { not: null }
+          },
+          include: {
+            detalles: true
+          }
+        }
+      }
+    });
+
+    if (!paquete) throw new CustomError('Paquete no encontrado', 404);
+
+    // Primero reembolsamos todos los pagos vía MP
+    // @ts-ignore
+    for (const pedido of paquete.pedidos) {
+      if (pedido.paymentId) {
+        try {
+          await this.mercadoPagoService.reembolsarPago(Number(pedido.paymentId));
+        } catch (error) {
+          console.error(`Error reembolsando pago ${pedido.paymentId}:`, error);
+          // Omitimos errores individuales en caso de que ya hayan sido devueltos manualmente
+        }
+      }
+    }
+
+    // Luego actualizamos la base de datos dentro de una transaction
+    await this.prisma.$transaction(async (tx) => {
+      // Cancelamos el paquete
+      await tx.paquetePublicado.update({
+        where: { id_paquete_publicado: paqueteId },
+        data: { estadoId: 4 } // 4 = Cancelado
+      });
+
+      // @ts-ignore
+      for (const pedido of paquete.pedidos) {
+        let totalProductosPedido = 0;
+
+        // Si el paquete es ENERGICO, devolvemos el stock
+        if (paquete.tipo === 'ENERGICO') {
+          for (const detalle of pedido.detalles) {
+            totalProductosPedido += detalle.cantidad;
+            if (detalle.varianteId) {
+              await tx.productoVariante.update({
+                where: { id: detalle.varianteId },
+                data: { stockFisico: { increment: detalle.cantidad } }
+              });
+            } else {
+              await tx.producto.update({
+                where: { id_producto: detalle.productoId },
+                data: { stock: { increment: detalle.cantidad } }
+              });
+            }
+          }
+        } else {
+          totalProductosPedido = pedido.detalles.reduce((sum: number, d: { cantidad: number }) => sum + d.cantidad, 0);
+        }
+
+        // Restamos las cantidades reservadas del paquete
+        await tx.paquetePublicado.update({
+          where: { id_paquete_publicado: paqueteId },
+          data: { cant_productos_reservados: { decrement: totalProductosPedido } }
+        });
+
+        // Marcamos el pedido como Reembolsando/Cancelado
+        await tx.pedido.update({
+          where: { id_pedido: pedido.id_pedido },
+          data: { estadoId: 6 } // 6 = Reembolsando
+        });
+      }
+    });
+
+    return { message: 'Paquete cancelado y dinero reembolsado', paqueteId };
   }
 }

@@ -8,8 +8,11 @@ import { EmailService } from './email.service.js';
 // EstadoPaquetePublicado: Activo | Completo | Confirmado | Recibido | Cancelado | Eliminado
 // EstadoPedido          : Pendiente | Confirmado | Completo | Recibido | Cancelado | Reembolsando
 // ────────────────────────────────────────────────────────────────────────────
+import { PedidoPagoService } from './pedidoPago.service.js';
+import { mercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
+import { ImagenService } from './imagen.service.js';
 
-export type DetalleComputable = { cantidad?: number; [key: string]: unknown };
+export type DetalleComputable = { cantidad?: number;[key: string]: unknown };
 
 export type PedidoComputable = {
   estadoId?: number;
@@ -36,6 +39,7 @@ const ESTADOS_PEDIDO_ACTIVOS = ['Pendiente', 'Confirmado', 'Completo', 'Recibido
 export class PaquetePublicadoService {
   private prisma = prisma;
   private emailService = new EmailService();
+  private imagenService = new ImagenService();
 
   // ─── Helpers de estado ─────────────────────────────────────────────────────
 
@@ -286,7 +290,7 @@ export class PaquetePublicadoService {
     });
   }
 
-  async create(dto: PaquetePublicadoDTO) {
+  async create(dto: Omit<PaquetePublicadoDTO, 'imagen_base64'>, imagenBuffer?: Buffer) {
     const fecha_inicio = new Date(dto.fecha_inicio);
     const fecha_fin = new Date(dto.fecha_fin);
 
@@ -302,11 +306,23 @@ export class PaquetePublicadoService {
 
     if (!paqueteBase) throw new CustomError('El paquete base no existe', 404);
 
+    let imagen_url: string | undefined = undefined;
+    if (imagenBuffer) {
+      try {
+        imagen_url = await this.imagenService.uploadToCloudinary(imagenBuffer, 'mercado_sinergico/paquetes_publicados');
+      } catch (error) {
+        console.error('Error al subir imagen de paquete publicado:', error);
+      }
+    }
+
     return this.prisma.paquetePublicado.create({
       data: {
+        nombre: dto.nombre,
         cant_productos: dto.cant_productos,
         fecha_inicio,
         fecha_fin,
+        descuento: dto.descuento,
+        ...(imagen_url && { imagen_url }),
         zona: { connect: { id_zona: Number(dto.zonaId) } },
         paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
         estado: { connect: { nombre: 'Activo' } },
@@ -314,7 +330,7 @@ export class PaquetePublicadoService {
     });
   }
 
-  async update(id: number, dto: PaquetePublicadoUpdateDTO) {
+  async update(id: number, dto: PaquetePublicadoUpdateDTO, imagenBuffer?: Buffer) {
     return this.prisma.$transaction(async (tx) => {
       const paqueteExistente = await tx.paquetePublicado.findUnique({
         where: { id_paquete_publicado: id },
@@ -332,9 +348,19 @@ export class PaquetePublicadoService {
         });
       }
 
+      let imagen_url: string | undefined = undefined;
+      if (imagenBuffer) {
+        try {
+          imagen_url = await this.imagenService.uploadToCloudinary(imagenBuffer, 'mercado_sinergico/paquetes_publicados');
+        } catch (error) {
+          console.error('Error al subir imagen de paquete publicado:', error);
+        }
+      }
+
       return await tx.paquetePublicado.update({
         where: { id_paquete_publicado: id },
         data: {
+          ...(dto.nombre && { nombre: dto.nombre }),
           ...(dto.fecha_inicio && { fecha_inicio: new Date(dto.fecha_inicio) }),
           ...(dto.fecha_fin && { fecha_fin: new Date(dto.fecha_fin) }),
           ...(dto.cant_productos && { cant_productos: Number(dto.cant_productos) }),
@@ -346,6 +372,7 @@ export class PaquetePublicadoService {
             : dto.estadoId
               ? { estado: { connect: { id_estado: Number(dto.estadoId) } } }
               : {}),
+          ...(imagen_url && { imagen_url }),
         },
       });
     });
@@ -394,6 +421,7 @@ export class PaquetePublicadoService {
 
       return await tx.paquetePublicado.create({
         data: {
+          nombre: paqueteOriginal.nombre,
           paqueteBaseId: paqueteOriginal.paqueteBaseId,
           zonaId: paqueteOriginal.zonaId,
           fecha_inicio: new Date(),
@@ -403,9 +431,7 @@ export class PaquetePublicadoService {
           imagen_url: paqueteOriginal.imagen_url,
           tipo: paqueteOriginal.tipo,
           descuento: paqueteOriginal.descuento,
-          estadoId: estadoActivo.id_estado,
-          cant_productos_reservados: 0,
-          cant_usuarios_registrados: 0,
+          estadoId: estadoActivo.id_estado
         },
       });
     });
@@ -557,87 +583,52 @@ export class PaquetePublicadoService {
    * Los pedidos ya cancelados o en reembolso se omiten.
    */
   async cancelarYReembolsar(id: number) {
-    return this.prisma.$transaction(async (tx) => {
-      const paquete = await tx.paquetePublicado.findUnique({
-        where: { id_paquete_publicado: id },
-        include: {
-          pedidos: {
-            include: {
-              usuario: { select: { id: true, nombre: true, email: true } },
-            },
-          },
-          paqueteBase: true,
-        },
-      });
-
-      if (!paquete) throw new CustomError('Paquete no encontrado', 404);
-
-      // 1. Cambiar estado del paquete a "Cancelado"
-      const estadoCancelado = await tx.estadoPaquetePublicado.findUnique({
-        where: { nombre: 'Cancelado' },
-      });
-      if (!estadoCancelado) throw new CustomError('Estado "Cancelado" no encontrado', 500);
-
-      await tx.paquetePublicado.update({
-        where: { id_paquete_publicado: id },
-        data: { estadoId: estadoCancelado.id_estado },
-      });
-
-      // 2. Obtener estado "Reembolsando" para pedidos
-      const estadoReembolsando = await tx.estadoPedido.findUnique({
-        where: { nombre: 'Reembolsando' },
-      });
-      if (!estadoReembolsando) {
-        throw new CustomError('Estado de pedido "Reembolsando" no encontrado en la base de datos', 500);
-      }
-
-      // 3. Obtener los pedidos afectados ANTES de actualizarlos (para extraer correos)
-      const pedidosAfectados = await tx.pedido.findMany({
-        where: {
-          paquetePublicadoId: id,
-          estado: { nombre: { notIn: ['Cancelado', 'Reembolsando'] } },
-        },
-        include: { usuario: true },
-      });
-      const correosCompradores = [...new Set(pedidosAfectados.map((p) => p.usuario.email))];
-
-      // 4. Marcar pedidos activos como "Reembolsando"
-      await tx.pedido.updateMany({
-        where: {
-          paquetePublicadoId: id,
-          estado: { nombre: { notIn: ['Cancelado', 'Reembolsando'] } },
-        },
-        data: { estadoId: estadoReembolsando.id_estado },
-      });
-
-      // 5. Notificar compradores
-      if (correosCompradores.length > 0) {
-        this.emailService.enviarEmail({
-          para: correosCompradores,
-          asunto: `🚫 Paquete Cancelado - ${paquete.paqueteBase?.nombre}`,
-          template: 'comprador-paquete-cancelado',
-          context: { nombrePaquete: paquete.paqueteBase?.nombre },
-        });
-      }
-
-      // TODO: Llamar a mercadoPagoService.refund() por cada pedido si se guarda el paymentId
-
-      const paqueteCompleto = await tx.paquetePublicado.findUnique({
-        where: { id_paquete_publicado: id },
-        include: {
-          paqueteBase: { include: { marca: true, categoria: true } },
-          zona: true,
-          estado: true,
-          pedidos: {
-            include: {
-              usuario: { select: { id: true, nombre: true, email: true } },
-            },
-          },
-        },
-      });
-
-      return paqueteCompleto;
+    const paqueteInicial = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: { paqueteBase: true },
     });
+
+    if (!paqueteInicial) throw new CustomError('Paquete no encontrado', 404);
+
+    // 1. Obtener los pedidos afectados ANTES de actualizarlos (para extraer correos)
+    const pedidosAfectados = await this.prisma.pedido.findMany({
+      where: {
+        paquetePublicadoId: id,
+        estado: { nombre: { notIn: ['Cancelado', 'Reembolsando'] } },
+      },
+      include: { usuario: true },
+    });
+    const correosCompradores = [...new Set(pedidosAfectados.map((p) => p.usuario.email))];
+
+    // 2. Usar el PedidoPagoService para cancelar, devolver stock, reembolsar a los pagados y cambiar estados
+    const pedidoPagoService = new PedidoPagoService(mercadoPagoService);
+    await pedidoPagoService.cancelarPaqueteYReembolsar(id);
+
+    // 3. Notificar a los compradores
+    if (correosCompradores.length > 0 && paqueteInicial.paqueteBase?.nombre) {
+      this.emailService.enviarEmail({
+        para: correosCompradores,
+        asunto: `🚫 Paquete Cancelado y Reembolsado - ${paqueteInicial.paqueteBase.nombre}`,
+        template: 'comprador-paquete-cancelado',
+        context: { nombrePaquete: paqueteInicial.paqueteBase.nombre },
+      });
+    }
+
+    const paqueteFinal = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: {
+        paqueteBase: { include: { marca: true, categoria: true } },
+        zona: true,
+        estado: true,
+        pedidos: {
+          include: {
+            usuario: { select: { id: true, nombre: true, email: true } },
+          },
+        },
+      },
+    });
+
+    return paqueteFinal;
   }
 
   async getPorCerrarse() {
@@ -654,7 +645,6 @@ export class PaquetePublicadoService {
           nombre: 'Activo',
         },
         fecha_fin: {
-          gte: hoy,
           lte: dentroDexDias,
         },
       },
