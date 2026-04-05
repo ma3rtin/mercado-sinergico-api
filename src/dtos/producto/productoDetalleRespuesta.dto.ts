@@ -1,5 +1,5 @@
-import { PlantillaDTO, PlantillaData } from '../plantilla/plantilla.dto';
-import { VarianteRespuestaDTO } from '../variante/varianteRespuesta.dto';
+import { PlantillaDTO, PlantillaData } from '../plantilla/plantilla.dto.js';
+import { VarianteRespuestaDTO } from '../variante/varianteRespuesta.dto.js';
 
 interface ImagenData {
   url: string;
