@@ -30,9 +30,17 @@ export class Server {
 
     this.app.use(
       cors({
-        origin: ['http://localhost:4200', 'http://127.0.0.1:4200', '*'], // Mantengo '*' por si hay otros clientes pero permito explícito 4200
+        origin: [
+          'http://localhost:4200',
+          'http://127.0.0.1:4200',
+          'https://www.mercadosinergico.com.ar',
+          'https://mercadosinergico.com.ar',
+          'http://www.mercadosinergico.com.ar',
+          'http://mercadosinergico.com.ar'
+        ],
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept']
+        allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
+        credentials: true
       })
     );
 
