@@ -19,11 +19,11 @@ export class PaquetePublicadoDTO {
 
   @IsNotEmpty({ message: 'La fecha de inicio es obligatoria' })
   @IsDateString({}, { message: 'La fecha de inicio debe ser una fecha válida (YYYY-MM-DD)' })
-  fecha_inicio!: Date;
+  fecha_inicio!: string;
 
   @IsNotEmpty({ message: 'La fecha final es obligatoria' })
   @IsDateString({}, { message: 'La fecha final debe ser una fecha válida (YYYY-MM-DD)' })
-  fecha_fin!: Date;
+  fecha_fin!: string;
 
   @IsOptional()
   @IsNumber()

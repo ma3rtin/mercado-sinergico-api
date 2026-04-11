@@ -58,7 +58,7 @@ export class PaquetePublicadoService {
     if (!paquete) return paquete;
 
     // "Involucrados": Pagado (2), En preparación (4), En camino (5), Recibido (6)
-    const estadosActivos = [
+    const estadosActivos: number[] = [
       ESTADO_PEDIDO.PAGADO,
       ESTADO_PEDIDO.EN_PREPARACION,
       ESTADO_PEDIDO.EN_CAMINO,
@@ -107,8 +107,10 @@ export class PaquetePublicadoService {
 
   // ─── Queries ─────────────────────────────────────────────────────────────────
 
-  async getAll() {
+  async getAll(skip?: number, take?: number) {
     const paquetes = await this.prisma.paquetePublicado.findMany({
+      ...(skip !== undefined && { skip }),
+      ...(take !== undefined && { take }),
       include: {
         paqueteBase: { include: { marca: true, categoria: true } },
         zona: true,
@@ -335,7 +337,7 @@ export class PaquetePublicadoService {
   }
 
   async update(id: number, dto: PaquetePublicadoUpdateDTO, imagenBuffer?: Buffer) {
-    return this.prisma.$transaction(async (tx: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    return this.prisma.$transaction(async (tx) => {
       const existente = await tx.paquetePublicado.findUnique({ where: { id_paquete_publicado: id } });
       if (!existente) throw new CustomError('No encontrado', 404);
 
@@ -475,13 +477,13 @@ export class PaquetePublicadoService {
     });
     if (!paquete) throw new CustomError('Paquete no encontrado', 404);
 
-    if (![ESTADO_PAQUETE.COMPLETO, ESTADO_PAQUETE.ACTIVO].includes(paquete.estadoId as any)) { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const estadosValidos: number[] = [ESTADO_PAQUETE.COMPLETO, ESTADO_PAQUETE.ACTIVO];
+    if (!estadosValidos.includes(paquete.estadoId)) {
       throw new CustomError('El paquete debe estar en estado Completo o Activo para confirmar', 400);
     }
 
     // Transición en una sola transacción
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await this.prisma.$transaction(async (tx: any) => {
+    await this.prisma.$transaction(async (tx) => {
       // Cambiar estado del paquete a Confirmado
       await tx.paquetePublicado.update({
         where: { id_paquete_publicado: id },
@@ -532,8 +534,7 @@ export class PaquetePublicadoService {
       throw new CustomError('El paquete debe estar Confirmado para marcarlo como Entregado', 400);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await this.prisma.$transaction(async (tx: any) => {
+    await this.prisma.$transaction(async (tx) => {
       await tx.paquetePublicado.update({
         where: { id_paquete_publicado: id },
         data: { estadoId: ESTADO_PAQUETE.ENTREGADO },
