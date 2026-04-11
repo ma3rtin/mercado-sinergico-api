@@ -33,29 +33,23 @@ INSERT INTO Marca (nombre, createdAt, updatedAt) VALUES
 ('Otras',   NOW(), NOW());
 
 -- ============================ ESTADOPAQUETEPUBLICADO ============================
--- id: 1=Activo, 2=Inactivo, 3=Pendiente, 4=Cancelado, 5=Cerrado
---     6=Incompleto, 7=Eliminado, 8=En Preparación, 9=Finalizado
+-- id: 1=Activo, 2=Completo, 3=Confirmado, 4=Entregado, 5=Cancelado
 INSERT INTO EstadoPaquetePublicado (nombre) VALUES
 ('Activo'),
-('Inactivo'),
-('Pendiente'),
-('Cancelado'),
-('Cerrado'),
-('Incompleto'),
-('Eliminado'),
-('En Preparación'),
-('Finalizado');
+('Completo'),
+('Confirmado'),
+('Entregado'),
+('Cancelado');
 
 -- ============================ ESTADOPEDIDO ============================
--- id: 1=Pendiente, 2=Confirmado, 3=Pagado, 4=Enviado
---     5=Entregado, 6=Cancelado, 7=Reembolsando
+-- id: 1=Pendiente, 2=Pagado, 3=Reembolsado, 4=En preparación, 5=En camino, 6=Recibido
 INSERT INTO EstadoPedido (nombre) VALUES
 ('Pendiente'),
-('En Preparación'),
-('Enviado'),
-('Entregado'),
-('Cancelado'),
-('Reembolsando');
+('Pagado'),
+('Reembolsado'),
+('En preparación'),
+('En camino'),
+('Recibido');
 
 -- ============================ LOCALIDAD ============================
 INSERT INTO Localidad (nombre, codigo_postal) VALUES
