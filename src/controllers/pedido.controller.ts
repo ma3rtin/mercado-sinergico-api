@@ -107,4 +107,16 @@ export class PedidoController {
 
     res.status(200).json({ ok: true });
   });
+
+  public solicitarReembolso = asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user;
+    const { pedidoId } = req.params;
+
+    const result = await this.pagoService.reembolsarPedidoIndividual(
+      Number(pedidoId),
+      user!.id
+    );
+
+    res.status(200).json(result);
+  });
 }

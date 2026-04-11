@@ -12,6 +12,7 @@ export const paquetePublicadoRouter = Router();
 const service = new PaquetePublicadoService();
 const controller = new PaquetePublicadoController(service);
 
+// ─── Rutas de consulta ────────────────────────────────────────────────────────
 paquetePublicadoRouter.get('/por-cerrarse', controller.getPorCerrarse.bind(controller));
 paquetePublicadoRouter.get('/relacionados/:id', controller.getRelacionados.bind(controller));
 paquetePublicadoRouter.get('/zona', (req, res, next) => {
@@ -25,12 +26,17 @@ paquetePublicadoRouter.get('/zona', (req, res, next) => {
 paquetePublicadoRouter.get('/producto/:id', controller.getByProductId.bind(controller));
 paquetePublicadoRouter.get('/', controller.getAll.bind(controller));
 paquetePublicadoRouter.get('/:id', controller.getById.bind(controller));
+
+// ─── Rutas de mutación ────────────────────────────────────────────────────────
 paquetePublicadoRouter.post('/', procesarSubidaImagen('imagen'), controller.create.bind(controller));
-paquetePublicadoRouter.post('/:id/confirmar', controller.confirmarCompraFabricante.bind(controller));
 paquetePublicadoRouter.put('/:id', procesarSubidaImagen('imagen'), validarDto(PaquetePublicadoUpdateDTO), controller.update.bind(controller));
 paquetePublicadoRouter.delete('/:id', controller.delete.bind(controller));
-paquetePublicadoRouter.post('/:id/duplicar', controller.duplicar.bind(controller));
-paquetePublicadoRouter.post('/:id/completar', controller.completar.bind(controller));
-paquetePublicadoRouter.post('/:id/cancelar', controller.cancelar.bind(controller));
-paquetePublicadoRouter.post('/:id/cerrar', controller.cerrar.bind(controller));
-paquetePublicadoRouter.post('/:id/notificar', controller.notificar.bind(controller));
+
+// ─── Rutas de gestión (admin) ─────────────────────────────────────────────────
+paquetePublicadoRouter.post('/:id/duplicar',         controller.duplicar.bind(controller));
+paquetePublicadoRouter.post('/:id/completar',        controller.completar.bind(controller));         // Activo → Completo (manual)
+paquetePublicadoRouter.post('/:id/confirmar',        controller.confirmarCompraFabricante.bind(controller)); // Completo → Confirmado
+paquetePublicadoRouter.post('/:id/entregar',         controller.marcarEntregado.bind(controller));   // Confirmado → Entregado
+paquetePublicadoRouter.post('/:id/marcar-en-camino', controller.marcarPedidosEnCamino.bind(controller)); // Pedidos → En camino
+paquetePublicadoRouter.post('/:id/cancelar',         controller.cancelar.bind(controller));          // Cancelar + reembolsar
+paquetePublicadoRouter.post('/:id/notificar',        controller.notificar.bind(controller));         // Notificar compradores

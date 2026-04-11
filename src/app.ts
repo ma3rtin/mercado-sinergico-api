@@ -3,6 +3,7 @@ import { AppRoutes } from './routes/router.js';
 import { Server } from './server/server.js';
 
 import './events/oyentes/oyentePaquete.js';
+import { iniciarTareasProgramadas } from './jobs/tareasProgramadas.js';
 
 (async () => {
   main();
@@ -14,5 +15,6 @@ function main() {
     routes: AppRoutes.routes,
   });
   server.start();
+  iniciarTareasProgramadas();
   console.log('Servidor iniciado');
 }

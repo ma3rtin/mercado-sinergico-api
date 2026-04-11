@@ -2,6 +2,17 @@ import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { CrearPedidoDTO } from '../dtos/pedido/crearPedido.dto.js';
 
+// ─── IDs de estado (sincronizados con script.sql) ───────────────────────────
+const ESTADO_PAQUETE_ACTIVO = 1;
+
+const ESTADO_PEDIDO = {
+  PENDIENTE: 1,
+  PAGADO: 2,
+  EN_PREPARACION: 4,
+  EN_CAMINO: 5,
+  RECIBIDO: 6,
+} as const;
+
 export type DetalleComputable = { cantidad?: number;[key: string]: unknown };
 
 export type PedidoComputable = {
@@ -34,7 +45,9 @@ export class PedidoService {
     if (!pedido || !pedido.paquetePublicado) return pedido;
 
     const paquete = pedido.paquetePublicado;
-    const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && [1, 2, 3].includes(p.estadoId));
+    // "Involucrados": Pagado (2), En preparación (4), En camino (5), Recibido (6)
+    const estadosActivos: number[] = [ESTADO_PEDIDO.PAGADO, ESTADO_PEDIDO.EN_PREPARACION, ESTADO_PEDIDO.EN_CAMINO, ESTADO_PEDIDO.RECIBIDO];
+    const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && estadosActivos.includes(p.estadoId as number));
 
     const usuariosIds = new Set(pedidosActivos.map((p) => p.usuario?.id || p.usuarioId));
 
@@ -93,7 +106,7 @@ export class PedidoService {
       where: {
         usuarioId,
         paquetePublicadoId: paqueteId,
-        estadoId: 1,
+        estadoId: ESTADO_PEDIDO.PENDIENTE,
       },
       select: { id_pedido: true },
     });
@@ -109,7 +122,7 @@ export class PedidoService {
       select: {
         descuento: true,
         tipo: true,
-        estado: { select: { nombre: true } },
+        estado: { select: { nombre: true, id_estado: true } },
         paqueteBase: {
           select: {
             productos: {
@@ -143,8 +156,8 @@ export class PedidoService {
       throw new CustomError('Paquete no encontrado', 404);
     }
 
-    if (paquete.estado.nombre !== 'Activo') {
-      throw new CustomError('El paquete no está activo', 400);
+    if (paquete.estado.id_estado !== ESTADO_PAQUETE_ACTIVO) {
+      throw new CustomError('El paquete no está activo para nuevos pedidos', 400);
     }
 
     const productoEnPaquete = paquete.paqueteBase.productos.find(
@@ -203,7 +216,7 @@ export class PedidoService {
         data: {
           usuarioId,
           paquetePublicadoId: paqueteId,
-          estadoId: 1,
+          estadoId: ESTADO_PEDIDO.PENDIENTE,
           monto_total: subtotal,
           descuento_aplicado: paquete.descuento || 0,
           detalles: {
@@ -271,7 +284,7 @@ export class PedidoService {
       where: {
         id_pedido: pedidoId,
         usuarioId,
-        estadoId: 1,
+        estadoId: ESTADO_PEDIDO.PENDIENTE,
       },
       include: { detalles: true },
     });
@@ -315,7 +328,7 @@ export class PedidoService {
       where: {
         id_pedido: pedidoId,
         usuarioId,
-        estadoId: 1,
+        estadoId: ESTADO_PEDIDO.PENDIENTE,
       },
       include: {
         paquetePublicado: {
@@ -490,8 +503,8 @@ export class PedidoService {
       throw new CustomError('No hay un pedido activo en este paquete', 404);
     }
 
-    if (pedido.estadoId != 1) {
-      throw new CustomError('El pedido tiene que estar pendiente para poder bajarse');
+    if (pedido.estadoId !== ESTADO_PEDIDO.PENDIENTE) {
+      throw new CustomError('Solo se puede cancelar un pedido pendiente de pago. Para reembolsar un pedido ya pagado, usá la opción de reembolso.', 400);
     }
 
     await this.prisma.pedido.delete({

@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { PaquetePublicadoService } from '../services/paquetePublicado.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { CustomError } from '../errors/custom.error.js';
@@ -6,8 +6,11 @@ import { CustomError } from '../errors/custom.error.js';
 export class PaquetePublicadoController {
   constructor(private service: PaquetePublicadoService) { }
 
-  getAll = asyncHandler(async (_req: Request, res: Response) => {
-    const paquetes = await this.service.getAll();
+  getAll = asyncHandler(async (req: Request, res: Response) => {
+    const skip = Number(req.query.skip) || 0;
+    const take = Number(req.query.take) || 20;
+
+    const paquetes = await this.service.getAll(skip, take);
     if (!paquetes) throw new CustomError('Paquetes no encontrados', 404);
     res.status(200).json(paquetes);
   });
@@ -24,22 +27,11 @@ export class PaquetePublicadoController {
   });
 
   create = asyncHandler(async (req: Request, res: Response) => {
-    const body = req.body;
-    const file = req.file as Express.Multer.File | undefined;
+    const paquetePublicadoDTO = req.body;
+    if (!paquetePublicadoDTO)
+      throw new CustomError('Paquete no proporcionado', 400);
 
-    if (!body) throw new CustomError('Datos del paquete no proporcionados', 400);
-
-    const dto = {
-      nombre: body.nombre,
-      paqueteBaseId: Number(body.paqueteBaseId),
-      zonaId: Number(body.zonaId),
-      cant_productos: body.cant_productos ? Number(body.cant_productos) : undefined,
-      fecha_inicio: body.fecha_inicio,
-      fecha_fin: body.fecha_fin,
-      descuento: body.descuento ? Number(body.descuento) : undefined,
-    };
-
-    const paquetePublicado = await this.service.create(dto, file?.buffer);
+    const paquetePublicado = await this.service.create(paquetePublicadoDTO);
     if (!paquetePublicado) throw new CustomError('Error al crear paquete', 400);
 
     res.status(201).json(paquetePublicado);
@@ -49,9 +41,7 @@ export class PaquetePublicadoController {
     const { id } = req.params;
     if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
 
-    const file = req.file as Express.Multer.File | undefined;
-
-    const paquetePublicado = await this.service.update(Number(id), req.body, file?.buffer);
+    const paquetePublicado = await this.service.update(Number(id), req.body);
     if (!paquetePublicado)
       throw new CustomError('Error al actualizar paquete', 400);
 
@@ -72,37 +62,46 @@ export class PaquetePublicadoController {
 
   getPorCerrarse = asyncHandler(async (_req: Request, res: Response) => {
     const paquetes = await this.service.getPorCerrarse();
-    res.status(200).json(paquetes || []);
-  });
+    if (!paquetes || paquetes.length === 0)
+      throw new CustomError('No hay paquetes por cerrarse', 404);
 
-  getByLocation = asyncHandler(async (req: Request, res: Response) => {
-    // 1. Intentar obtener ID de usuario autenticado (si middleware lo inyectó)
-    const userId = req.user?.id;
-
-    // 2. Intentar obtener ID de localidad de los query params
-    const localidadIdQuery = req.query.localidadId;
-    const localidadId = localidadIdQuery ? Number(localidadIdQuery) : undefined;
-
-    if (!userId && !localidadId) {
-      // Opción: Retornar error o lista vacía. Retornamos error para forzar selección.
-      res.status(400).json({ message: 'Se requiere iniciar sesión o seleccionar una localidad.' });
-      return;
-    }
-
-    const paquetes = await this.service.getByLocation(userId, localidadId);
     res.status(200).json(paquetes);
   });
 
-  getByProductId = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params;
-    if (!id) {
-      res.status(400).json({ message: 'ID de producto no proporcionado' });
-      return;
-    }
+  async getByLocation(req: Request, res: Response, next: NextFunction) {
+    try {
+      // 1. Intentar obtener ID de usuario autenticado (si middleware lo inyectó)
+      const userId = req.user?.id;
 
-    const paquetes = await this.service.getByProductId(Number(id));
-    res.status(200).json(paquetes);
-  });
+      // 2. Intentar obtener ID de localidad de los query params
+      const localidadIdQuery = req.query.localidadId;
+      const localidadId = localidadIdQuery ? Number(localidadIdQuery) : undefined;
+
+      if (!userId && !localidadId) {
+        // Opción: Retornar error o lista vacía. Retornamos error para forzar selección.
+        return res.status(400).json({ message: 'Se requiere iniciar sesión o seleccionar una localidad.' });
+      }
+
+      const paquetes = await this.service.getByLocation(userId, localidadId);
+      res.status(200).json(paquetes);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getByProductId(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({ message: 'ID de producto no proporcionado' });
+      }
+
+      const paquetes = await this.service.getByProductId(Number(id));
+      res.status(200).json(paquetes);
+    } catch (error) {
+      next(error);
+    }
+  }
 
   getRelacionados = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
@@ -122,22 +121,16 @@ export class PaquetePublicadoController {
     res.status(201).json(paquete);
   });
 
+  /** Activo → Completo (manual, para casos de borde) */
   completar = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
 
-    const paquete = await this.service.completar(Number(id));
-    res.status(200).json(paquete);
-  });
-
-  cancelar = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params;
-    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
-
-    const resultado = await this.service.cancelarYReembolsar(Number(id));
+    const resultado = await this.service.marcarCompleto(Number(id));
     res.status(200).json(resultado);
   });
 
+  /** Completo (o Activo) → Confirmado */
   confirmarCompraFabricante = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
@@ -146,13 +139,37 @@ export class PaquetePublicadoController {
     res.status(200).json(result);
   });
 
-  cerrar = asyncHandler(async (req: Request, res: Response) => {
+  /** Confirmado → Entregado */
+  marcarEntregado = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
 
-    const result = await this.service.cerrarManual(Number(id));
+    const result = await this.service.marcarEntregado(Number(id));
     res.status(200).json(result);
   });
+
+  /** Marca pedidos seleccionados (o todos) como En camino */
+  marcarPedidosEnCamino = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
+
+    const pedidoIds: number[] = Array.isArray(req.body.pedidoIds)
+      ? req.body.pedidoIds.map(Number)
+      : [];
+
+    const result = await this.service.marcarPedidosEnCamino(Number(id), pedidoIds);
+    res.status(200).json(result);
+  });
+
+  /** Cancela el paquete y reembolsa todos los pedidos Pagados y Pendientes */
+  cancelar = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
+
+    const resultado = await this.service.cancelarYReembolsar(Number(id));
+    res.status(200).json(resultado);
+  });
+
   notificar = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
