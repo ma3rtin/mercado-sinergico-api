@@ -17,10 +17,11 @@ export class PaquetePublicadoController {
 
   getById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id || id === '')
-      throw new CustomError('Id de paquete no proporcionado', 400);
+    const idNum = Number(id);
+    if (!id || isNaN(idNum))
+      throw new CustomError('Id de paquete no proporcionado o inválido', 400);
 
-    const paquete = await this.service.getById(Number(id));
+    const paquete = await this.service.getById(idNum);
     if (!paquete) throw new CustomError('Paquete no encontrado', 404);
 
     res.status(200).json(paquete);
@@ -39,9 +40,10 @@ export class PaquetePublicadoController {
 
   update = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
+    const idNum = Number(id);
+    if (!id || isNaN(idNum)) throw new CustomError('Id de paquete no proporcionado o inválido', 400);
 
-    const paquetePublicado = await this.service.update(Number(id), req.body);
+    const paquetePublicado = await this.service.update(idNum, req.body);
     if (!paquetePublicado)
       throw new CustomError('Error al actualizar paquete', 400);
 
@@ -50,10 +52,11 @@ export class PaquetePublicadoController {
 
   delete = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id || id === '')
-      throw new CustomError('Id de paquete no proporcionado', 400);
+    const idNum = Number(id);
+    if (!id || isNaN(idNum))
+      throw new CustomError('Id de paquete no proporcionado o inválido', 400);
 
-    const paquetePublicado = await this.service.delete(Number(id));
+    const paquetePublicado = await this.service.delete(idNum);
     if (!paquetePublicado)
       throw new CustomError('Error al eliminar paquete', 400);
 
@@ -92,11 +95,12 @@ export class PaquetePublicadoController {
   async getByProductId(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      if (!id) {
-        return res.status(400).json({ message: 'ID de producto no proporcionado' });
+      const idNum = Number(id);
+      if (!id || isNaN(idNum)) {
+        return res.status(400).json({ message: 'ID de producto no proporcionado o inválido' });
       }
 
-      const paquetes = await this.service.getByProductId(Number(id));
+      const paquetes = await this.service.getByProductId(idNum);
       res.status(200).json(paquetes);
     } catch (error) {
       next(error);
@@ -105,9 +109,10 @@ export class PaquetePublicadoController {
 
   getRelacionados = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
+    const idNum = Number(id);
+    if (!id || isNaN(idNum)) throw new CustomError('Id de paquete no proporcionado o inválido', 400);
 
-    const paquetes = await this.service.getRelacionados(Number(id));
+    const paquetes = await this.service.getRelacionados(idNum);
     if (!paquetes) throw new CustomError('No se pudieron obtener paquetes relacionados', 500);
 
     res.status(200).json(paquetes);
@@ -115,66 +120,73 @@ export class PaquetePublicadoController {
 
   duplicar = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
+    const idNum = Number(id);
+    if (!id || isNaN(idNum)) throw new CustomError('Id de publicación no proporcionado o inválido', 400);
 
-    const paquete = await this.service.duplicar(Number(id));
+    const paquete = await this.service.duplicar(idNum);
     res.status(201).json(paquete);
   });
 
   /** Activo → Completo (manual, para casos de borde) */
   completar = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
+    const idNum = Number(id);
+    if (!id || isNaN(idNum)) throw new CustomError('Id de publicación no proporcionado o inválido', 400);
 
-    const resultado = await this.service.marcarCompleto(Number(id));
+    const resultado = await this.service.marcarCompleto(idNum);
     res.status(200).json(resultado);
   });
 
   /** Completo (o Activo) → Confirmado */
   confirmarCompraFabricante = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id) throw new CustomError('Id de paquete no proporcionado', 400);
+    const idNum = Number(id);
+    if (!id || isNaN(idNum)) throw new CustomError('Id de paquete no proporcionado o inválido', 400);
 
-    const result = await this.service.confirmarCompraFabricante(Number(id));
+    const result = await this.service.confirmarCompraFabricante(idNum);
     res.status(200).json(result);
   });
 
   /** Confirmado → Entregado */
   marcarEntregado = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
+    const idNum = Number(id);
+    if (!id || isNaN(idNum)) throw new CustomError('Id de publicación no proporcionado o inválido', 400);
 
-    const result = await this.service.marcarEntregado(Number(id));
+    const result = await this.service.marcarEntregado(idNum);
     res.status(200).json(result);
   });
 
   /** Marca pedidos seleccionados (o todos) como En camino */
   marcarPedidosEnCamino = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
+    const idNum = Number(id);
+    if (!id || isNaN(idNum)) throw new CustomError('Id de publicación no proporcionado o inválido', 400);
 
     const pedidoIds: number[] = Array.isArray(req.body.pedidoIds)
       ? req.body.pedidoIds.map(Number)
       : [];
 
-    const result = await this.service.marcarPedidosEnCamino(Number(id), pedidoIds);
+    const result = await this.service.marcarPedidosEnCamino(idNum, pedidoIds);
     res.status(200).json(result);
   });
 
   /** Cancela el paquete y reembolsa todos los pedidos Pagados y Pendientes */
   cancelar = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
+    const idNum = Number(id);
+    if (!id || isNaN(idNum)) throw new CustomError('Id de publicación no proporcionado o inválido', 400);
 
-    const resultado = await this.service.cancelarYReembolsar(Number(id));
+    const resultado = await this.service.cancelarYReembolsar(idNum);
     res.status(200).json(resultado);
   });
 
   notificar = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
+    const idNum = Number(id);
+    if (!id || isNaN(idNum)) throw new CustomError('Id de publicación no proporcionado o inválido', 400);
 
-    const result = await this.service.notificarCompradores(Number(id));
+    const result = await this.service.notificarCompradores(idNum);
     res.status(200).json(result);
   });
 }

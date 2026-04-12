@@ -4,6 +4,7 @@ import { PedidoService } from '../services/pedido.service.js';
 import { PedidoPagoService } from '../services/pedidoPago.service.js';
 import { CustomError } from '../errors/custom.error.js';
 import { CrearPedidoDTO } from '../dtos/pedido/crearPedido.dto.js';
+import { ActualizarCantidadDTO } from '../dtos/pedido/actualizarCantidad.dto.js';
 
 export class PedidoController {
   constructor(
@@ -14,14 +15,15 @@ export class PedidoController {
   public crearPedido = asyncHandler(async (req: Request, res: Response) => {
     const user = req.user;
     const { paqueteId } = req.params;
+    const idNum = Number(paqueteId);
 
-    if (!paqueteId) {
-      throw new CustomError('Paquete no encontrado', 404);
+    if (!paqueteId || isNaN(idNum)) {
+      throw new CustomError('Paquete id inválido o no proporcionado', 400);
     }
 
     const pedidoId = await this.pedidoService.crearPedido(
       user!.id,
-      Number(paqueteId),
+      idNum,
       req.body as CrearPedidoDTO
     );
 
@@ -32,10 +34,17 @@ export class PedidoController {
     const user = req.user;
     const { pedidoId, detalleId } = req.params;
 
+    const pIdNum = Number(pedidoId);
+    const dIdNum = Number(detalleId);
+
+    if (!pedidoId || !detalleId || isNaN(pIdNum) || isNaN(dIdNum)) {
+      throw new CustomError('ID de pedido o detalle inválido', 400);
+    }
+
     await this.pedidoService.eliminarProducto(
       user!.id,
-      Number(pedidoId),
-      Number(detalleId)
+      pIdNum,
+      dIdNum
     );
 
     res.status(200).json({ ok: true });
@@ -44,13 +53,20 @@ export class PedidoController {
   public actualizarCantidad = asyncHandler(async (req: Request, res: Response) => {
     const user = req.user;
     const { pedidoId, detalleId } = req.params;
-    const { cantidad } = req.body;
+    const dto = req.body as ActualizarCantidadDTO;
+
+    const pIdNum = Number(pedidoId);
+    const dIdNum = Number(detalleId);
+
+    if (!pedidoId || !detalleId || isNaN(pIdNum) || isNaN(dIdNum)) {
+      throw new CustomError('ID de pedido o detalle inválido', 400);
+    }
 
     await this.pedidoService.actualizarCantidad(
       user!.id,
-      Number(pedidoId),
-      Number(detalleId),
-      Number(cantidad)
+      pIdNum,
+      dIdNum,
+      dto.cantidad
     );
 
     res.status(200).json({ ok: true });
@@ -59,9 +75,14 @@ export class PedidoController {
   public iniciarPago = asyncHandler(async (req: Request, res: Response) => {
     const user = req.user;
     const { pedidoId } = req.params;
+    const pIdNum = Number(pedidoId);
+
+    if (!pedidoId || isNaN(pIdNum)) {
+      throw new CustomError('ID de pedido inválido o no proporcionado', 400);
+    }
 
     const checkoutUrl = await this.pagoService.iniciarPago(
-      Number(pedidoId),
+      pIdNum,
       user!.id
     );
 
@@ -87,10 +108,15 @@ export class PedidoController {
   public getById = asyncHandler(async (req: Request, res: Response) => {
     const user = req.user;
     const { id } = req.params;
+    const idNum = Number(id);
+
+    if (!id || isNaN(idNum)) {
+      throw new CustomError('Pedido id inválido o no proporcionado', 400);
+    }
 
     const pedido = await this.pedidoService.obtenerPedidoPorId(
       user!.id,
-      Number(id)
+      idNum
     );
 
     res.status(200).json(pedido);
@@ -99,10 +125,15 @@ export class PedidoController {
   public bajarse = asyncHandler(async (req: Request, res: Response) => {
     const user = req.user;
     const { paqueteId } = req.params;
+    const idNum = Number(paqueteId);
+
+    if (!paqueteId || isNaN(idNum)) {
+      throw new CustomError('Paquete id inválido o no proporcionado', 400);
+    }
 
     await this.pedidoService.bajarseDePaquete(
       user!.id,
-      Number(paqueteId)
+      idNum
     );
 
     res.status(200).json({ ok: true });
@@ -111,9 +142,14 @@ export class PedidoController {
   public solicitarReembolso = asyncHandler(async (req: Request, res: Response) => {
     const user = req.user;
     const { pedidoId } = req.params;
+    const pIdNum = Number(pedidoId);
+
+    if (!pedidoId || isNaN(pIdNum)) {
+      throw new CustomError('Falta el ID del pedido o es inválido', 400);
+    }
 
     const result = await this.pagoService.reembolsarPedidoIndividual(
-      Number(pedidoId),
+      pIdNum,
       user!.id
     );
 
