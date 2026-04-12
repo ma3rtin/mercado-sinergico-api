@@ -117,30 +117,34 @@ export class PedidoService {
     paqueteId: number,
     dto: CrearPedidoDTO
   ): Promise<number> {
-    const paquete = await this.prisma.paquetePublicado.findUnique({
-      where: { id_paquete_publicado: paqueteId },
-      select: {
-        descuento: true,
-        tipo: true,
-        estado: { select: { nombre: true, id_estado: true } },
-        paqueteBase: {
-          select: {
-            productos: {
-              select: {
-                productoId: true,
-                producto: {
-                  select: {
-                    id_producto: true,
-                    precio: true,
-                    stock: true,
-                    tipo: true,
-                    plantillaId: true,
-                    variantes: {
-                      where: { activo: true },
-                      select: {
-                        id: true,
-                        stockFisico: true,
-                        precioExtra: true,
+    try {
+      console.log(`[crearPedido] Iniciando con usuarioId=${usuarioId}, paqueteId=${paqueteId}, dto=`, dto);
+
+      const paquete = await this.prisma.paquetePublicado.findUnique({
+        where: { id_paquete_publicado: paqueteId },
+        select: {
+          descuento: true,
+          tipo: true,
+          estado: { select: { nombre: true, id_estado: true } },
+          paqueteBase: {
+            select: {
+              productos: {
+                select: {
+                  productoId: true,
+                  producto: {
+                    select: {
+                      id_producto: true,
+                      precio: true,
+                      stock: true,
+                      tipo: true,
+                      plantillaId: true,
+                      variantes: {
+                        where: { activo: true },
+                        select: {
+                          id: true,
+                          stockFisico: true,
+                          precioExtra: true,
+                        },
                       },
                     },
                   },
@@ -149,130 +153,135 @@ export class PedidoService {
             },
           },
         },
-      },
-    });
+      });
 
-    if (!paquete) {
-      throw new CustomError('Paquete no encontrado', 404);
-    }
+      console.log(`[crearPedido] paquete obtenido:`, paquete ? 'SI' : 'NO');
 
-    if (paquete.estado.id_estado !== ESTADO_PAQUETE_ACTIVO) {
-      throw new CustomError('El paquete no está activo para nuevos pedidos', 400);
-    }
+      if (!paquete) {
+        throw new CustomError('Paquete no encontrado', 404);
+      }
 
-    const productoEnPaquete = paquete.paqueteBase.productos.find(
-      (p) => p.productoId === dto.productoId
-    );
+      if (paquete.estado.id_estado !== ESTADO_PAQUETE_ACTIVO) {
+        throw new CustomError('El paquete no está activo para nuevos pedidos', 400);
+      }
 
-    if (!productoEnPaquete) {
-      throw new CustomError('El producto no pertenece al paquete', 400);
-    }
-
-    const producto = productoEnPaquete.producto;
-
-    let varianteId = dto.varianteId || null;
-    let stockAValidar = producto.stock;
-    let precioExtra = 0;
-
-    if (dto.varianteId) {
-      const variante = producto.variantes.find(
-        (v) => v.id === dto.varianteId
+      const productoEnPaquete = paquete.paqueteBase.productos.find(
+        (p) => p.productoId === dto.productoId
       );
 
-      if (!variante) {
-        throw new CustomError('La variante no existe para este producto', 400);
+      console.log(`[crearPedido] productoEnPaquete:`, productoEnPaquete ? 'SI' : 'NO');
+
+      if (!productoEnPaquete) {
+        throw new CustomError('El producto no pertenece al paquete', 400);
+      }
+
+      const producto = productoEnPaquete.producto;
+      let varianteId = dto.varianteId || null;
+      let stockAValidar = producto.stock;
+      let precioExtra = 0;
+
+      if (dto.varianteId) {
+        const variante = producto.variantes.find(
+          (v) => v.id === dto.varianteId
+        );
+        if (!variante) {
+          throw new CustomError('La variante no existe para este producto', 400);
+        }
+        varianteId = variante.id;
+        stockAValidar = variante.stockFisico;
+        precioExtra = variante.precioExtra || 0;
+      } else {
+        if (producto.plantillaId !== null && producto.variantes.length > 0) {
+          throw new CustomError(
+            'Debe seleccionar una variante para este producto',
+            400
+          );
+        }
       }
 
       if (paquete.tipo === 'ENERGICO') {
-        stockAValidar = variante.stockFisico;
+        this.validarStockInformativo(stockAValidar, dto.cantidad);
       }
 
-      precioExtra = variante.precioExtra || 0;
-    } else {
-      if (producto.plantillaId !== null && producto.variantes.length > 0) {
-        throw new CustomError(
-          'Debe seleccionar una variante para este producto',
-          400
-        );
-      }
-    }
+      const precioBase = producto.precio + precioExtra;
+      const precioUnitario = this.calcularPrecioConDescuento(
+        precioBase,
+        paquete.descuento || 0
+      );
 
-    if (paquete.tipo === 'ENERGICO') {
-      this.validarStockInformativo(stockAValidar, dto.cantidad);
-    }
+      const subtotal = precioUnitario * dto.cantidad;
+      console.log(`[crearPedido] precioUnitario=${precioUnitario}, subtotal=${subtotal}`);
 
-    const precioBase = producto.precio + precioExtra;
-    const precioUnitario = this.calcularPrecioConDescuento(
-      precioBase,
-      paquete.descuento || 0
-    );
+      let pedido = await this.getPedidoCarrito(usuarioId, paqueteId);
+      console.log(`[crearPedido] pedidoCarrito existente:`, pedido ? 'SI' : 'NO');
 
-    const subtotal = precioUnitario * dto.cantidad;
-
-    let pedido = await this.getPedidoCarrito(usuarioId, paqueteId);
-
-    if (!pedido) {
-      const nuevo = await this.prisma.pedido.create({
-        data: {
-          usuarioId,
-          paquetePublicadoId: paqueteId,
-          estadoId: ESTADO_PEDIDO.PENDIENTE,
-          monto_total: subtotal,
-          descuento_aplicado: paquete.descuento || 0,
-          detalles: {
-            create: {
-              productoId: producto.id_producto,
-              varianteId: varianteId,
-              cantidad: dto.cantidad,
-              precio_unitario: precioUnitario,
-              subtotal,
+      if (!pedido) {
+        const nuevo = await this.prisma.pedido.create({
+          data: {
+            usuarioId,
+            paquetePublicadoId: paqueteId,
+            estadoId: ESTADO_PEDIDO.PENDIENTE,
+            monto_total: subtotal,
+            descuento_aplicado: paquete.descuento || 0,
+            detalles: {
+              create: {
+                productoId: producto.id_producto,
+                varianteId: varianteId,
+                cantidad: dto.cantidad,
+                precio_unitario: precioUnitario,
+                subtotal,
+              },
             },
           },
-        },
-        select: { id_pedido: true },
-      });
-
-      return nuevo.id_pedido;
-    }
-
-    const detalleExistente = await this.prisma.pedidoDetalle.findFirst({
-      where: {
-        pedidoId: pedido.id_pedido,
-        productoId: producto.id_producto,
-        varianteId: varianteId ?? null,
-      },
-    });
-
-    if (detalleExistente) {
-      const nuevaCantidad = detalleExistente.cantidad + dto.cantidad;
-
-      if (paquete.tipo === 'ENERGICO') {
-        this.validarStockInformativo(stockAValidar, nuevaCantidad);
+          select: { id_pedido: true },
+        });
+        console.log(`[crearPedido] nuevo pedido creado: ${nuevo.id_pedido}`);
+        return nuevo.id_pedido;
       }
 
-      await this.prisma.pedidoDetalle.update({
-        where: { id: detalleExistente.id },
-        data: {
-          cantidad: nuevaCantidad,
-          subtotal: precioUnitario * nuevaCantidad,
-        },
-      });
-    } else {
-      await this.prisma.pedidoDetalle.create({
-        data: {
+      const detalleExistente = await this.prisma.pedidoDetalle.findFirst({
+        where: {
           pedidoId: pedido.id_pedido,
           productoId: producto.id_producto,
-          varianteId: varianteId,
-          cantidad: dto.cantidad,
-          precio_unitario: precioUnitario,
-          subtotal,
+          varianteId: varianteId ?? null,
         },
       });
+
+      console.log(`[crearPedido] detalleExistente:`, detalleExistente ? 'SI' : 'NO');
+
+      if (detalleExistente) {
+        const nuevaCantidad = detalleExistente.cantidad + dto.cantidad;
+        if (paquete.tipo === 'ENERGICO') {
+          this.validarStockInformativo(stockAValidar, nuevaCantidad);
+        }
+        await this.prisma.pedidoDetalle.update({
+          where: { id: detalleExistente.id },
+          data: {
+            cantidad: nuevaCantidad,
+            subtotal: precioUnitario * nuevaCantidad,
+          },
+        });
+      } else {
+        await this.prisma.pedidoDetalle.create({
+          data: {
+            pedidoId: pedido.id_pedido,
+            productoId: producto.id_producto,
+            varianteId: varianteId,
+            cantidad: dto.cantidad,
+            precio_unitario: precioUnitario,
+            subtotal,
+          },
+        });
+      }
+
+      await this.recalcularMontoTotal(pedido.id_pedido);
+      console.log(`[crearPedido] recalcularMontoTotal finalizado exitosamente.`);
+      return pedido.id_pedido;
+
+    } catch (error) {
+      console.error(`[crearPedido ERROR] Fallo inesperado:`, error);
+      throw error;
     }
-
-    await this.recalcularMontoTotal(pedido.id_pedido);
-
-    return pedido.id_pedido;
   }
 
   public async eliminarProducto(
