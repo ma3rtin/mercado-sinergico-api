@@ -58,4 +58,10 @@ router.post(
   controller.iniciarPago
 );
 
+router.post(
+  '/:pedidoId/solicitar-reembolso',
+  authMiddleware,
+  controller.solicitarReembolso
+);
+
 export default router;

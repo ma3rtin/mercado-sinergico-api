@@ -33,31 +33,23 @@ INSERT INTO Marca (nombre, createdAt, updatedAt) VALUES
 ('Otras',   NOW(), NOW());
 
 -- ============================ ESTADOPAQUETEPUBLICADO ============================
--- id: 1=Activo, 2=Completo, 3=Confirmado, 4=Recibido, 5=Cancelado, 6=Eliminado
+-- id: 1=Activo, 2=Completo, 3=Confirmado, 4=Entregado, 5=Cancelado
 INSERT INTO EstadoPaquetePublicado (nombre) VALUES
 ('Activo'),
 ('Completo'),
 ('Confirmado'),
-('Recibido'),
-('Cancelado'),
-('Eliminado');
+('Entregado'),
+('Cancelado');
 
 -- ============================ ESTADOPEDIDO ============================
--- id: 1=Pendiente, 2=Confirmado, 3=Completo, 4=Recibido, 5=Cancelado, 6=Reembolsando
---   Pendiente    = usuario pagó, esperando que el grupo se complete
---   Completo     = grupo lleno, Pablo compra los productos (el usuario ya NO puede cancelar)
---   Confirmado   = admin confirmó la compra con el fabricante (dinero acreditado a Pablo)
---   Recibido     = el usuario recibió su producto (se confirma por pedido individual)
---   Cancelado    = pedido cancelado
---   Reembolsando = en proceso de devolución automática
+-- id: 1=Pendiente, 2=Pagado, 3=Reembolsado, 4=En preparación, 5=En camino, 6=Recibido
 INSERT INTO EstadoPedido (nombre) VALUES
 ('Pendiente'),
-('Confirmado'),
-('Completo'),
-('Recibido'),
-('Cancelado'),
-('Reembolsando'),
-('Enviado');
+('Pagado'),
+('Reembolsado'),
+('En preparación'),
+('En camino'),
+('Recibido');
 
 -- ============================ LOCALIDAD ============================
 INSERT INTO Localidad (nombre, codigo_postal) VALUES
@@ -493,10 +485,10 @@ INSERT INTO PaquetePublicado (nombre, paqueteBaseId, estadoId, zonaId, fecha_ini
 ('HP ZOeste Activo', 5, 1, 3, NOW(),                            DATE_ADD(NOW(), INTERVAL  1 DAY), 45,  0,  0,  950.00, 'https://www.muycomputerpro.com/wp-content/uploads/2015/03/HP_Care_Pack-1.jpeg',                                                                                                                                 'SINERGICO',   8.0, NOW(), NOW()),
 ('Apple ZLP Activo', 6, 1, 5, NOW(),                            DATE_ADD(NOW(), INTERVAL 10 DAY), 30,  0,  0, 1900.00, 'https://i.ytimg.com/vi/P-UifawCilA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBx5Omr-Pgm8jU20l8i0KXkNUKAeQ',                                                              'ENERGICO',  5.0, NOW(), NOW()),
 ('TechCombo ZNorte Activo', 7, 1, 2, NOW(),                            DATE_ADD(NOW(), INTERVAL  7 DAY), 60,  0,  0, 1900.00, 'https://img.global.news.samsung.com/global/wp-content/uploads/2023/02/%EA%B8%80%EB%A1%9C%EB%B2%8C-Featured-Stories-Thumbnail-728x410.jpg',                                                                     'ENERGICO', 12.0, NOW(), NOW()),
-('Entretenimiento CABA EnPrep', 8, 8, 1, DATE_SUB(NOW(), INTERVAL 10 DAY), DATE_SUB(NOW(), INTERVAL  2 DAY), 30, 22, 18, 2800.00, 'https://www.lg.com/global/images/business/information-display/commercial-tv/md07574661/gallery/medium01.jpg',                                                                                                   'ENERGICO', 18.0, NOW(), NOW()),
-('HomeOffice ZOeste Final', 9, 9, 3, DATE_SUB(NOW(), INTERVAL 20 DAY), DATE_SUB(NOW(), INTERVAL  5 DAY), 50, 50, 40, 1750.00, 'https://www.muycomputerpro.com/wp-content/uploads/2015/03/HP_Care_Pack-1.jpeg',                                                                                                                                 'SINERGICO',  10.0, NOW(), NOW()),
+('Entretenimiento CABA EnPrep', 8, 3, 1, DATE_SUB(NOW(), INTERVAL 10 DAY), DATE_SUB(NOW(), INTERVAL  2 DAY), 30, 22, 18, 2800.00, 'https://www.lg.com/global/images/business/information-display/commercial-tv/md07574661/gallery/medium01.jpg',                                                                                                   'ENERGICO', 18.0, NOW(), NOW()),
+('HomeOffice ZOeste Final', 9, 4, 3, DATE_SUB(NOW(), INTERVAL 20 DAY), DATE_SUB(NOW(), INTERVAL  5 DAY), 50, 50, 40, 1750.00, 'https://www.muycomputerpro.com/wp-content/uploads/2015/03/HP_Care_Pack-1.jpeg',                                                                                                                                 'SINERGICO',  10.0, NOW(), NOW()),
 ('AppleEco ZSur Activo', 10, 1, 4, NOW(),                            DATE_ADD(NOW(), INTERVAL  6 DAY), 40,  0,  0, 3100.00, 'https://i.ytimg.com/vi/P-UifawCilA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBx5Omr-Pgm8jU20l8i0KXkNUKAeQ',                                                              'SINERGICO',   7.0, NOW(), NOW()),
-('Sony ZLP Cancelado', 11, 4, 5, DATE_SUB(NOW(), INTERVAL 15 DAY), DATE_SUB(NOW(), INTERVAL  8 DAY), 25, 10,  8,  800.00, 'https://images-cdn.ubuy.co.in/66faadc7e1426368995da054-sony-xperia-10-v-xq-dc72-5g-dual-128gb.jpg',                                                                                                            'ENERGICO',  5.0, NOW(), NOW());
+('Sony ZLP Cancelado', 11, 5, 5, DATE_SUB(NOW(), INTERVAL 15 DAY), DATE_SUB(NOW(), INTERVAL  8 DAY), 25, 10,  8,  800.00, 'https://images-cdn.ubuy.co.in/66faadc7e1426368995da054-sony-xperia-10-v-xq-dc72-5g-dual-128gb.jpg',                                                                                                            'ENERGICO',  5.0, NOW(), NOW());
 
 -- ============================ DISPONIBILIDADVARIANTEPAQUETE ============================
 INSERT INTO DisponibilidadVariantePaquete (varianteId, paquetePublicadoId, activo, createdAt, updatedAt) VALUES
