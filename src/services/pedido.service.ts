@@ -155,7 +155,7 @@ export class PedidoService {
         },
       });
 
-      console.log(`[crearPedido] paquete obtenido:`, paquete ? 'SI' : 'NO');
+      console.log('[crearPedido] paquete obtenido:', paquete ? 'SI' : 'NO');
 
       if (!paquete) {
         throw new CustomError('Paquete no encontrado', 404);
@@ -169,7 +169,7 @@ export class PedidoService {
         (p) => p.productoId === dto.productoId
       );
 
-      console.log(`[crearPedido] productoEnPaquete:`, productoEnPaquete ? 'SI' : 'NO');
+      console.log('[crearPedido] productoEnPaquete:', productoEnPaquete ? 'SI' : 'NO');
 
       if (!productoEnPaquete) {
         throw new CustomError('El producto no pertenece al paquete', 400);
@@ -213,7 +213,7 @@ export class PedidoService {
       console.log(`[crearPedido] precioUnitario=${precioUnitario}, subtotal=${subtotal}`);
 
       let pedido = await this.getPedidoCarrito(usuarioId, paqueteId);
-      console.log(`[crearPedido] pedidoCarrito existente:`, pedido ? 'SI' : 'NO');
+      console.log('[crearPedido] pedidoCarrito existente:', pedido ? 'SI' : 'NO');
 
       if (!pedido) {
         const nuevo = await this.prisma.pedido.create({
@@ -247,7 +247,7 @@ export class PedidoService {
         },
       });
 
-      console.log(`[crearPedido] detalleExistente:`, detalleExistente ? 'SI' : 'NO');
+      console.log('[crearPedido] detalleExistente:', detalleExistente ? 'SI' : 'NO');
 
       if (detalleExistente) {
         const nuevaCantidad = detalleExistente.cantidad + dto.cantidad;
@@ -275,11 +275,11 @@ export class PedidoService {
       }
 
       await this.recalcularMontoTotal(pedido.id_pedido);
-      console.log(`[crearPedido] recalcularMontoTotal finalizado exitosamente.`);
+      console.log('[crearPedido] recalcularMontoTotal finalizado exitosamente.');
       return pedido.id_pedido;
 
     } catch (error) {
-      console.error(`[crearPedido ERROR] Fallo inesperado:`, error);
+      console.error('[crearPedido ERROR] Fallo inesperado:', error);
       throw error;
     }
   }
