@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pedido confirmado - Mercado Sinérgico</title>
+</head>
+
+<body style="margin:0; padding:0; background-color:#f9fafb; font-family:'Segoe UI', Arial, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0"
+          style="max-width:600px; width:100%; background-color:#ffffff; border-radius:12px; overflow:hidden; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+
+          <!-- Top bar -->
+          <tr>
+            <td style="background-color:#16a34a; height:6px;"></td>
+          </tr>
+
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 32px 24px 32px; text-align:center;">
+              <p style="margin:0 0 12px 0; font-size:12px; color:#6b7280; letter-spacing:1.5px; text-transform:uppercase; font-weight:700;">
+                Mercado Sinérgico
+              </p>
+              <h1 style="margin:0; color:#15803d; font-size:28px; font-weight:800; line-height:1.2;">
+                📦 ¡Tu pedido está confirmado!
+              </h1>
+              <p style="margin:10px 0 0 0; color:#4b5563; font-size:16px;">La compra fue coordinada con el proveedor</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding: 0 40px 40px 40px;">
+
+              <p style="margin:0 0 20px 0; color:#374151; font-size:16px;">
+                Hola{{#if nombreUsuario}}, <strong>{{nombreUsuario}}</strong>{{/if}}:
+              </p>
+
+              <p style="margin:0 0 24px 0; color:#374151; font-size:15px; line-height:1.7;">
+                Te confirmamos que la compra del paquete
+                <strong style="color:#2E608C;">{{nombrePaquete}}</strong>
+                fue coordinada exitosamente con el proveedor. Tu pedido está
+                <strong style="color:#15803d;">en preparación</strong>.
+              </p>
+
+              <!-- Caja informativa -->
+              <table width="100%" cellpadding="0" cellspacing="0"
+                style="background-color:#f0fdf4; border-radius:12px; border:1px solid #bbf7d0; margin-bottom:32px;">
+                <tr>
+                  <td style="padding:24px;">
+                    <h3 style="margin:0 0 12px 0; color:#15803d; font-size:14px; font-weight:700; text-transform:uppercase;">
+                      Próximos pasos
+                    </h3>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding-bottom:10px; color:#166534; font-size:14px; line-height:1.6;">
+                          <span style="color:#2E608C; font-weight:700; margin-right:8px;">1.</span>
+                          Tus productos se encuentran actualmente <strong>en preparación</strong>.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-bottom:10px; color:#166534; font-size:14px; line-height:1.6;">
+                          <span style="color:#2E608C; font-weight:700; margin-right:8px;">2.</span>
+                          Recibirás un aviso cuando tu pedido esté <strong>en camino</strong>.
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:0; color:#166534; font-size:14px; line-height:1.6;">
+                          <span style="color:#2E608C; font-weight:700; margin-right:8px;">3.</span>
+                          El día de entrega te enviaremos la confirmación con los detalles.
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0; color:#6b7280; font-size:14px; line-height:1.7; text-align:center;">
+                ¡Muchas gracias por tu confianza en <strong>Mercado Sinérgico</strong>!
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#f9fafb; border-top:1px solid #e5e7eb; padding:28px 40px; text-align:center;">
+              <p style="margin:0 0 6px 0; color:#111827; font-weight:700; font-size:14px;">Mercado Sinérgico</p>
+              <p style="margin:0; color:#9ca3af; font-size:12px;">Este es un mensaje automático. Por favor, no lo respondas.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+
+</html>

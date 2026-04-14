@@ -2,6 +2,25 @@ import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { MercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
 import { despachadorEventosApp, DespachadorEventos } from '../events/despachadorEventos.js';
+
+// ─── IDs de estado (sincronizados con script.sql) ───────────────────────────
+const ESTADO_PEDIDO = {
+  PENDIENTE: 1,
+  PAGADO: 2,
+  REEMBOLSADO: 3,
+  EN_PREPARACION: 4,
+  EN_CAMINO: 5,
+  RECIBIDO: 6,
+} as const;
+
+const ESTADO_PAQUETE = {
+  ACTIVO: 1,
+  COMPLETO: 2,
+  CONFIRMADO: 3,
+  ENTREGADO: 4,
+  CANCELADO: 5,
+} as const;
+
 export class PedidoPagoService {
   private prisma = prisma;
 
@@ -51,6 +70,7 @@ export class PedidoPagoService {
             tipo: true,
             cant_productos: true,
             cant_productos_reservados: true,
+            estadoId: true,
           },
         },
       },
@@ -64,15 +84,19 @@ export class PedidoPagoService {
       throw new CustomError('No autorizado', 403);
     }
 
-    if (pedido.estadoId !== 1) {
-      throw new CustomError('El pedido no puede pagarse', 400);
+    if (pedido.estadoId !== ESTADO_PEDIDO.PENDIENTE) {
+      throw new CustomError('El pedido no puede pagarse en su estado actual', 400);
+    }
+
+    if (pedido.paquetePublicado.estadoId !== ESTADO_PAQUETE.ACTIVO) {
+      throw new CustomError('El paquete ya no está activo para pagos', 400);
     }
 
     const disponibles =
       (pedido.paquetePublicado.cant_productos || 0) -
       (pedido.paquetePublicado.cant_productos_reservados || 0);
 
-    const solicitados = pedido.detalles.reduce((sum, d) => sum + d.cantidad, 0);
+    const solicitados = pedido.detalles.reduce((sum: number, d: { cantidad: number }) => sum + d.cantidad, 0);
 
     if (solicitados > disponibles) {
       throw new CustomError(
@@ -90,7 +114,7 @@ export class PedidoPagoService {
           stockAValidar = detalle.variante.stockFisico;
 
           const opcionesNombres = detalle.variante.opciones
-            .map((vo) => vo.opcion.nombre)
+            .map((vo: { opcion: { nombre: string } }) => vo.opcion.nombre)
             .join(' - ');
 
           nombreCompleto = `${detalle.producto.nombre} (${opcionesNombres})`;
@@ -141,14 +165,15 @@ export class PedidoPagoService {
 
     if (pago.status === 'approved') {
       const totalProductos = pedido.detalles.reduce(
-        (sum, d) => sum + d.cantidad,
+        (sum: number, d: { cantidad: number }) => sum + d.cantidad,
         0
       );
 
       let emitirEvento = false;
 
-      await this.prisma.$transaction(async (prisma) => {
-        await prisma.paquetePublicado.update({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await this.prisma.$transaction(async (tx: any) => {
+        await tx.paquetePublicado.update({
           where: { id_paquete_publicado: pedido.paquetePublicadoId },
           data: {
             cant_productos_reservados: { increment: totalProductos },
@@ -158,14 +183,14 @@ export class PedidoPagoService {
         if (pedido.paquetePublicado.tipo === 'ENERGICO') {
           for (const detalle of pedido.detalles) {
             if (detalle.varianteId) {
-              await prisma.productoVariante.update({
+              await tx.productoVariante.update({
                 where: { id: detalle.varianteId },
                 data: {
                   stockFisico: { decrement: detalle.cantidad },
                 },
               });
             } else {
-              await prisma.producto.update({
+              await tx.producto.update({
                 where: { id_producto: detalle.productoId },
                 data: {
                   stock: { decrement: detalle.cantidad },
@@ -174,69 +199,65 @@ export class PedidoPagoService {
             }
           }
         }
-        await prisma.pedido.update({
+
+        // Pedido pasa a Pagado (2)
+        await tx.pedido.update({
           where: { id_pedido: pedidoId },
           data: {
-            estadoId: 2,
+            estadoId: ESTADO_PEDIDO.PAGADO,
             paymentId: pago.id?.toString()
           },
         });
 
-        const paqueteActualizado = await prisma.paquetePublicado.findUnique({
+        const paqueteActualizado = await tx.paquetePublicado.findUnique({
           where: { id_paquete_publicado: pedido.paquetePublicadoId }
         });
 
-        if (paqueteActualizado && paqueteActualizado.cant_productos_reservados >= (paqueteActualizado.cant_productos || 0)) {
+        // Verificar si el paquete alcanzó su capacidad → transición automática a Completo
+        if (
+          paqueteActualizado &&
+          paqueteActualizado.estadoId === ESTADO_PAQUETE.ACTIVO &&
+          paqueteActualizado.cant_productos !== null &&
+          paqueteActualizado.cant_productos_reservados >= paqueteActualizado.cant_productos
+        ) {
           emitirEvento = true;
         }
       });
 
       if (emitirEvento) {
-        despachadorEventosApp.emit(DespachadorEventos.PAQUETE_COMPLETADO, pedido.paquetePublicadoId);
+        despachadorEventosApp.emit(DespachadorEventos.PAQUETE_COMPLETO, pedido.paquetePublicadoId);
       }
     }
 
     if (pago.status === 'rejected') {
+      // Pago rechazado → el pedido vuelve a Pendiente para que pueda reintentar
       await this.prisma.pedido.update({
         where: { id_pedido: pedidoId },
-        data: { estadoId: 5 },
+        data: { estadoId: ESTADO_PEDIDO.PENDIENTE },
       });
     }
 
     if (pago.status === 'pending' || pago.status === 'in_process') {
       await this.prisma.pedido.update({
         where: { id_pedido: pedidoId },
-        data: { estadoId: 1 },
+        data: { estadoId: ESTADO_PEDIDO.PENDIENTE },
       });
     }
 
     return { pedidoId, status: pago.status };
   }
 
-  public async procesarPaqueteCompletado(paqueteId: number) {
-    const paquete = await this.prisma.paquetePublicado.findUnique({
-      where: { id_paquete_publicado: paqueteId }
-    });
-
-    if (!paquete) throw new CustomError('Paquete no encontrado', 404);
-
-    // Actualizamos el paquete a estado Finalizado o en proceso
-    await this.prisma.paquetePublicado.update({
-      where: { id_paquete_publicado: paqueteId },
-      data: { estadoId: 9 } // 9 = Finalizado
-    });
-
-    return { message: 'Paquete procesado correctamente', paqueteId };
-  }
-
+  /**
+   * Reembolsa todos los pedidos Pagados de un paquete y lo marca como Cancelado.
+   * También cancela los pedidos Pendientes (sin reembolso MP porque aún no pagaron).
+   */
   public async cancelarPaqueteYReembolsar(paqueteId: number) {
     const paquete = await this.prisma.paquetePublicado.findUnique({
       where: { id_paquete_publicado: paqueteId },
       include: {
         pedidos: {
           where: {
-            estadoId: 2, // Pedidos que fueron pagados
-            paymentId: { not: null }
+            estadoId: { in: [ESTADO_PEDIDO.PAGADO, ESTADO_PEDIDO.PENDIENTE] },
           },
           include: {
             detalles: true
@@ -247,33 +268,36 @@ export class PedidoPagoService {
 
     if (!paquete) throw new CustomError('Paquete no encontrado', 404);
 
-    // Primero reembolsamos todos los pagos vía MP
-    // @ts-ignore
-    for (const pedido of paquete.pedidos) {
+    // Reembolsar vía MP solo los pedidos Pagados con paymentId
+    const pedidosPagados = paquete.pedidos.filter(
+      (p: { estadoId: number; paymentId: string | null }) => p.estadoId === ESTADO_PEDIDO.PAGADO && p.paymentId
+    );
+
+    for (const pedido of pedidosPagados) {
       if (pedido.paymentId) {
         try {
           await this.mercadoPagoService.reembolsarPago(Number(pedido.paymentId));
         } catch (error) {
           console.error(`Error reembolsando pago ${pedido.paymentId}:`, error);
-          // Omitimos errores individuales en caso de que ya hayan sido devueltos manualmente
+          // Continuamos con los demás aunque uno falle
         }
       }
     }
 
-    // Luego actualizamos la base de datos dentro de una transaction
-    await this.prisma.$transaction(async (tx) => {
-      // Cancelamos el paquete
+    // Actualizar la base de datos en transacción
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await this.prisma.$transaction(async (tx: any) => {
+      // Cancelar el paquete
       await tx.paquetePublicado.update({
         where: { id_paquete_publicado: paqueteId },
-        data: { estadoId: 4 } // 4 = Cancelado
+        data: { estadoId: ESTADO_PAQUETE.CANCELADO }
       });
 
-      // @ts-ignore
       for (const pedido of paquete.pedidos) {
         let totalProductosPedido = 0;
 
-        // Si el paquete es ENERGICO, devolvemos el stock
-        if (paquete.tipo === 'ENERGICO') {
+        // Si el paquete es ENERGICO y el pedido fue pagado, devolver stock
+        if (paquete.tipo === 'ENERGICO' && pedido.estadoId === ESTADO_PEDIDO.PAGADO) {
           for (const detalle of pedido.detalles) {
             totalProductosPedido += detalle.cantidad;
             if (detalle.varianteId) {
@@ -288,24 +312,99 @@ export class PedidoPagoService {
               });
             }
           }
-        } else {
-          totalProductosPedido = pedido.detalles.reduce((sum: number, d: { cantidad: number }) => sum + d.cantidad, 0);
+          // Descontar del contador reservado
+          await tx.paquetePublicado.update({
+            where: { id_paquete_publicado: paqueteId },
+            data: { cant_productos_reservados: { decrement: totalProductosPedido } }
+          });
         }
 
-        // Restamos las cantidades reservadas del paquete
-        await tx.paquetePublicado.update({
-          where: { id_paquete_publicado: paqueteId },
-          data: { cant_productos_reservados: { decrement: totalProductosPedido } }
-        });
-
-        // Marcamos el pedido como Reembolsando/Cancelado
+        // Marcar pedido como Reembolsado (tanto Pagados como Pendientes)
         await tx.pedido.update({
           where: { id_pedido: pedido.id_pedido },
-          data: { estadoId: 6 } // 6 = Reembolsando
+          data: { estadoId: ESTADO_PEDIDO.REEMBOLSADO }
         });
       }
     });
 
     return { message: 'Paquete cancelado y dinero reembolsado', paqueteId };
+  }
+
+  /**
+   * Reembolsa un pedido individual (usuario solicita devolución mientras el paquete está Activo).
+   */
+  public async reembolsarPedidoIndividual(pedidoId: number, usuarioId: number) {
+    const pedido = await this.prisma.pedido.findUnique({
+      where: { id_pedido: pedidoId },
+      include: {
+        paquetePublicado: {
+          select: {
+            estadoId: true,
+            tipo: true,
+          }
+        },
+        detalles: true,
+      }
+    });
+
+    if (!pedido) throw new CustomError('Pedido no encontrado', 404);
+    if (pedido.usuarioId !== usuarioId) throw new CustomError('No autorizado', 403);
+    if (pedido.estadoId !== ESTADO_PEDIDO.PAGADO) {
+      throw new CustomError('Solo se pueden reembolsar pedidos en estado Pagado', 400);
+    }
+    if (pedido.paquetePublicado.estadoId !== ESTADO_PAQUETE.ACTIVO) {
+      throw new CustomError('No se puede solicitar reembolso: el paquete ya no está activo', 400);
+    }
+
+    // Reembolsar vía MP
+    if (pedido.paymentId) {
+      try {
+        await this.mercadoPagoService.reembolsarPago(Number(pedido.paymentId));
+      } catch (error) {
+        console.error(`Error al reembolsar pago ${pedido.paymentId}:`, error);
+        throw new CustomError('Error al procesar el reembolso con Mercado Pago', 500);
+      }
+    }
+
+    // Actualizar en transacción
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await this.prisma.$transaction(async (tx: any) => {
+      let totalProductosPedido = 0;
+
+      if (pedido.paquetePublicado.tipo === 'ENERGICO') {
+        for (const detalle of pedido.detalles) {
+          totalProductosPedido += detalle.cantidad;
+          if (detalle.varianteId) {
+            await tx.productoVariante.update({
+              where: { id: detalle.varianteId },
+              data: { stockFisico: { increment: detalle.cantidad } }
+            });
+          } else {
+            await tx.producto.update({
+              where: { id_producto: detalle.productoId },
+              data: { stock: { increment: detalle.cantidad } }
+            });
+          }
+        }
+      } else {
+        totalProductosPedido = pedido.detalles.reduce(
+          (sum: number, d: { cantidad: number }) => sum + d.cantidad, 0
+        );
+      }
+
+      // Descontar del contador reservado
+      await tx.paquetePublicado.update({
+        where: { id_paquete_publicado: pedido.paquetePublicadoId },
+        data: { cant_productos_reservados: { decrement: totalProductosPedido } }
+      });
+
+      // Marcar pedido como Reembolsado
+      await tx.pedido.update({
+        where: { id_pedido: pedidoId },
+        data: { estadoId: ESTADO_PEDIDO.REEMBOLSADO }
+      });
+    });
+
+    return { message: 'Reembolso procesado correctamente', pedidoId };
   }
 }
