@@ -2,16 +2,8 @@ import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { CrearPedidoDTO } from '../dtos/pedido/crearPedido.dto.js';
 
-// ─── IDs de estado (sincronizados con script.sql) ───────────────────────────
-const ESTADO_PAQUETE_ACTIVO = 1;
-
-const ESTADO_PEDIDO = {
-  PENDIENTE: 1,
-  PAGADO: 2,
-  EN_PREPARACION: 4,
-  EN_CAMINO: 5,
-  RECIBIDO: 6,
-} as const;
+import { ESTADO_PEDIDO } from '../constants/estado-pedido.js';
+import { ESTADO_PAQUETE } from '../constants/estado-paquete.js';
 
 export type DetalleComputable = { cantidad?: number;[key: string]: unknown };
 
@@ -161,7 +153,7 @@ export class PedidoService {
         throw new CustomError('Paquete no encontrado', 404);
       }
 
-      if (paquete.estado.id_estado !== ESTADO_PAQUETE_ACTIVO) {
+      if (paquete.estado.id_estado !== ESTADO_PAQUETE.ACTIVO) {
         throw new CustomError('El paquete no está activo para nuevos pedidos', 400);
       }
 

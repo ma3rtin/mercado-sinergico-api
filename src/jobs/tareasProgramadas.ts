@@ -2,8 +2,7 @@ import cron from 'node-cron';
 import { prisma } from '../prisma/client.js';
 import { PaquetePublicadoService } from '../services/paquetePublicado.service.js';
 
-// ─── IDs de estado (sincronizados con script.sql) ────────────────────────────
-const ESTADO_PAQUETE_ACTIVO = 1;
+import { ESTADO_PAQUETE } from '../constants/estado-paquete.js';
 
 const service = new PaquetePublicadoService();
 
@@ -32,7 +31,7 @@ async function procesarPaquetesVencidos(): Promise<void> {
   try {
     const paquetesVencidos = await prisma.paquetePublicado.findMany({
       where: {
-        estadoId: ESTADO_PAQUETE_ACTIVO,
+        estadoId: ESTADO_PAQUETE.ACTIVO,
         fecha_fin: { lte: ahora },
       },
       select: {
