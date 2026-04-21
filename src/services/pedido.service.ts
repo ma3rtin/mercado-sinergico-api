@@ -6,8 +6,6 @@ import { ESTADO_PEDIDO } from '../constants/estado-pedido.js';
 import { ESTADO_PAQUETE } from '../constants/estado-paquete.js';
 
 import { 
-  DetalleComputable, 
-  PedidoComputable, 
   PaqueteComputable 
 } from '../types/computable.types.js';
 
