@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { MercadoPagoController } from './mercadopago.controller.js';
 import { PedidoPagoService } from '../../services/pedidoPago.service.js';
 import { MercadoPagoService } from './mercadopago.service.js';
+import { envs } from '../../config/envs.js';
 
 export const mercadoPagoRouter = Router();
 
@@ -16,18 +17,18 @@ mercadoPagoRouter.post(
 
 mercadoPagoRouter.get('/success', (req, res) => {
   res.redirect(
-    'http://localhost:4200/mis-pedidos'
+    envs.FRONTEND_URL + '/mis-pedidos'
   );
 });
 
 mercadoPagoRouter.get('/failure', (req, res) => {
   res.redirect(
-    'http://localhost:4200/mis-pedidos'
+    envs.FRONTEND_URL + '/mis-pedidos'
   );
 });
 
 mercadoPagoRouter.get('/pending', (req, res) => {
   res.redirect(
-    'http://localhost:4200/mis-pedidos'
+    envs.FRONTEND_URL + '/mis-pedidos'
   );
 });
