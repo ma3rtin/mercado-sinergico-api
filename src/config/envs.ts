@@ -14,6 +14,7 @@ export const envs = {
   MP_FAILURE_URL: env.get('MP_FAILURE_URL').required().asString(),
   MP_PENDING_URL: env.get('MP_PENDING_URL').required().asString(),
   MP_WEBHOOK_URL: env.get('MP_WEBHOOK_URL').required().asString(),
+  MP_WEBHOOK_SECRET: env.get('MP_WEBHOOK_SECRET').asString(),
   MERCADOPAGO_ACCESS_TOKEN: env
     .get('MERCADOPAGO_ACCESS_TOKEN')
     .required()

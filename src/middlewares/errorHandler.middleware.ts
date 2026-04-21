@@ -12,5 +12,5 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   }
 
   console.error('[ErrorHandler] Unexpected error:', err);
-  return res.status(500).json({ error: 'Internal Server Error', details: err instanceof Error ? err.message : String(err) });
+  return res.status(500).json({ error: 'Internal Server Error' });
 }

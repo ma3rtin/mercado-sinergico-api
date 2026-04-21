@@ -9,8 +9,7 @@ export interface DatosEncriptados {
 
 export async function crearToken(user: DatosEncriptados): Promise<string> {
   const secretKey = envs.JWT_SECRET_KEY;
-  const token = jwt.sign(user, secretKey);
-  //console.log('🔐 CREAR JWT_SECRET_KEY:', envs.JWT_SECRET_KEY);
+  const token = jwt.sign(user, secretKey, { expiresIn: '7d' });
   return token;
 }
 
