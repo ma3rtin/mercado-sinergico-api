@@ -5,30 +5,17 @@ import { CrearPedidoDTO } from '../dtos/pedido/crearPedido.dto.js';
 import { ESTADO_PEDIDO } from '../constants/estado-pedido.js';
 import { ESTADO_PAQUETE } from '../constants/estado-paquete.js';
 
-export type DetalleComputable = { cantidad?: number;[key: string]: unknown };
-
-export type PedidoComputable = {
-  estadoId?: number;
-  usuario?: { id?: number };
-  usuarioId?: number;
-  detalles?: DetalleComputable[];
-  pedidoProductos?: DetalleComputable[];
-  monto_total?: string | number | null;
-  [key: string]: unknown;
-};
-
-export type PaqueteComputable = {
-  pedidos?: PedidoComputable[];
-  cant_usuarios_registrados?: number;
-  cant_productos_reservados?: number;
-  monto_total?: number | string | null;
-  [key: string]: unknown;
-};
+import { 
+  DetalleComputable, 
+  PedidoComputable, 
+  PaqueteComputable 
+} from '../types/computable.types.js';
 
 export type PedidoConPaquete = {
   paquetePublicado?: PaqueteComputable;
   [key: string]: unknown;
 };
+
 
 export class PedidoService {
   private prisma = prisma;
