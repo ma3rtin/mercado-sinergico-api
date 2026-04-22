@@ -3,23 +3,8 @@ import { CustomError } from '../errors/custom.error.js';
 import { MercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
 import { despachadorEventosApp, DespachadorEventos } from '../events/despachadorEventos.js';
 
-// ─── IDs de estado (sincronizados con script.sql) ───────────────────────────
-const ESTADO_PEDIDO = {
-  PENDIENTE: 1,
-  PAGADO: 2,
-  REEMBOLSADO: 3,
-  EN_PREPARACION: 4,
-  EN_CAMINO: 5,
-  RECIBIDO: 6,
-} as const;
-
-const ESTADO_PAQUETE = {
-  ACTIVO: 1,
-  COMPLETO: 2,
-  CONFIRMADO: 3,
-  ENTREGADO: 4,
-  CANCELADO: 5,
-} as const;
+import { ESTADO_PEDIDO } from '../constants/estado-pedido.js';
+import { ESTADO_PAQUETE } from '../constants/estado-paquete.js';
 
 export class PedidoPagoService {
   private prisma = prisma;
@@ -164,10 +149,23 @@ export class PedidoPagoService {
     }
 
     if (pago.status === 'approved') {
+      // Guard de idempotencia: MP puede enviar el mismo webhook más de una vez.
+      // Si el pedido ya fue procesado (no está Pendiente), ignorar silenciosamente.
+      if (pedido.estadoId !== ESTADO_PEDIDO.PENDIENTE) {
+        return { pedidoId, status: pago.status };
+      }
+
       const totalProductos = pedido.detalles.reduce(
         (sum: number, d: { cantidad: number }) => sum + d.cantidad,
         0
       );
+
+      const estadosActivos = [
+        ESTADO_PEDIDO.PAGADO,
+        ESTADO_PEDIDO.EN_PREPARACION,
+        ESTADO_PEDIDO.EN_CAMINO,
+        ESTADO_PEDIDO.RECIBIDO,
+      ];
 
       let emitirEvento = false;
 
@@ -200,17 +198,32 @@ export class PedidoPagoService {
           }
         }
 
-        // Pedido pasa a Pagado (2)
+        // Pedido pasa a Pagado
         await tx.pedido.update({
           where: { id_pedido: pedidoId },
           data: {
             estadoId: ESTADO_PEDIDO.PAGADO,
-            paymentId: pago.id?.toString()
+            paymentId: pago.id?.toString(),
           },
         });
 
+        // Recalcular cant_usuarios_registrados con el conteo real post-pago.
+        // Se usa SET (no increment) para que sea siempre consistente.
+        const usuariosActivos = await tx.pedido.findMany({
+          where: {
+            paquetePublicadoId: pedido.paquetePublicadoId,
+            estadoId: { in: estadosActivos },
+          },
+          select: { usuarioId: true },
+          distinct: ['usuarioId'],
+        });
+        await tx.paquetePublicado.update({
+          where: { id_paquete_publicado: pedido.paquetePublicadoId },
+          data: { cant_usuarios_registrados: usuariosActivos.length },
+        });
+
         const paqueteActualizado = await tx.paquetePublicado.findUnique({
-          where: { id_paquete_publicado: pedido.paquetePublicadoId }
+          where: { id_paquete_publicado: pedido.paquetePublicadoId },
         });
 
         // Verificar si el paquete alcanzó su capacidad → transición automática a Completo
@@ -296,23 +309,29 @@ export class PedidoPagoService {
       for (const pedido of paquete.pedidos) {
         let totalProductosPedido = 0;
 
-        // Si el paquete es ENERGICO y el pedido fue pagado, devolver stock
-        if (paquete.tipo === 'ENERGICO' && pedido.estadoId === ESTADO_PEDIDO.PAGADO) {
-          for (const detalle of pedido.detalles) {
-            totalProductosPedido += detalle.cantidad;
-            if (detalle.varianteId) {
-              await tx.productoVariante.update({
-                where: { id: detalle.varianteId },
-                data: { stockFisico: { increment: detalle.cantidad } }
-              });
-            } else {
-              await tx.producto.update({
-                where: { id_producto: detalle.productoId },
-                data: { stock: { increment: detalle.cantidad } }
-              });
+        if (pedido.estadoId === ESTADO_PEDIDO.PAGADO) {
+          totalProductosPedido = pedido.detalles.reduce(
+            (sum: number, d: { cantidad: number }) => sum + d.cantidad, 0
+          );
+
+          if (paquete.tipo === 'ENERGICO') {
+            // Devolver stock físico para paquetes ENÉRGICO
+            for (const detalle of pedido.detalles) {
+              if (detalle.varianteId) {
+                await tx.productoVariante.update({
+                  where: { id: detalle.varianteId },
+                  data: { stockFisico: { increment: detalle.cantidad } }
+                });
+              } else {
+                await tx.producto.update({
+                  where: { id_producto: detalle.productoId },
+                  data: { stock: { increment: detalle.cantidad } }
+                });
+              }
             }
           }
-          // Descontar del contador reservado
+
+          // Descontar del contador reservado (tanto ENÉRGICO como SINÉRGICO)
           await tx.paquetePublicado.update({
             where: { id_paquete_publicado: paqueteId },
             data: { cant_productos_reservados: { decrement: totalProductosPedido } }
