@@ -3,23 +3,8 @@ import { CustomError } from '../errors/custom.error.js';
 import { MercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
 import { despachadorEventosApp, DespachadorEventos } from '../events/despachadorEventos.js';
 
-// ─── IDs de estado (sincronizados con script.sql) ───────────────────────────
-const ESTADO_PEDIDO = {
-  PENDIENTE: 1,
-  PAGADO: 2,
-  REEMBOLSADO: 3,
-  EN_PREPARACION: 4,
-  EN_CAMINO: 5,
-  RECIBIDO: 6,
-} as const;
-
-const ESTADO_PAQUETE = {
-  ACTIVO: 1,
-  COMPLETO: 2,
-  CONFIRMADO: 3,
-  ENTREGADO: 4,
-  CANCELADO: 5,
-} as const;
+import { ESTADO_PEDIDO } from '../constants/estado-pedido.js';
+import { ESTADO_PAQUETE } from '../constants/estado-paquete.js';
 
 export class PedidoPagoService {
   private prisma = prisma;
