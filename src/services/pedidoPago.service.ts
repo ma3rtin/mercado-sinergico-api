@@ -164,10 +164,23 @@ export class PedidoPagoService {
     }
 
     if (pago.status === 'approved') {
+      // Guard de idempotencia: MP puede enviar el mismo webhook más de una vez.
+      // Si el pedido ya fue procesado (no está Pendiente), ignorar silenciosamente.
+      if (pedido.estadoId !== ESTADO_PEDIDO.PENDIENTE) {
+        return { pedidoId, status: pago.status };
+      }
+
       const totalProductos = pedido.detalles.reduce(
         (sum: number, d: { cantidad: number }) => sum + d.cantidad,
         0
       );
+
+      const estadosActivos = [
+        ESTADO_PEDIDO.PAGADO,
+        ESTADO_PEDIDO.EN_PREPARACION,
+        ESTADO_PEDIDO.EN_CAMINO,
+        ESTADO_PEDIDO.RECIBIDO,
+      ];
 
       let emitirEvento = false;
 
@@ -200,17 +213,32 @@ export class PedidoPagoService {
           }
         }
 
-        // Pedido pasa a Pagado (2)
+        // Pedido pasa a Pagado
         await tx.pedido.update({
           where: { id_pedido: pedidoId },
           data: {
             estadoId: ESTADO_PEDIDO.PAGADO,
-            paymentId: pago.id?.toString()
+            paymentId: pago.id?.toString(),
           },
         });
 
+        // Recalcular cant_usuarios_registrados con el conteo real post-pago.
+        // Se usa SET (no increment) para que sea siempre consistente.
+        const usuariosActivos = await tx.pedido.findMany({
+          where: {
+            paquetePublicadoId: pedido.paquetePublicadoId,
+            estadoId: { in: estadosActivos },
+          },
+          select: { usuarioId: true },
+          distinct: ['usuarioId'],
+        });
+        await tx.paquetePublicado.update({
+          where: { id_paquete_publicado: pedido.paquetePublicadoId },
+          data: { cant_usuarios_registrados: usuariosActivos.length },
+        });
+
         const paqueteActualizado = await tx.paquetePublicado.findUnique({
-          where: { id_paquete_publicado: pedido.paquetePublicadoId }
+          where: { id_paquete_publicado: pedido.paquetePublicadoId },
         });
 
         // Verificar si el paquete alcanzó su capacidad → transición automática a Completo
