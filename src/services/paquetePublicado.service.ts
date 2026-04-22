@@ -8,44 +8,13 @@ import { mercadoPagoService } from '../payments/mercadopago/mercadopago.service.
 import { ImagenService } from './imagen.service.js';
 import { despachadorEventosApp, DespachadorEventos } from '../events/despachadorEventos.js';
 
-// ─── IDs de estado (sincronizados con script.sql) ───────────────────────────
-const ESTADO_PAQUETE = {
-  ACTIVO: 1,
-  COMPLETO: 2,
-  CONFIRMADO: 3,
-  ENTREGADO: 4,
-  CANCELADO: 5,
-} as const;
+import { ESTADO_PEDIDO } from '../constants/estado-pedido.js';
+import { ESTADO_PAQUETE } from '../constants/estado-paquete.js';
 
-const ESTADO_PEDIDO = {
-  PENDIENTE: 1,
-  PAGADO: 2,
-  REEMBOLSADO: 3,
-  EN_PREPARACION: 4,
-  EN_CAMINO: 5,
-  RECIBIDO: 6,
-} as const;
-
-// ─── Tipos utilitarios ────────────────────────────────────────────────────────
-export type DetalleComputable = { cantidad?: number; [key: string]: unknown };
-
-export type PedidoComputable = {
-  estadoId?: number;
-  usuario?: { id?: number };
-  usuarioId?: number;
-  detalles?: DetalleComputable[];
-  pedidoProductos?: DetalleComputable[];
-  monto_total?: string | number | null;
-  [key: string]: unknown;
-};
-
-export type PaqueteComputable = {
-  pedidos?: PedidoComputable[];
-  cant_usuarios_registrados?: number;
-  cant_productos_reservados?: number;
-  monto_total?: number | string | null;
-  [key: string]: unknown;
-};
+import { 
+  PedidoComputable, 
+  PaqueteComputable 
+} from '../types/computable.types.js';
 
 export class PaquetePublicadoService {
   private prisma = prisma;
