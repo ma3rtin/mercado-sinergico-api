@@ -314,23 +314,29 @@ export class PedidoPagoService {
       for (const pedido of paquete.pedidos) {
         let totalProductosPedido = 0;
 
-        // Si el paquete es ENERGICO y el pedido fue pagado, devolver stock
-        if (paquete.tipo === 'ENERGICO' && pedido.estadoId === ESTADO_PEDIDO.PAGADO) {
-          for (const detalle of pedido.detalles) {
-            totalProductosPedido += detalle.cantidad;
-            if (detalle.varianteId) {
-              await tx.productoVariante.update({
-                where: { id: detalle.varianteId },
-                data: { stockFisico: { increment: detalle.cantidad } }
-              });
-            } else {
-              await tx.producto.update({
-                where: { id_producto: detalle.productoId },
-                data: { stock: { increment: detalle.cantidad } }
-              });
+        if (pedido.estadoId === ESTADO_PEDIDO.PAGADO) {
+          totalProductosPedido = pedido.detalles.reduce(
+            (sum: number, d: { cantidad: number }) => sum + d.cantidad, 0
+          );
+
+          if (paquete.tipo === 'ENERGICO') {
+            // Devolver stock físico para paquetes ENÉRGICO
+            for (const detalle of pedido.detalles) {
+              if (detalle.varianteId) {
+                await tx.productoVariante.update({
+                  where: { id: detalle.varianteId },
+                  data: { stockFisico: { increment: detalle.cantidad } }
+                });
+              } else {
+                await tx.producto.update({
+                  where: { id_producto: detalle.productoId },
+                  data: { stock: { increment: detalle.cantidad } }
+                });
+              }
             }
           }
-          // Descontar del contador reservado
+
+          // Descontar del contador reservado (tanto ENÉRGICO como SINÉRGICO)
           await tx.paquetePublicado.update({
             where: { id_paquete_publicado: paqueteId },
             data: { cant_productos_reservados: { decrement: totalProductosPedido } }
