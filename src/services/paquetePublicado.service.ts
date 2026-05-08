@@ -270,7 +270,6 @@ export class PaquetePublicadoService {
 
     return this.prisma.paquetePublicado.create({
       data: {
-        nombre: dto.nombre,
         cant_productos: dto.cant_productos,
         fecha_inicio,
         fecha_fin,
@@ -292,6 +291,7 @@ export class PaquetePublicadoService {
       // Actualizar paqueteBase: descripcion y/o imagen
       const baseUpdate: Record<string, unknown> = {};
       if (dto.descripcion) baseUpdate.descripcion = dto.descripcion;
+      if (dto.nombre) baseUpdate.nombre = dto.nombre;
 
       if (dto.imagen_base64) {
         try {
@@ -315,11 +315,10 @@ export class PaquetePublicadoService {
         });
       }
 
-      // nombre va a la publicación (es el título de esta publicación específica)
+      // actualizar datos de la publicación específica
       return await tx.paquetePublicado.update({
         where: { id_paquete_publicado: id },
         data: {
-          ...(dto.nombre && { nombre: dto.nombre }),
           ...(dto.fecha_inicio && { fecha_inicio: new Date(dto.fecha_inicio) }),
           ...(dto.fecha_fin && { fecha_fin: new Date(dto.fecha_fin) }),
           ...(dto.cant_productos && { cant_productos: Number(dto.cant_productos) }),
@@ -413,7 +412,7 @@ export class PaquetePublicadoService {
           return nombreOriginal.replace(/ \(Copia \d+\)$/, ` (Copia ${numero})`);
         }
         if (nombreOriginal.endsWith(' (Copia)')) {
-          return nombreOriginal.replace(/ \(Copia\)$/, ` (Copia 2)`);
+          return nombreOriginal.replace(/ \(Copia\)$/, ' (Copia 2)');
         }
         return `${nombreOriginal} (Copia 1)`;
       };
@@ -475,7 +474,6 @@ export class PaquetePublicadoService {
 
       return await tx.paquetePublicado.create({
         data: {
-          nombre: generarNombreCopia(paqueteOriginal.nombre),
           paqueteBaseId: baseDuplicado.id_paquete_base,
           zonaId: paqueteOriginal.zonaId,
           cant_productos: paqueteOriginal.cant_productos,
