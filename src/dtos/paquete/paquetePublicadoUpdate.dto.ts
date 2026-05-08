@@ -36,4 +36,8 @@ export class PaquetePublicadoUpdateDTO {
   @IsOptional()
   @IsNumber({}, { message: 'La cantidad de productos debe ser un numero' })
   cant_productos?: number;
+
+  @IsOptional()
+  @IsString({ message: 'La imagen debe ser un string base64 o URL' })
+  imagen_base64?: string;
 }

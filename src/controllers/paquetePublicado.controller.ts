@@ -109,6 +109,14 @@ export class PaquetePublicadoController {
     res.status(201).json(paquete);
   });
 
+  descartar = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) throw new CustomError('Id de publicación no proporcionado', 400);
+
+    const result = await this.service.descartar(Number(id));
+    res.status(200).json(result);
+  });
+
   completar = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     if (!id) throw new CustomError('Id de publicación no proporcionado', 400);

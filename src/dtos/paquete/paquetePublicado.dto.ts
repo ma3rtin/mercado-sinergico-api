@@ -1,16 +1,19 @@
 import { IsNumber, IsPositive, IsNotEmpty, IsDateString } from 'class-validator';
 
-export class PaquetePublicadoDTO{
+export class PaquetePublicadoDTO {
+  @IsNotEmpty({ message: 'El nombre es obligatorio' })
+  nombre!: string;
+
   @IsNumber({}, { message: 'El id del paquete base debe ser un número' })
-  @IsPositive({ message: 'El id del paquete base debe ser un número positivo' })  
+  @IsPositive({ message: 'El id del paquete base debe ser un número positivo' })
   paqueteBaseId!: number;
 
   @IsNumber({}, { message: 'El id de la zona debe ser un número' })
-  @IsPositive({ message: 'El id de la zona debe ser un número positivo' })  
+  @IsPositive({ message: 'El id de la zona debe ser un número positivo' })
   zonaId!: number;
 
   @IsNumber({}, { message: 'La cantidad de productos debe ser un número' })
-  @IsPositive({ message: 'La cantidad de productos debe ser un número positivo' })  
+  @IsPositive({ message: 'La cantidad de productos debe ser un número positivo' })
   cant_productos!: number;
 
   @IsNotEmpty({ message: 'La fecha de inicio es obligatoria' })

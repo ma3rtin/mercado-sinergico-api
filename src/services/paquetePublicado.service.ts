@@ -4,7 +4,7 @@ import { CustomError } from '../errors/custom.error.js';
 import { prisma } from '../prisma/client.js';
 import { EmailService } from './email.service.js';
 
-export type DetalleComputable = { cantidad?: number; [key: string]: unknown };
+export type DetalleComputable = { cantidad?: number;[key: string]: unknown };
 
 export type PedidoComputable = {
   estadoId?: number;
@@ -31,9 +31,9 @@ export class PaquetePublicadoService {
   private _mapComputedFields<T extends PaqueteComputable>(paquete: T) {
     if (!paquete) return paquete;
     const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && [1, 2, 3].includes(p.estadoId));
-    
+
     const usuariosIds = new Set(pedidosActivos.map((p) => p.usuario?.id || p.usuarioId));
-    
+
     let reservados = 0;
     pedidosActivos.forEach((ped) => {
       const arr = ped.detalles || ped.pedidoProductos || [];
@@ -55,6 +55,7 @@ export class PaquetePublicadoService {
 
   async getAll() {
     const paquetes = await this.prisma.paquetePublicado.findMany({
+      orderBy: { id_paquete_publicado: 'desc' },
       include: {
         paqueteBase: {
           include: {
@@ -130,7 +131,7 @@ export class PaquetePublicadoService {
         pedidos: mappedPedidos,
         descuento: 10, // Descuento fijo del 10%
       };
-      
+
       return this._mapComputedFields(paqueteMapeado as PaqueteComputable);
     }
     return null;
@@ -194,10 +195,13 @@ export class PaquetePublicadoService {
       return [];
     }
 
+    const ahora = new Date();
+
     return await this.prisma.paquetePublicado.findMany({
       where: {
         zonaId: { in: zonaIds },
         estado: { nombre: 'Activo' },
+        fecha_fin: { gte: ahora },
       },
       include: {
         paqueteBase: {
@@ -266,6 +270,7 @@ export class PaquetePublicadoService {
 
     return this.prisma.paquetePublicado.create({
       data: {
+        nombre: dto.nombre,
         cant_productos: dto.cant_productos,
         fecha_inicio,
         fecha_fin,
@@ -284,19 +289,37 @@ export class PaquetePublicadoService {
 
       if (!paqueteExistente) throw new CustomError('No encontrado', 404);
 
-      if (dto.nombre || dto.descripcion) {
+      // Actualizar paqueteBase: descripcion y/o imagen
+      const baseUpdate: Record<string, unknown> = {};
+      if (dto.descripcion) baseUpdate.descripcion = dto.descripcion;
+
+      if (dto.imagen_base64) {
+        try {
+          const { ImagenService } = await import('./imagen.service.js');
+          const imagenService = new ImagenService();
+          // Convertir base64 data URL a buffer
+          const base64Data = dto.imagen_base64.replace(/^data:image\/\w+;base64,/, '');
+          const buffer = Buffer.from(base64Data, 'base64');
+          const url = await imagenService.uploadToCloudinary(buffer, 'paquetes_publicados');
+          baseUpdate.imagen_url = url;
+        } catch (e) {
+          console.error('Error subiendo imagen a Cloudinary:', e);
+          // No falla la operación completa si la imagen falla
+        }
+      }
+
+      if (Object.keys(baseUpdate).length > 0) {
         await tx.paqueteBase.update({
           where: { id_paquete_base: paqueteExistente.paqueteBaseId },
-          data: {
-            ...(dto.nombre && { nombre: dto.nombre }),
-            ...(dto.descripcion && { descripcion: dto.descripcion }),
-          },
+          data: baseUpdate,
         });
       }
 
+      // nombre va a la publicación (es el título de esta publicación específica)
       return await tx.paquetePublicado.update({
         where: { id_paquete_publicado: id },
         data: {
+          ...(dto.nombre && { nombre: dto.nombre }),
           ...(dto.fecha_inicio && { fecha_inicio: new Date(dto.fecha_inicio) }),
           ...(dto.fecha_fin && { fecha_fin: new Date(dto.fecha_fin) }),
           ...(dto.cant_productos && { cant_productos: Number(dto.cant_productos) }),
@@ -326,20 +349,93 @@ export class PaquetePublicadoService {
       throw new CustomError('No se puede borrar: tiene pedidos asociados.', 400);
     }
 
-    return this.prisma.paquetePublicado.update({
-      where: { id_paquete_publicado: id },
-      data: { estado: { connect: { nombre: 'Eliminado' } } },
+    // Intentar soft-delete con estado Cerrado (más seguro que Eliminado que puede no existir)
+    const estadoCerrado = await this.prisma.estadoPaquetePublicado.findFirst({
+      where: { nombre: { in: ['Cerrado', 'Cancelado', 'Eliminado'] } },
+      orderBy: { id_estado: 'asc' },
     });
+
+    if (estadoCerrado) {
+      return this.prisma.paquetePublicado.update({
+        where: { id_paquete_publicado: id },
+        data: { estadoId: estadoCerrado.id_estado },
+      });
+    }
+
+    // Si no existe ningún estado terminal, hacer hard delete
+    return this.prisma.paquetePublicado.delete({
+      where: { id_paquete_publicado: id },
+    });
+  }
+
+  /** Descarta un duplicado: hard delete de la publicación y su paqueteBase asociado */
+  async descartar(id: number) {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: { pedidos: true },
+    });
+
+    if (!paquete) throw new CustomError('Publicación no encontrada', 404);
+    if (paquete.pedidos.length > 0) {
+      throw new CustomError('No se puede descartar: tiene pedidos asociados.', 400);
+    }
+
+    const paqueteBaseId = paquete.paqueteBaseId;
+
+    // 1. Hard delete de la publicación
+    await this.prisma.paquetePublicado.delete({
+      where: { id_paquete_publicado: id },
+    });
+
+    // 2. Si el paqueteBase no tiene otras publicaciones, eliminarlo también
+    const otrasPublicaciones = await this.prisma.paquetePublicado.count({
+      where: { paqueteBaseId },
+    });
+
+    if (otrasPublicaciones === 0) {
+      await this.prisma.paqueteBaseProducto.deleteMany({
+        where: { paqueteBaseId },
+      });
+      await this.prisma.paqueteBase.delete({
+        where: { id_paquete_base: paqueteBaseId },
+      });
+    }
+
+    return { message: 'Duplicación descartada correctamente.' };
   }
 
   async duplicar(id: number) {
     return this.prisma.$transaction(async (tx) => {
+      const generarNombreCopia = (nombreOriginal: string) => {
+        const matchNumero = nombreOriginal.match(/ \(Copia (\d+)\)$/);
+        if (matchNumero) {
+          const numero = parseInt(matchNumero[1], 10) + 1;
+          return nombreOriginal.replace(/ \(Copia \d+\)$/, ` (Copia ${numero})`);
+        }
+        if (nombreOriginal.endsWith(' (Copia)')) {
+          return nombreOriginal.replace(/ \(Copia\)$/, ` (Copia 2)`);
+        }
+        return `${nombreOriginal} (Copia 1)`;
+      };
+
+      // 1. Obtener la publicación original con su paquete base y productos
       const paqueteOriginal = await tx.paquetePublicado.findUnique({
         where: { id_paquete_publicado: id },
+        include: {
+          paqueteBase: {
+            include: {
+              productos: true,
+            },
+          },
+        },
       });
 
       if (!paqueteOriginal) {
         throw new CustomError(`Publicación con id=${id} no encontrada`, 404);
+      }
+
+      if (!paqueteOriginal.paqueteBase) {
+        throw new CustomError(`La publicación id=${id} no tiene paquete base asociado`, 500);
       }
 
       const estadoActivo = await tx.estadoPaquetePublicado.findUnique({
@@ -350,18 +446,43 @@ export class PaquetePublicadoService {
         throw new CustomError('Estado "Activo" no encontrado en la BD', 500);
       }
 
+      // 2. Duplicar el paqueteBase con " (Copia X)" para que sea independiente
+      const baseOriginal = paqueteOriginal.paqueteBase;
+      const baseDuplicado = await tx.paqueteBase.create({
+        data: {
+          nombre: generarNombreCopia(baseOriginal.nombre),
+          descripcion: baseOriginal.descripcion,
+          imagen_url: baseOriginal.imagen_url,
+          categoria_id: baseOriginal.categoria_id,
+          marcaId: baseOriginal.marcaId,
+        },
+      });
+
+      // 3. Duplicar las relaciones de productos del paquete base
+      if (baseOriginal.productos.length > 0) {
+        await tx.paqueteBaseProducto.createMany({
+          data: baseOriginal.productos.map((p) => ({
+            productoId: p.productoId,
+            paqueteBaseId: baseDuplicado.id_paquete_base,
+          })),
+        });
+      }
+
+      // 4. Crear la nueva publicación apuntando al paqueteBase duplicado
+      // fecha_fin: 30 días desde hoy por defecto (el admin la ajustará al editar)
+      const fechaFinDefault = new Date();
+      fechaFinDefault.setDate(fechaFinDefault.getDate() + 30);
+
       return await tx.paquetePublicado.create({
         data: {
-          paqueteBaseId: paqueteOriginal.paqueteBaseId,
+          nombre: generarNombreCopia(paqueteOriginal.nombre),
+          paqueteBaseId: baseDuplicado.id_paquete_base,
           zonaId: paqueteOriginal.zonaId,
-          fecha_inicio: new Date(),
-          fecha_fin: paqueteOriginal.fecha_fin,
           cant_productos: paqueteOriginal.cant_productos,
-          monto_total: paqueteOriginal.monto_total,
-          imagen_url: paqueteOriginal.imagen_url,
-          tipo: paqueteOriginal.tipo,
-          descuento: paqueteOriginal.descuento,
           estadoId: estadoActivo.id_estado,
+          fecha_inicio: new Date(),
+          fecha_fin: fechaFinDefault,
+          // Contadores en 0: publicación nueva limpia
           cant_productos_reservados: 0,
           cant_usuarios_registrados: 0,
         },
