@@ -16,25 +16,6 @@ import {
   PaqueteComputable
 } from '../types/computable.types.js';
 
-export type DetalleComputable = { cantidad?: number;[key: string]: unknown };
-
-export type PedidoComputable = {
-  estadoId?: number;
-  usuario?: { id?: number };
-  usuarioId?: number;
-  detalles?: DetalleComputable[];
-  pedidoProductos?: DetalleComputable[];
-  monto_total?: string | number | null;
-  [key: string]: unknown;
-};
-
-export type PaqueteComputable = {
-  pedidos?: PedidoComputable[];
-  cant_usuarios_registrados?: number;
-  cant_productos_reservados?: number;
-  monto_total?: number | string | null;
-  [key: string]: unknown;
-};
 
 export class PaquetePublicadoService {
   private prisma = prisma;
@@ -319,7 +300,7 @@ export class PaquetePublicadoService {
 
     return this.prisma.paquetePublicado.create({
       data: {
-        nombre: dto.nombre,
+        nombre: paqueteBase.nombre,
         cant_productos: dto.cant_productos,
         fecha_inicio: new Date(dto.fecha_inicio),
         fecha_fin: new Date(dto.fecha_fin),
@@ -530,6 +511,7 @@ export class PaquetePublicadoService {
 
       return await tx.paquetePublicado.create({
         data: {
+          nombre: paqueteOriginal.paqueteBase.nombre,
           paqueteBaseId: baseDuplicado.id_paquete_base,
           zonaId: paqueteOriginal.zonaId,
           cant_productos: paqueteOriginal.cant_productos,
@@ -544,14 +526,9 @@ export class PaquetePublicadoService {
     });
   }
 
-  async completar(id: number) {
-    const estadoFinalizado = await this.prisma.estadoPaquetePublicado.findUnique({
-      where: { nombre: 'Finalizado' },
-    });
-
-    if (!estadoFinalizado) throw new CustomError('Estado "Finalizado" no encontrado', 500);
-
-    const result = await this.prisma.paquetePublicado.update({
+  async marcarCompleto(id: number) {
+    // Primero buscar, después actualizar
+    const paquete = await this.prisma.paquetePublicado.findUnique({
       where: { id_paquete_publicado: id },
       include: { paqueteBase: true },
     });
@@ -572,25 +549,26 @@ export class PaquetePublicadoService {
     if (correosCompradores.length > 0) {
       this.emailService.enviarEmail({
         para: correosCompradores,
-        asunto: `¡Grupo completo! - ${paquete.paqueteBase.nombre}`,
+        asunto: `¡Grupo completo! - ${paquete.paqueteBase?.nombre}`,
         template: 'comprador-paquete-completo',
         context: {
-          nombrePaquete: paquete.paqueteBase.nombre,
+          nombrePaquete: paquete.paqueteBase?.nombre,
           nombreUsuario: 'Comprador',
         },
       });
     }
 
-    // Notificar admins
-    const admins = await this.prisma.usuario.findMany({ where: { rol: { nombre: 'Administrador' } } });
+    const admins = await this.prisma.usuario.findMany({
+      where: { rol: { nombre: 'Administrador' } },
+    });
     const correosAdmins = admins.map((a: { email: string }) => a.email);
     if (correosAdmins.length > 0) {
       this.emailService.enviarEmail({
         para: correosAdmins,
-        asunto: `Acción requerida: Paquete completo - ${paquete.paqueteBase.nombre}`,
+        asunto: `Acción requerida: Paquete completo - ${paquete.paqueteBase?.nombre}`,
         template: 'admin-paquete-completo',
         context: {
-          nombrePaquete: paquete.paqueteBase.nombre,
+          nombrePaquete: paquete.paqueteBase?.nombre,
           paqueteId: id,
         },
       });
