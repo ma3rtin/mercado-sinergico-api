@@ -2,30 +2,18 @@ import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { CrearPedidoDTO } from '../dtos/pedido/crearPedido.dto.js';
 
-export type DetalleComputable = { cantidad?: number;[key: string]: unknown };
+import { ESTADO_PEDIDO } from '../constants/estado-pedido.js';
+import { ESTADO_PAQUETE } from '../constants/estado-paquete.js';
 
-export type PedidoComputable = {
-  estadoId?: number;
-  usuario?: { id?: number };
-  usuarioId?: number;
-  detalles?: DetalleComputable[];
-  pedidoProductos?: DetalleComputable[];
-  monto_total?: string | number | null;
-  [key: string]: unknown;
-};
-
-export type PaqueteComputable = {
-  pedidos?: PedidoComputable[];
-  cant_usuarios_registrados?: number;
-  cant_productos_reservados?: number;
-  monto_total?: number | string | null;
-  [key: string]: unknown;
-};
+import { 
+  PaqueteComputable 
+} from '../types/computable.types.js';
 
 export type PedidoConPaquete = {
   paquetePublicado?: PaqueteComputable;
   [key: string]: unknown;
 };
+
 
 export class PedidoService {
   private prisma = prisma;
@@ -34,7 +22,9 @@ export class PedidoService {
     if (!pedido || !pedido.paquetePublicado) return pedido;
 
     const paquete = pedido.paquetePublicado;
-    const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && [1, 2, 3].includes(p.estadoId));
+    // "Involucrados": Pagado (2), En preparación (4), En camino (5), Recibido (6)
+    const estadosActivos: number[] = [ESTADO_PEDIDO.PAGADO, ESTADO_PEDIDO.EN_PREPARACION, ESTADO_PEDIDO.EN_CAMINO, ESTADO_PEDIDO.RECIBIDO];
+    const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && estadosActivos.includes(p.estadoId as number));
 
     const usuariosIds = new Set(pedidosActivos.map((p) => p.usuario?.id || p.usuarioId));
 
@@ -93,7 +83,7 @@ export class PedidoService {
       where: {
         usuarioId,
         paquetePublicadoId: paqueteId,
-        estadoId: 1,
+        estadoId: ESTADO_PEDIDO.PENDIENTE,
       },
       select: { id_pedido: true },
     });
@@ -104,30 +94,34 @@ export class PedidoService {
     paqueteId: number,
     dto: CrearPedidoDTO
   ): Promise<number> {
-    const paquete = await this.prisma.paquetePublicado.findUnique({
-      where: { id_paquete_publicado: paqueteId },
-      select: {
-        descuento: true,
-        tipo: true,
-        estado: { select: { nombre: true } },
-        paqueteBase: {
-          select: {
-            productos: {
-              select: {
-                productoId: true,
-                producto: {
-                  select: {
-                    id_producto: true,
-                    precio: true,
-                    stock: true,
-                    tipo: true,
-                    plantillaId: true,
-                    variantes: {
-                      where: { activo: true },
-                      select: {
-                        id: true,
-                        stockFisico: true,
-                        precioExtra: true,
+    try {
+      console.log(`[crearPedido] Iniciando con usuarioId=${usuarioId}, paqueteId=${paqueteId}, dto=`, dto);
+
+      const paquete = await this.prisma.paquetePublicado.findUnique({
+        where: { id_paquete_publicado: paqueteId },
+        select: {
+          descuento: true,
+          tipo: true,
+          estado: { select: { nombre: true, id_estado: true } },
+          paqueteBase: {
+            select: {
+              productos: {
+                select: {
+                  productoId: true,
+                  producto: {
+                    select: {
+                      id_producto: true,
+                      precio: true,
+                      stock: true,
+                      tipo: true,
+                      plantillaId: true,
+                      variantes: {
+                        where: { activo: true },
+                        select: {
+                          id: true,
+                          stockFisico: true,
+                          precioExtra: true,
+                        },
                       },
                     },
                   },
@@ -136,130 +130,135 @@ export class PedidoService {
             },
           },
         },
-      },
-    });
+      });
 
-    if (!paquete) {
-      throw new CustomError('Paquete no encontrado', 404);
-    }
+      console.log('[crearPedido] paquete obtenido:', paquete ? 'SI' : 'NO');
 
-    if (paquete.estado.nombre !== 'Activo') {
-      throw new CustomError('El paquete no está activo', 400);
-    }
+      if (!paquete) {
+        throw new CustomError('Paquete no encontrado', 404);
+      }
 
-    const productoEnPaquete = paquete.paqueteBase.productos.find(
-      (p) => p.productoId === dto.productoId
-    );
+      if (paquete.estado.id_estado !== ESTADO_PAQUETE.ACTIVO) {
+        throw new CustomError('El paquete no está activo para nuevos pedidos', 400);
+      }
 
-    if (!productoEnPaquete) {
-      throw new CustomError('El producto no pertenece al paquete', 400);
-    }
-
-    const producto = productoEnPaquete.producto;
-
-    let varianteId = dto.varianteId || null;
-    let stockAValidar = producto.stock;
-    let precioExtra = 0;
-
-    if (dto.varianteId) {
-      const variante = producto.variantes.find(
-        (v) => v.id === dto.varianteId
+      const productoEnPaquete = paquete.paqueteBase.productos.find(
+        (p) => p.productoId === dto.productoId
       );
 
-      if (!variante) {
-        throw new CustomError('La variante no existe para este producto', 400);
+      console.log('[crearPedido] productoEnPaquete:', productoEnPaquete ? 'SI' : 'NO');
+
+      if (!productoEnPaquete) {
+        throw new CustomError('El producto no pertenece al paquete', 400);
+      }
+
+      const producto = productoEnPaquete.producto;
+      let varianteId = dto.varianteId || null;
+      let stockAValidar = producto.stock;
+      let precioExtra = 0;
+
+      if (dto.varianteId) {
+        const variante = producto.variantes.find(
+          (v) => v.id === dto.varianteId
+        );
+        if (!variante) {
+          throw new CustomError('La variante no existe para este producto', 400);
+        }
+        varianteId = variante.id;
+        stockAValidar = variante.stockFisico;
+        precioExtra = variante.precioExtra || 0;
+      } else {
+        if (producto.plantillaId !== null && producto.variantes.length > 0) {
+          throw new CustomError(
+            'Debe seleccionar una variante para este producto',
+            400
+          );
+        }
       }
 
       if (paquete.tipo === 'ENERGICO') {
-        stockAValidar = variante.stockFisico;
+        this.validarStockInformativo(stockAValidar, dto.cantidad);
       }
 
-      precioExtra = variante.precioExtra || 0;
-    } else {
-      if (producto.plantillaId !== null && producto.variantes.length > 0) {
-        throw new CustomError(
-          'Debe seleccionar una variante para este producto',
-          400
-        );
-      }
-    }
+      const precioBase = producto.precio + precioExtra;
+      const precioUnitario = this.calcularPrecioConDescuento(
+        precioBase,
+        paquete.descuento || 0
+      );
 
-    if (paquete.tipo === 'ENERGICO') {
-      this.validarStockInformativo(stockAValidar, dto.cantidad);
-    }
+      const subtotal = precioUnitario * dto.cantidad;
+      console.log(`[crearPedido] precioUnitario=${precioUnitario}, subtotal=${subtotal}`);
 
-    const precioBase = producto.precio + precioExtra;
-    const precioUnitario = this.calcularPrecioConDescuento(
-      precioBase,
-      paquete.descuento || 0
-    );
+      let pedido = await this.getPedidoCarrito(usuarioId, paqueteId);
+      console.log('[crearPedido] pedidoCarrito existente:', pedido ? 'SI' : 'NO');
 
-    const subtotal = precioUnitario * dto.cantidad;
-
-    let pedido = await this.getPedidoCarrito(usuarioId, paqueteId);
-
-    if (!pedido) {
-      const nuevo = await this.prisma.pedido.create({
-        data: {
-          usuarioId,
-          paquetePublicadoId: paqueteId,
-          estadoId: 1,
-          monto_total: subtotal,
-          descuento_aplicado: paquete.descuento || 0,
-          detalles: {
-            create: {
-              productoId: producto.id_producto,
-              varianteId: varianteId,
-              cantidad: dto.cantidad,
-              precio_unitario: precioUnitario,
-              subtotal,
+      if (!pedido) {
+        const nuevo = await this.prisma.pedido.create({
+          data: {
+            usuarioId,
+            paquetePublicadoId: paqueteId,
+            estadoId: ESTADO_PEDIDO.PENDIENTE,
+            monto_total: subtotal,
+            descuento_aplicado: paquete.descuento || 0,
+            detalles: {
+              create: {
+                productoId: producto.id_producto,
+                varianteId: varianteId,
+                cantidad: dto.cantidad,
+                precio_unitario: precioUnitario,
+                subtotal,
+              },
             },
           },
-        },
-        select: { id_pedido: true },
-      });
-
-      return nuevo.id_pedido;
-    }
-
-    const detalleExistente = await this.prisma.pedidoDetalle.findFirst({
-      where: {
-        pedidoId: pedido.id_pedido,
-        productoId: producto.id_producto,
-        varianteId: varianteId ?? null,
-      },
-    });
-
-    if (detalleExistente) {
-      const nuevaCantidad = detalleExistente.cantidad + dto.cantidad;
-
-      if (paquete.tipo === 'ENERGICO') {
-        this.validarStockInformativo(stockAValidar, nuevaCantidad);
+          select: { id_pedido: true },
+        });
+        console.log(`[crearPedido] nuevo pedido creado: ${nuevo.id_pedido}`);
+        return nuevo.id_pedido;
       }
 
-      await this.prisma.pedidoDetalle.update({
-        where: { id: detalleExistente.id },
-        data: {
-          cantidad: nuevaCantidad,
-          subtotal: precioUnitario * nuevaCantidad,
-        },
-      });
-    } else {
-      await this.prisma.pedidoDetalle.create({
-        data: {
+      const detalleExistente = await this.prisma.pedidoDetalle.findFirst({
+        where: {
           pedidoId: pedido.id_pedido,
           productoId: producto.id_producto,
-          varianteId: varianteId,
-          cantidad: dto.cantidad,
-          precio_unitario: precioUnitario,
-          subtotal,
+          varianteId: varianteId ?? null,
         },
       });
+
+      console.log('[crearPedido] detalleExistente:', detalleExistente ? 'SI' : 'NO');
+
+      if (detalleExistente) {
+        const nuevaCantidad = detalleExistente.cantidad + dto.cantidad;
+        if (paquete.tipo === 'ENERGICO') {
+          this.validarStockInformativo(stockAValidar, nuevaCantidad);
+        }
+        await this.prisma.pedidoDetalle.update({
+          where: { id: detalleExistente.id },
+          data: {
+            cantidad: nuevaCantidad,
+            subtotal: precioUnitario * nuevaCantidad,
+          },
+        });
+      } else {
+        await this.prisma.pedidoDetalle.create({
+          data: {
+            pedidoId: pedido.id_pedido,
+            productoId: producto.id_producto,
+            varianteId: varianteId,
+            cantidad: dto.cantidad,
+            precio_unitario: precioUnitario,
+            subtotal,
+          },
+        });
+      }
+
+      await this.recalcularMontoTotal(pedido.id_pedido);
+      console.log('[crearPedido] recalcularMontoTotal finalizado exitosamente.');
+      return pedido.id_pedido;
+
+    } catch (error) {
+      console.error('[crearPedido ERROR] Fallo inesperado:', error);
+      throw error;
     }
-
-    await this.recalcularMontoTotal(pedido.id_pedido);
-
-    return pedido.id_pedido;
   }
 
   public async eliminarProducto(
@@ -271,7 +270,7 @@ export class PedidoService {
       where: {
         id_pedido: pedidoId,
         usuarioId,
-        estadoId: 1,
+        estadoId: ESTADO_PEDIDO.PENDIENTE,
       },
       include: { detalles: true },
     });
@@ -315,7 +314,7 @@ export class PedidoService {
       where: {
         id_pedido: pedidoId,
         usuarioId,
-        estadoId: 1,
+        estadoId: ESTADO_PEDIDO.PENDIENTE,
       },
       include: {
         paquetePublicado: {
@@ -490,8 +489,8 @@ export class PedidoService {
       throw new CustomError('No hay un pedido activo en este paquete', 404);
     }
 
-    if (pedido.estadoId != 1) {
-      throw new CustomError('El pedido tiene que estar pendiente para poder bajarse');
+    if (pedido.estadoId !== ESTADO_PEDIDO.PENDIENTE) {
+      throw new CustomError('Solo se puede cancelar un pedido pendiente de pago. Para reembolsar un pedido ya pagado, usá la opción de reembolso.', 400);
     }
 
     await this.prisma.pedido.delete({

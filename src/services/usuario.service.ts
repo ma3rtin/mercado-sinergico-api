@@ -124,14 +124,19 @@ export class UsuarioService {
     userId: number,
     datos: Partial<UsuarioDTO>
   ): Promise<Usuario> {
-    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url, localidad_id } = datos as UsuarioUpdateDTO;
+    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url, localidad_id, calle, numero, piso, dpto, cp } = datos as UsuarioUpdateDTO;
 
     let contraseñaHash: string | undefined = undefined;
     if (contraseña) {
       contraseñaHash = await cifrarContraseña(contraseña);
     }
 
-    return await this.prismaClient.usuario.update({
+    const localidadIdNum = localidad_id ? Number(localidad_id) : undefined;
+    const numeroNum = numero ? Number(numero) : undefined;
+    const pisoNum = piso ? Number(piso) : undefined;
+    const cpNum = cp ? Number(cp) : undefined;
+
+    const usuario = await this.prismaClient.usuario.update({
       where: { id: userId },
       data: {
         email: email ?? undefined,
@@ -140,9 +145,35 @@ export class UsuarioService {
         fecha_nac: fecha_nac ? new Date(fecha_nac) : undefined,
         contraseña: contraseñaHash ?? undefined,
         imagen_url: imagen_url ?? undefined,
-        localidadId: localidad_id ?? undefined,
+        localidadId: localidadIdNum ?? undefined,
       },
     });
+
+    const hayDatosDeDireccion  = localidadIdNum || calle || numeroNum || pisoNum || dpto || cpNum;
+    if (hayDatosDeDireccion  && localidadIdNum) {
+      await this.prismaClient.direccion.upsert({
+        where: { usuarioId: userId },
+        update: {
+          localidadId: localidadIdNum,
+          calle: calle ?? undefined,
+          numero: numeroNum ?? undefined,
+          piso: pisoNum ?? undefined,
+          departamento: dpto ?? undefined,
+          codigo_postal: cpNum ?? undefined,
+        },
+        create: {
+          usuarioId: userId,
+          localidadId: localidadIdNum,
+          calle: calle ?? '',
+          numero: numeroNum ?? 0,
+          piso: pisoNum ?? undefined,
+          departamento: dpto ?? undefined,
+          codigo_postal: cpNum ?? 0,
+        },
+      });
+    }
+
+    return usuario;
   }
 
   public async loginConFirebase(
