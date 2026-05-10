@@ -38,6 +38,10 @@ export class PaquetePublicadoUpdateDTO {
   cant_productos?: number;
 
   @IsOptional()
+  @IsString({ message: 'La imagen debe ser un string base64 o URL' })
+  imagen_base64?: string;
+
+  @IsOptional()
   @IsNumber()
   descuento?: number;
 }
