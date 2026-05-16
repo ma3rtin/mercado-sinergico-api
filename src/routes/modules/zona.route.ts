@@ -13,8 +13,8 @@ const controller = new ZonaController(service);
 
 zonaRouter.get('/', controller.getAll.bind(controller));
 zonaRouter.get('/:id', controller.getById.bind(controller));
-zonaRouter.post('/', rolMiddleware(['admin']), validarDto(ZonaDTO), controller.create.bind(controller));
-zonaRouter.put('/:id', rolMiddleware(['admin']), controller.update.bind(controller));
-zonaRouter.delete('/:id', rolMiddleware(['admin']), controller.delete.bind(controller));
+zonaRouter.post('/', rolMiddleware(['Administrador']), validarDto(ZonaDTO), controller.create.bind(controller));
+zonaRouter.put('/:id', rolMiddleware(['Administrador']), controller.update.bind(controller));
+zonaRouter.delete('/:id', rolMiddleware(['Administrador']), controller.delete.bind(controller));
 
 zonaRouter.use('/:id/localidades', localidadRouter);

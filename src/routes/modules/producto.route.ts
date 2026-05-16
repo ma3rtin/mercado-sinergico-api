@@ -25,7 +25,7 @@ const varianteController = new VarianteController(varianteService);
 
 const router = Router();
 
-const soloAdmin = [authMiddleware, rolMiddleware(['Admin'])];
+const soloAdmin = [authMiddleware, rolMiddleware(['Administrador'])];
 
 // ─── Consultas (públicas) ──────────────────────────────────────────────────────
 router.get('/filtrados', productoController.getProductosFiltrados.bind(productoController));

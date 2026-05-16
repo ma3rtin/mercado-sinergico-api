@@ -13,7 +13,7 @@ const paqueteService = new PaqueteBaseService();
 const imagenService = new ImagenService();
 const controller = new PaqueteController(paqueteService, imagenService);
 
-const soloAdmin = [authMiddleware, rolMiddleware(['Admin'])];
+const soloAdmin = [authMiddleware, rolMiddleware(['Administrador'])];
 
 // ─── Consultas (públicas) ──────────────────────────────────────────────────────
 paqueteBaseRouter.get('/', controller.getAll.bind(controller));

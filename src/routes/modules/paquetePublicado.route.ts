@@ -12,7 +12,7 @@ export const paquetePublicadoRouter = Router();
 const service = new PaquetePublicadoService();
 const controller = new PaquetePublicadoController(service);
 
-const soloAdmin = [authMiddleware, rolMiddleware(['Admin'])];
+const soloAdmin = [authMiddleware, rolMiddleware(['Administrador'])];
 
 // ─── Rutas de consulta (públicas) ─────────────────────────────────────────────
 paquetePublicadoRouter.get('/por-cerrarse', controller.getPorCerrarse.bind(controller));
