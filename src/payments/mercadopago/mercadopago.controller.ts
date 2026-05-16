@@ -3,6 +3,15 @@ import { Request, Response } from 'express';
 import { PedidoPagoService } from '../../services/pedidoPago.service.js';
 import { envs } from '../../config/envs.js';
 
+interface MercadoPagoWebhook {
+  type?: string;
+  data?: {
+    id?: number | string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 export class MercadoPagoController {
   constructor(private pedidoPagoService: PedidoPagoService) {}
 
@@ -10,9 +19,9 @@ export class MercadoPagoController {
     try {
       // El body llega como Buffer (express.raw) — lo parseamos a objeto
       const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf-8') : JSON.stringify(req.body);
-      let body: Record<string, any>;
+      let body: MercadoPagoWebhook;
       try {
-        body = JSON.parse(rawBody);
+        body = JSON.parse(rawBody) as MercadoPagoWebhook;
       } catch {
         return res.status(400).json({ error: 'Payload inválido' });
       }
