@@ -47,6 +47,10 @@ export class Server {
       })
     );
 
+    this.app.use('/api/payments/webhook', express.raw({ type: '*/*' }));
+    this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
     this.app.use(this.routes);
     this.app.use(errorHandler);
 

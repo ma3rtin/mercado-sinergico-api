@@ -26,6 +26,7 @@ paquetePublicadoRouter.get('/zona', (req, res, next) => {
     }
 }, controller.getByLocation.bind(controller));
 paquetePublicadoRouter.get('/producto/:id', controller.getByProductId.bind(controller));
+paquetePublicadoRouter.post('/', controller.create.bind(controller));
 paquetePublicadoRouter.get('/', controller.getAll.bind(controller));
 paquetePublicadoRouter.get('/:id', controller.getById.bind(controller));
 
@@ -34,9 +35,10 @@ paquetePublicadoRouter.post('/', ...soloAdmin, procesarSubidaImagen('imagen'), c
 paquetePublicadoRouter.put('/:id', ...soloAdmin, procesarSubidaImagen('imagen'), validarDto(PaquetePublicadoUpdateDTO), controller.update.bind(controller));
 paquetePublicadoRouter.delete('/:id', ...soloAdmin, controller.delete.bind(controller));
 
-// ─── Rutas de gestión (solo Admin) ────────────────────────────────────────────
+// ─── Rutas de gestión (admin) ─────────────────────────────────────────────────
 paquetePublicadoRouter.post('/:id/duplicar',         ...soloAdmin, controller.duplicar.bind(controller));
-paquetePublicadoRouter.post('/:id/completar',        ...soloAdmin, controller.completar.bind(controller));
+paquetePublicadoRouter.post('/:id/descartar',        ...soloAdmin,  controller.descartar.bind(controller));
+paquetePublicadoRouter.post('/:id/completar',        ...soloAdmin,  controller.completar.bind(controller));
 paquetePublicadoRouter.post('/:id/confirmar',        ...soloAdmin, controller.confirmarCompraFabricante.bind(controller));
 paquetePublicadoRouter.post('/:id/entregar',         ...soloAdmin, controller.marcarEntregado.bind(controller));
 paquetePublicadoRouter.post('/:id/marcar-en-camino', ...soloAdmin, controller.marcarPedidosEnCamino.bind(controller));

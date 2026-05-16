@@ -4,9 +4,8 @@ import { EmailService } from '../../services/email.service.js';
 
 const emailService = new EmailService();
 
-// ─── IDs de estado ────────────────────────────────────────────────────────────
-const ESTADO_PAQUETE = { COMPLETO: 2 } as const;
-const ESTADO_PEDIDO  = { PAGADO: 2, EN_PREPARACION: 4, EN_CAMINO: 5, RECIBIDO: 6 } as const;
+import { ESTADO_PEDIDO } from '../../constants/estado-pedido.js';
+import { ESTADO_PAQUETE } from '../../constants/estado-paquete.js';
 
 // ─── PAQUETE_COMPLETO ─────────────────────────────────────────────────────────
 // Triggered by: pago aprobado que llena la capacidad del paquete.
