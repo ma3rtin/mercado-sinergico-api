@@ -14,7 +14,7 @@ export const envs = {
   MP_FAILURE_URL: env.get('MP_FAILURE_URL').required().asString(),
   MP_PENDING_URL: env.get('MP_PENDING_URL').required().asString(),
   MP_WEBHOOK_URL: env.get('MP_WEBHOOK_URL').required().asString(),
-  MP_WEBHOOK_SECRET: env.get('MP_WEBHOOK_SECRET').asString(),
+  MP_WEBHOOK_SECRET: env.get('MP_WEBHOOK_SECRET').asString() ?? undefined,
   MERCADOPAGO_ACCESS_TOKEN: env
     .get('MERCADOPAGO_ACCESS_TOKEN')
     .required()
@@ -23,6 +23,10 @@ export const envs = {
   MAILER_EMAIL: env.get('MAILER_EMAIL').required().asString(),
   MAILER_SECRET_KEY: env.get('MAILER_SECRET_KEY').required().asString(),
 };
+
+if (process.env['NODE_ENV'] === 'production' && !envs.MP_WEBHOOK_SECRET) {
+  throw new Error('MP_WEBHOOK_SECRET es obligatorio en producción');
+}
 
 cloudinary.config({
   cloud_name: env.get('CLOUDINARY_CLOUD_NAME').required().asString(),
