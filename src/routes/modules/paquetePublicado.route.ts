@@ -15,6 +15,7 @@ const controller = new PaquetePublicadoController(service);
 const soloAdmin = [authMiddleware, rolMiddleware(['Administrador'])];
 
 // ─── Rutas de consulta (públicas) ─────────────────────────────────────────────
+paquetePublicadoRouter.get('/', controller.getAll.bind(controller));
 paquetePublicadoRouter.get('/por-cerrarse', controller.getPorCerrarse.bind(controller));
 paquetePublicadoRouter.get('/relacionados/:id', controller.getRelacionados.bind(controller));
 paquetePublicadoRouter.get('/zona', (req, res, next) => {
@@ -26,8 +27,6 @@ paquetePublicadoRouter.get('/zona', (req, res, next) => {
     }
 }, controller.getByLocation.bind(controller));
 paquetePublicadoRouter.get('/producto/:id', controller.getByProductId.bind(controller));
-paquetePublicadoRouter.post('/', controller.create.bind(controller));
-paquetePublicadoRouter.get('/', controller.getAll.bind(controller));
 paquetePublicadoRouter.get('/:id', controller.getById.bind(controller));
 
 // ─── Rutas de mutación (solo Admin) ───────────────────────────────────────────

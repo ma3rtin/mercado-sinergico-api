@@ -29,7 +29,7 @@ export class Server {
       crossOriginResourcePolicy: { policy: 'cross-origin' },
     }));
 
-    this.app.use('/api/payments/webhook', express.raw({ type: '*/*' }));
+    this.app.use('/api/pagos/webhook', express.raw({ type: '*/*' }));
     this.app.use(express.json({ limit: '5mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
@@ -46,10 +46,6 @@ export class Server {
         credentials: true
       })
     );
-
-    this.app.use('/api/payments/webhook', express.raw({ type: '*/*' }));
-    this.app.use(express.json({ limit: '10mb' }));
-    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     this.app.use(this.routes);
     this.app.use(errorHandler);

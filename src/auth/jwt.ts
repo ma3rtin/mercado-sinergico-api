@@ -16,6 +16,5 @@ export async function crearToken(user: DatosEncriptados): Promise<string> {
 export async function decodificarToken(token: string): Promise<DatosEncriptados> {
   const secretKey = envs.JWT_SECRET_KEY;
   const decodedToken = jwt.verify(token, secretKey) as DatosEncriptados;
-  //console.log('🔐 DECODIFICAR JWT_SECRET_KEY:', envs.JWT_SECRET_KEY);
   return decodedToken;
 }
