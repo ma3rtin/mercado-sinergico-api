@@ -25,13 +25,15 @@ export class Server {
   }
 
   public start(): void {
-    this.app.use(helmet({
-      crossOriginResourcePolicy: { policy: 'cross-origin' },
-    }));
+    this.app.use(
+      helmet({
+        crossOriginResourcePolicy: { policy: 'cross-origin' },
+      }),
+    );
 
-    this.app.use('/api/payments/webhook', express.raw({ type: '*/*' }));
-    this.app.use(express.json({ limit: '5mb' }));
-    this.app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+    this.app.use('/api/pagos/webhook', express.raw({ type: '*/*' }));
+    this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     this.app.use(
       cors({
@@ -43,13 +45,9 @@ export class Server {
         ],
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
         allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
-        credentials: true
-      })
+        credentials: true,
+      }),
     );
-
-    this.app.use('/api/payments/webhook', express.raw({ type: '*/*' }));
-    this.app.use(express.json({ limit: '10mb' }));
-    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     this.app.use(this.routes);
     this.app.use(errorHandler);
