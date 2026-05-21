@@ -11,10 +11,11 @@ import { despachadorEventosApp, DespachadorEventos } from '../events/despachador
 import { ESTADO_PEDIDO } from '../constants/estado-pedido.js';
 import { ESTADO_PAQUETE } from '../constants/estado-paquete.js';
 
-import { 
-  PedidoComputable, 
-  PaqueteComputable 
+import {
+  PedidoComputable,
+  PaqueteComputable
 } from '../types/computable.types.js';
+
 
 export class PaquetePublicadoService {
   private prisma = prisma;
@@ -78,6 +79,7 @@ export class PaquetePublicadoService {
 
   async getAll(skip?: number, take?: number) {
     const paquetes = await this.prisma.paquetePublicado.findMany({
+      orderBy: { id_paquete_publicado: 'desc' },
       ...(skip !== undefined && { skip }),
       ...(take !== undefined && { take }),
       include: {
@@ -172,12 +174,18 @@ export class PaquetePublicadoService {
       }
     }
 
-    if (zonaIds.length === 0) return [];
+    if (zonaIds.length === 0) {
+      console.warn('⚠️ No se encontraron zonas para la ubicación dada.');
+      return [];
+    }
+
+    const ahora = new Date();
 
     return this.prisma.paquetePublicado.findMany({
       where: {
         zonaId: { in: zonaIds },
         estadoId: ESTADO_PAQUETE.ACTIVO,
+        fecha_fin: { gte: ahora },
       },
       include: {
         paqueteBase: {
@@ -292,7 +300,7 @@ export class PaquetePublicadoService {
 
     return this.prisma.paquetePublicado.create({
       data: {
-        nombre: dto.nombre,
+        nombre: paqueteBase.nombre,
         cant_productos: dto.cant_productos,
         fecha_inicio: new Date(dto.fecha_inicio),
         fecha_fin: new Date(dto.fecha_fin),
@@ -310,7 +318,27 @@ export class PaquetePublicadoService {
       const existente = await tx.paquetePublicado.findUnique({ where: { id_paquete_publicado: id } });
       if (!existente) throw new CustomError('No encontrado', 404);
 
-      if (dto.nombre || dto.descripcion) {
+      // Actualizar paqueteBase: descripcion y/o imagen
+      const baseUpdate: Record<string, unknown> = {};
+      if (dto.descripcion) baseUpdate.descripcion = dto.descripcion;
+      if (dto.nombre) baseUpdate.nombre = dto.nombre;
+
+      if (dto.imagen_base64) {
+        try {
+          const { ImagenService } = await import('./imagen.service.js');
+          const imagenService = new ImagenService();
+          // Convertir base64 data URL a buffer
+          const base64Data = dto.imagen_base64.replace(/^data:image\/\w+;base64,/, '');
+          const buffer = Buffer.from(base64Data, 'base64');
+          const url = await imagenService.uploadToCloudinary(buffer, 'paquetes_publicados');
+          baseUpdate.imagen_url = url;
+        } catch (e) {
+          console.error('Error subiendo imagen a Cloudinary:', e);
+          // No falla la operación completa si la imagen falla
+        }
+      }
+
+      if (Object.keys(baseUpdate).length > 0) {
         await tx.paqueteBase.update({
           where: { id_paquete_base: existente.paqueteBaseId },
           data: {
@@ -356,37 +384,150 @@ export class PaquetePublicadoService {
     if (paquete.pedidos.length > 0) {
       throw new CustomError('No se puede borrar: tiene pedidos asociados.', 400);
     }
-    // Borrado físico cuando no tiene pedidos
-    return this.prisma.paquetePublicado.delete({ where: { id_paquete_publicado: id } });
-  }
 
-  async duplicar(id: number) {
-    const original = await this.prisma.paquetePublicado.findUnique({ where: { id_paquete_publicado: id } });
-    if (!original) throw new CustomError(`Publicación con id=${id} no encontrada`, 404);
+    // Intentar soft-delete con estado Cerrado (más seguro que Eliminado que puede no existir)
+    const estadoCerrado = await this.prisma.estadoPaquetePublicado.findFirst({
+      where: { nombre: { in: ['Cerrado', 'Cancelado', 'Eliminado'] } },
+      orderBy: { id_estado: 'asc' },
+    });
 
-    return this.prisma.paquetePublicado.create({
-      data: {
-        nombre: original.nombre,
-        paqueteBaseId: original.paqueteBaseId,
-        zonaId: original.zonaId,
-        fecha_inicio: new Date(),
-        fecha_fin: original.fecha_fin,
-        cant_productos: original.cant_productos,
-        imagen_url: original.imagen_url,
-        tipo: original.tipo,
-        descuento: original.descuento,
-        estadoId: ESTADO_PAQUETE.ACTIVO,
-      },
+    if (estadoCerrado) {
+      return this.prisma.paquetePublicado.update({
+        where: { id_paquete_publicado: id },
+        data: { estadoId: estadoCerrado.id_estado },
+      });
+    }
+
+    // Si no existe ningún estado terminal, hacer hard delete
+    return this.prisma.paquetePublicado.delete({
+      where: { id_paquete_publicado: id },
     });
   }
 
-  // ─── Transiciones de estado ───────────────────────────────────────────────────
+  /** Descarta un duplicado: hard delete de la publicación y su paqueteBase asociado */
+  async descartar(id: number) {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: { pedidos: true },
+    });
 
-  /**
-   * Activo → Completo (llamado por el evento PAQUETE_COMPLETO o manualmente).
-   * Notifica a compradores y admin.
-   */
+    if (!paquete) throw new CustomError('Publicación no encontrada', 404);
+    if (paquete.pedidos.length > 0) {
+      throw new CustomError('No se puede descartar: tiene pedidos asociados.', 400);
+    }
+
+    const paqueteBaseId = paquete.paqueteBaseId;
+
+    // 1. Hard delete de la publicación
+    await this.prisma.paquetePublicado.delete({
+      where: { id_paquete_publicado: id },
+    });
+
+    // 2. Si el paqueteBase no tiene otras publicaciones, eliminarlo también
+    const otrasPublicaciones = await this.prisma.paquetePublicado.count({
+      where: { paqueteBaseId },
+    });
+
+    if (otrasPublicaciones === 0) {
+      await this.prisma.paqueteBaseProducto.deleteMany({
+        where: { paqueteBaseId },
+      });
+      await this.prisma.paqueteBase.delete({
+        where: { id_paquete_base: paqueteBaseId },
+      });
+    }
+
+    return { message: 'Duplicación descartada correctamente.' };
+  }
+
+  async duplicar(id: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const generarNombreCopia = (nombreOriginal: string) => {
+        const matchNumero = nombreOriginal.match(/ \(Copia (\d+)\)$/);
+        if (matchNumero) {
+          const numero = parseInt(matchNumero[1], 10) + 1;
+          return nombreOriginal.replace(/ \(Copia \d+\)$/, ` (Copia ${numero})`);
+        }
+        if (nombreOriginal.endsWith(' (Copia)')) {
+          return nombreOriginal.replace(/ \(Copia\)$/, ' (Copia 2)');
+        }
+        return `${nombreOriginal} (Copia 1)`;
+      };
+
+      // 1. Obtener la publicación original con su paquete base y productos
+      const paqueteOriginal = await tx.paquetePublicado.findUnique({
+        where: { id_paquete_publicado: id },
+        include: {
+          paqueteBase: {
+            include: {
+              productos: true,
+            },
+          },
+        },
+      });
+
+      if (!paqueteOriginal) {
+        throw new CustomError(`Publicación con id=${id} no encontrada`, 404);
+      }
+
+      if (!paqueteOriginal.paqueteBase) {
+        throw new CustomError(`La publicación id=${id} no tiene paquete base asociado`, 500);
+      }
+
+      const estadoActivo = await tx.estadoPaquetePublicado.findUnique({
+        where: { nombre: 'Activo' },
+      });
+
+      if (!estadoActivo) {
+        throw new CustomError('Estado "Activo" no encontrado en la BD', 500);
+      }
+
+      // 2. Duplicar el paqueteBase con " (Copia X)" para que sea independiente
+      const baseOriginal = paqueteOriginal.paqueteBase;
+      const baseDuplicado = await tx.paqueteBase.create({
+        data: {
+          nombre: generarNombreCopia(baseOriginal.nombre),
+          descripcion: baseOriginal.descripcion,
+          imagen_url: baseOriginal.imagen_url,
+          categoria_id: baseOriginal.categoria_id,
+          marcaId: baseOriginal.marcaId,
+        },
+      });
+
+      // 3. Duplicar las relaciones de productos del paquete base
+      if (baseOriginal.productos.length > 0) {
+        await tx.paqueteBaseProducto.createMany({
+          data: baseOriginal.productos.map((p) => ({
+            productoId: p.productoId,
+            paqueteBaseId: baseDuplicado.id_paquete_base,
+          })),
+        });
+      }
+
+      // 4. Crear la nueva publicación apuntando al paqueteBase duplicado
+      // fecha_fin: 30 días desde hoy por defecto (el admin la ajustará al editar)
+      const fechaFinDefault = new Date();
+      fechaFinDefault.setDate(fechaFinDefault.getDate() + 30);
+
+      return await tx.paquetePublicado.create({
+        data: {
+          nombre: paqueteOriginal.paqueteBase.nombre,
+          paqueteBaseId: baseDuplicado.id_paquete_base,
+          zonaId: paqueteOriginal.zonaId,
+          cant_productos: paqueteOriginal.cant_productos,
+          estadoId: estadoActivo.id_estado,
+          fecha_inicio: new Date(),
+          fecha_fin: fechaFinDefault,
+          // Contadores en 0: publicación nueva limpia
+          cant_productos_reservados: 0,
+          cant_usuarios_registrados: 0,
+        },
+      });
+    });
+  }
+
   async marcarCompleto(id: number) {
+    // Primero buscar, después actualizar
     const paquete = await this.prisma.paquetePublicado.findUnique({
       where: { id_paquete_publicado: id },
       include: { paqueteBase: true },
@@ -408,25 +549,26 @@ export class PaquetePublicadoService {
     if (correosCompradores.length > 0) {
       this.emailService.enviarEmail({
         para: correosCompradores,
-        asunto: `¡Grupo completo! - ${paquete.paqueteBase.nombre}`,
+        asunto: `¡Grupo completo! - ${paquete.paqueteBase?.nombre}`,
         template: 'comprador-paquete-completo',
         context: {
-          nombrePaquete: paquete.paqueteBase.nombre,
+          nombrePaquete: paquete.paqueteBase?.nombre,
           nombreUsuario: 'Comprador',
         },
       });
     }
 
-    // Notificar admins
-    const admins = await this.prisma.usuario.findMany({ where: { rol: { nombre: 'Administrador' } } });
+    const admins = await this.prisma.usuario.findMany({
+      where: { rol: { nombre: 'Administrador' } },
+    });
     const correosAdmins = admins.map((a: { email: string }) => a.email);
     if (correosAdmins.length > 0) {
       this.emailService.enviarEmail({
         para: correosAdmins,
-        asunto: `Acción requerida: Paquete completo - ${paquete.paqueteBase.nombre}`,
+        asunto: `Acción requerida: Paquete completo - ${paquete.paqueteBase?.nombre}`,
         template: 'admin-paquete-completo',
         context: {
-          nombrePaquete: paquete.paqueteBase.nombre,
+          nombrePaquete: paquete.paqueteBase?.nombre,
           paqueteId: id,
         },
       });

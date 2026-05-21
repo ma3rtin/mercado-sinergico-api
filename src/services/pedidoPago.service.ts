@@ -283,7 +283,7 @@ export class PedidoPagoService {
 
     // Reembolsar vía MP solo los pedidos Pagados con paymentId
     const pedidosPagados = paquete.pedidos.filter(
-      (p: { estadoId: number; paymentId: string | null }) => p.estadoId === ESTADO_PEDIDO.PAGADO && p.paymentId
+      (p) => p.estadoId === ESTADO_PEDIDO.PAGADO && p.paymentId
     );
 
     for (const pedido of pedidosPagados) {
