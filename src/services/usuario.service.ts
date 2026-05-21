@@ -107,17 +107,50 @@ export class UsuarioService {
     });
   }
 
-  public async obtenerUsuario(userId: number): Promise<Usuario | null> {
-    return await this.prismaClient.usuario.findUnique({
+  public async obtenerUsuario(userId: number): Promise<any | null> {
+    const user = await this.prismaClient.usuario.findUnique({
       where: { id: userId },
       include: {
         rol: { select: { nombre: true } },
-        localidad: true,
+        localidad: {
+          include: {
+            zonas: {
+              include: { zona: true }
+            }
+          }
+        },
         direccion: {
-          include: { localidad: true },
+          include: {
+            localidad: {
+              include: {
+                zonas: {
+                  include: { zona: true }
+                }
+              }
+            }
+          },
         },
       },
     });
+
+    if (!user) return null;
+
+    const mapLocalidad = (loc: any) => {
+      if (!loc) return null;
+      return {
+        ...loc,
+        zonas: loc.zonas ? loc.zonas.map((lz: any) => lz.zona) : [],
+      };
+    };
+
+    return {
+      ...user,
+      localidad: mapLocalidad(user.localidad),
+      direccion: user.direccion ? {
+        ...user.direccion,
+        localidad: mapLocalidad(user.direccion.localidad),
+      } : null,
+    };
   }
 
   public async actualizarUsuario(
@@ -173,7 +206,7 @@ export class UsuarioService {
       });
     }
 
-    return usuario;
+    return (await this.obtenerUsuario(userId)) ?? usuario;
   }
 
   public async loginConFirebase(
