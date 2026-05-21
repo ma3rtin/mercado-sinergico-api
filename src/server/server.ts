@@ -1,5 +1,6 @@
 import express, { Router } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { errorHandler } from '../middlewares/errorHandler.middleware.js';
 
 interface Options {
@@ -25,24 +26,28 @@ export class Server {
 
   public start(): void {
     this.app.use(
+      helmet({
+        crossOriginResourcePolicy: { policy: 'cross-origin' },
+      }),
+    );
+
+    this.app.use('/api/pagos/webhook', express.raw({ type: '*/*' }));
+    this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+    this.app.use(
       cors({
         origin: [
           'http://localhost:4200',
           'http://127.0.0.1:4200',
           'https://www.mercadosinergico.com.ar',
           'https://mercadosinergico.com.ar',
-          'http://www.mercadosinergico.com.ar',
-          'http://mercadosinergico.com.ar'
         ],
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
         allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
-        credentials: true
-      })
+        credentials: true,
+      }),
     );
-
-    this.app.use('/api/payments/webhook', express.raw({ type: '*/*' }));
-    this.app.use(express.json({ limit: '10mb' }));
-    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
     this.app.use(this.routes);
     this.app.use(errorHandler);
