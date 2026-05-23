@@ -53,6 +53,9 @@ export class PaquetePublicadoService {
 
     return {
       ...paquete,
+      tipo: paquete.tipo === 'POR_DEFINIR' && paquete.paqueteBase?.tipo 
+        ? paquete.paqueteBase.tipo 
+        : paquete.tipo,
       cant_usuarios_registrados: usuariosIds.size > 0 ? usuariosIds.size : paquete.cant_usuarios_registrados,
       cant_productos_reservados: reservados > 0 ? reservados : paquete.cant_productos_reservados,
       monto_total: recaudacion > 0 ? recaudacion : paquete.monto_total
@@ -286,8 +289,33 @@ export class PaquetePublicadoService {
     const zona = await this.prisma.zona.findUnique({ where: { id_zona: Number(dto.zonaId) } });
     if (!zona) throw new CustomError('La zona no existe', 404);
 
-    const paqueteBase = await this.prisma.paqueteBase.findUnique({ where: { id_paquete_base: dto.paqueteBaseId } });
+    const paqueteBase = await this.prisma.paqueteBase.findUnique({
+      where: { id_paquete_base: dto.paqueteBaseId },
+      include: {
+        productos: {
+          include: {
+            producto: {
+              include: { variantes: true }
+            }
+          }
+        }
+      }
+    });
     if (!paqueteBase) throw new CustomError('El paquete base no existe', 404);
+
+    if (paqueteBase.tipo === 'ENERGICO') {
+      let totalStock = 0;
+      for (const bp of paqueteBase.productos) {
+        if (bp.producto.variantes && bp.producto.variantes.length > 0) {
+          totalStock += bp.producto.variantes.reduce((sum, v) => sum + (v.stockFisico || 0), 0);
+        } else {
+          totalStock += bp.producto.stock || 0;
+        }
+      }
+      if (totalStock <= 0) {
+        throw new CustomError('No se puede publicar un paquete Enérgico si sus productos tienen stock físico 0. Por favor, configurá el stock en Gestión de Variantes antes de publicar.', 400);
+      }
+    }
 
     let imagen_url: string | undefined;
     if (imagenBuffer) {
@@ -305,6 +333,8 @@ export class PaquetePublicadoService {
         fecha_inicio: new Date(dto.fecha_inicio),
         fecha_fin: new Date(dto.fecha_fin),
         descuento: dto.descuento,
+        // Heredar el tipo del paquete base (ENERGICO / SINERGICO)
+        tipo: paqueteBase.tipo,
         ...(imagen_url && { imagen_url }),
         zona: { connect: { id_zona: Number(dto.zonaId) } },
         paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
@@ -460,7 +490,13 @@ export class PaquetePublicadoService {
         include: {
           paqueteBase: {
             include: {
-              productos: true,
+              productos: {
+                include: {
+                  producto: {
+                    include: { variantes: true }
+                  }
+                }
+              }
             },
           },
         },
@@ -472,6 +508,20 @@ export class PaquetePublicadoService {
 
       if (!paqueteOriginal.paqueteBase) {
         throw new CustomError(`La publicación id=${id} no tiene paquete base asociado`, 500);
+      }
+
+      if (paqueteOriginal.paqueteBase.tipo === 'ENERGICO') {
+        let totalStock = 0;
+        for (const bp of paqueteOriginal.paqueteBase.productos) {
+          if (bp.producto.variantes && bp.producto.variantes.length > 0) {
+            totalStock += bp.producto.variantes.reduce((sum, v) => sum + (v.stockFisico || 0), 0);
+          } else {
+            totalStock += bp.producto.stock || 0;
+          }
+        }
+        if (totalStock <= 0) {
+          throw new CustomError('No se puede duplicar un paquete Enérgico si sus productos tienen stock físico 0. Por favor, configurá el stock en Gestión de Variantes antes de duplicar.', 400);
+        }
       }
 
       const estadoActivo = await tx.estadoPaquetePublicado.findUnique({
@@ -491,6 +541,8 @@ export class PaquetePublicadoService {
           imagen_url: baseOriginal.imagen_url,
           categoria_id: baseOriginal.categoria_id,
           marcaId: baseOriginal.marcaId,
+          // Preservar el tipo del paquete base original
+          tipo: baseOriginal.tipo,
         },
       });
 
@@ -518,6 +570,8 @@ export class PaquetePublicadoService {
           estadoId: estadoActivo.id_estado,
           fecha_inicio: new Date(),
           fecha_fin: fechaFinDefault,
+          // Heredar el tipo del paquete original
+          tipo: paqueteOriginal.paqueteBase.tipo,
           // Contadores en 0: publicación nueva limpia
           cant_productos_reservados: 0,
           cant_usuarios_registrados: 0,
