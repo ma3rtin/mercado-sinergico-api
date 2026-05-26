@@ -159,7 +159,7 @@ export class PedidoPagoService {
     }
 
     if (pago.status === 'approved') {
-      // Guard de idempotencia: MP puede enviar el mismo webhook más de una vez.
+      // Guard de idempotencia: MP puede enviar el mismo webhook más de una vezs.
       // Si el pedido ya fue procesado (no está Pendiente), ignorar silenciosamente.
       if (pedido.estadoId !== ESTADO_PEDIDO.PENDIENTE) {
         return { pedidoId, status: pago.status };
