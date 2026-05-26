@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { PaqueteBaseService } from '../services/paqueteBase.service.js';
-import { PaqueteBaseDTO } from '../dtos/paquete/paqueteBase.dto.js';
+import { PaqueteBaseDTO, TipoPaquete } from '../dtos/paquete/paqueteBase.dto.js';
 import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaquete.dto.js';
 import { ImagenService } from '../services/imagen.service.js';
 import { CustomError } from '../errors/custom.error.js';
@@ -76,6 +76,7 @@ export class PaqueteController {
       marcaId: Number(body.marcaId),
       productos: productosArray,
       imagen_url: '',
+      tipo: body.tipo === 'ENERGICO' ? TipoPaquete.ENERGICO : TipoPaquete.SINERGICO,
     };
 
     if (req.file) {

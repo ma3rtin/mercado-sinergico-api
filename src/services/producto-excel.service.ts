@@ -115,7 +115,12 @@ export class ProductoExcelService {
                         ancho: row.ancho ? parseFloat(row.ancho) : null,
                         profundidad: row.profundidad ? parseFloat(row.profundidad) : null,
                         peso: row.peso ? parseFloat(row.peso) : null,
-                        stock: row.stock ? parseInt(row.stock) : null,
+                        stock: (() => {
+                            const parsedStock = row.stock ? parseInt(row.stock) : null;
+                            if (parsedStock !== null && parsedStock < 0) {
+                                throw new Error('El stock no puede ser negativo.');
+                            } return parsedStock;
+                        })(),
                         tipo: tipo,
                     };
 
@@ -177,7 +182,14 @@ export class ProductoExcelService {
                             await prisma.productoVariante.update({
                                 where: { sku: row.sku },
                                 data: {
-                                    stockFisico: row.stock ? parseInt(row.stock) : null,
+                                    // Validar stockFisico no negativo
+                                    stockFisico: (() => {
+                                        const parsedStockFisico = row.stock ? parseInt(row.stock) : null;
+                                        if (parsedStockFisico !== null && parsedStockFisico < 0) {
+                                            throw new Error('El stock físico no puede ser negativo.');
+                                        }
+                                        return parsedStockFisico;
+                                    })(),
                                     activo: true,
                                 },
                             });
@@ -192,9 +204,12 @@ export class ProductoExcelService {
                             // Crear variante
                             await prisma.productoVariante.create({
                                 data: {
-                                    productoId: producto.id_producto,
+                                    productoId: producto.id_producto, // Validar stockFisico no negativo
+                                    stockFisico: (() => {
+                                        const parsedStockFisico = row.stock ? parseInt(row.stock) : null;
+                                        if (parsedStockFisico !== null && parsedStockFisico < 0) { throw new Error('El stock físico no puede ser negativo.'); } return parsedStockFisico;
+                                    })(),
                                     sku: row.sku,
-                                    stockFisico: row.stock ? parseInt(row.stock) : null,
                                     activo: true,
                                 },
                             });

@@ -68,16 +68,6 @@ export class PedidoService {
     });
   }
 
-  private validarStockInformativo(
-    stock: number | null,
-    cantidad: number,
-    mensaje = 'Stock insuficiente'
-  ) {
-    if (stock !== null && stock < cantidad) {
-      throw new CustomError(mensaje, 400);
-    }
-  }
-
   private async getPedidoCarrito(usuarioId: number, paqueteId: number) {
     return this.prisma.pedido.findFirst({
       where: {
@@ -103,6 +93,8 @@ export class PedidoService {
           descuento: true,
           tipo: true,
           estado: { select: { nombre: true, id_estado: true } },
+          cant_productos: true, // Cupos totales del paquete
+          cant_productos_reservados: true, // Cupos ya reservados
           paqueteBase: {
             select: {
               productos: {
@@ -115,12 +107,14 @@ export class PedidoService {
                       stock: true,
                       tipo: true,
                       plantillaId: true,
+                      // Solo incluimos variantes activas para la validación
                       variantes: {
                         where: { activo: true },
                         select: {
                           id: true,
                           stockFisico: true,
                           precioExtra: true,
+                          activo: true,
                         },
                       },
                     },
@@ -138,46 +132,68 @@ export class PedidoService {
         throw new CustomError('Paquete no encontrado', 404);
       }
 
+      // A. El paquete sigue abierto
       if (paquete.estado.id_estado !== ESTADO_PAQUETE.ACTIVO) {
         throw new CustomError('El paquete no está activo para nuevos pedidos', 400);
       }
 
-      const productoEnPaquete = paquete.paqueteBase.productos.find(
-        (p) => p.productoId === dto.productoId
-      );
-
-      console.log('[crearPedido] productoEnPaquete:', productoEnPaquete ? 'SI' : 'NO');
-
+      const productoEnPaquete = paquete.paqueteBase.productos[0]; // Debería haber solo uno por el `where`
       if (!productoEnPaquete) {
         throw new CustomError('El producto no pertenece al paquete', 400);
       }
-
       const producto = productoEnPaquete.producto;
-      let varianteId = dto.varianteId || null;
-      let stockAValidar = producto.stock;
+
+      // D. La cantidad solicitada es válida
+      if (dto.cantidad <= 0) {
+        throw new CustomError('La cantidad solicitada debe ser un número positivo', 400);
+      }
+
+      let varianteSeleccionada = null;
+      let stockFisicoVariante: number | null = null;
       let precioExtra = 0;
 
+      // E. La variante pertenece al producto correcto y está activa
       if (dto.varianteId) {
-        const variante = producto.variantes.find(
-          (v) => v.id === dto.varianteId
-        );
+        const variante = producto.variantes.find(v => v.id === dto.varianteId);
         if (!variante) {
           throw new CustomError('La variante no existe para este producto', 400);
         }
-        varianteId = variante.id;
-        stockAValidar = variante.stockFisico;
+        if (!variante.activo) {
+          throw new CustomError('La variante seleccionada no está activa', 400);
+        }
+        varianteSeleccionada = variante;
+        stockFisicoVariante = variante.stockFisico;
         precioExtra = variante.precioExtra || 0;
       } else {
+        // Si el producto tiene variantes pero no se seleccionó ninguna
         if (producto.plantillaId !== null && producto.variantes.length > 0) {
           throw new CustomError(
             'Debe seleccionar una variante para este producto',
             400
           );
         }
+        // Si el producto no tiene variantes, usamos el stock directo del producto
+        stockFisicoVariante = producto.stock;
       }
 
-      if (paquete.tipo === 'ENERGICO') {
-        this.validarStockInformativo(stockAValidar, dto.cantidad);
+      // F. El producto pertenece al tipo correcto de paquete
+      if (paquete.tipo === 'ENERGICO' && producto.tipo !== 'ENERGICO') {
+        throw new CustomError('Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS.', 400);
+      }
+
+      // Calcular disponibilidadReal = MIN(cuposRestantesPaquete, stockFisicoVariante)
+      const cuposRestantesPaquete = (paquete.cant_productos || 0) - (paquete.cant_productos_reservados || 0);
+      let disponibilidadReal: number;
+      if (paquete.tipo === 'SINERGICO') {
+        disponibilidadReal = cuposRestantesPaquete; // Para SINERGICO, el stock físico es flexible, el límite es el cupo
+      } else { // ENERGICO
+        if (stockFisicoVariante === null) throw new CustomError('Producto ENÉRGICO sin stock físico definido.', 500);
+        disponibilidadReal = Math.min(cuposRestantesPaquete, stockFisicoVariante);
+      }
+
+      // B. El paquete tiene cupos disponibles & C. La variante tiene stock físico suficiente
+      if (disponibilidadReal < dto.cantidad) {
+        throw new CustomError(`No hay suficiente disponibilidad para la cantidad solicitada. Disponibilidad real: ${disponibilidadReal}`, 409);
       }
 
       const precioBase = producto.precio + precioExtra;
@@ -189,6 +205,7 @@ export class PedidoService {
       const subtotal = precioUnitario * dto.cantidad;
       console.log(`[crearPedido] precioUnitario=${precioUnitario}, subtotal=${subtotal}`);
 
+      // Buscar si ya existe un pedido "carrito" para este usuario y paquete
       let pedido = await this.getPedidoCarrito(usuarioId, paqueteId);
       console.log('[crearPedido] pedidoCarrito existente:', pedido ? 'SI' : 'NO');
 
@@ -202,8 +219,8 @@ export class PedidoService {
             descuento_aplicado: paquete.descuento || 0,
             detalles: {
               create: {
-                productoId: producto.id_producto,
-                varianteId: varianteId,
+                productoId: producto.id_producto, // E. La variante pertenece al paquete correcto (producto)
+                varianteId: varianteSeleccionada?.id || null,
                 cantidad: dto.cantidad,
                 precio_unitario: precioUnitario,
                 subtotal,
@@ -220,30 +237,30 @@ export class PedidoService {
         where: {
           pedidoId: pedido.id_pedido,
           productoId: producto.id_producto,
-          varianteId: varianteId ?? null,
+          varianteId: varianteSeleccionada?.id ?? null,
         },
       });
-
+      
       console.log('[crearPedido] detalleExistente:', detalleExistente ? 'SI' : 'NO');
 
       if (detalleExistente) {
-        const nuevaCantidad = detalleExistente.cantidad + dto.cantidad;
-        if (paquete.tipo === 'ENERGICO') {
-          this.validarStockInformativo(stockAValidar, nuevaCantidad);
+        const nuevaCantidadTotal = detalleExistente.cantidad + dto.cantidad;
+        if (disponibilidadReal < nuevaCantidadTotal) {
+          throw new CustomError(`No hay suficiente disponibilidad para la cantidad total solicitada. Disponibilidad real: ${disponibilidadReal}`, 409);
         }
         await this.prisma.pedidoDetalle.update({
           where: { id: detalleExistente.id },
           data: {
-            cantidad: nuevaCantidad,
-            subtotal: precioUnitario * nuevaCantidad,
+            cantidad: nuevaCantidadTotal,
+            subtotal: precioUnitario * nuevaCantidadTotal,
           },
         });
       } else {
         await this.prisma.pedidoDetalle.create({
           data: {
             pedidoId: pedido.id_pedido,
-            productoId: producto.id_producto,
-            varianteId: varianteId,
+            productoId: producto.id_producto, // E. La variante pertenece al paquete correcto (producto)
+            varianteId: varianteSeleccionada?.id || null,
             cantidad: dto.cantidad,
             precio_unitario: precioUnitario,
             subtotal,
@@ -321,6 +338,8 @@ export class PedidoService {
           select: {
             tipo: true,
             descuento: true,
+            cant_productos: true, // Cupos totales del paquete
+            cant_productos_reservados: true, // Cupos ya reservados
           },
         },
         detalles: {
@@ -328,14 +347,17 @@ export class PedidoService {
             producto: {
               select: {
                 precio: true,
-                stock: true,
+                stock: true, // Para productos sin variantes
                 tipo: true,
+                plantillaId: true,
               },
             },
             variante: {
               select: {
+                id: true,
                 stockFisico: true,
                 precioExtra: true,
+                activo: true,
               },
             },
           },
@@ -352,14 +374,48 @@ export class PedidoService {
       throw new CustomError('Producto no encontrado', 404);
     }
 
-    if (pedido.paquetePublicado.tipo === 'ENERGICO') {
-      let stockAValidar = detalle.producto.stock;
+    // D. Cantidad solicitada es válida
+    if (nuevaCantidad <= 0) {
+      throw new CustomError('La cantidad debe ser un número positivo', 400);
+    }
 
-      if (detalle.varianteId && detalle.variante) {
-        stockAValidar = detalle.variante.stockFisico;
+    let stockFisicoVariante: number | null = null;
+
+    // Determinar la fuente del stock
+    if (detalle.varianteId && detalle.variante) {
+      if (!detalle.variante.activo) {
+        throw new CustomError('La variante de este producto no está activa.', 400);
       }
+      stockFisicoVariante = detalle.variante.stockFisico;
+    } else {
+      // Si el producto tiene variantes pero no se seleccionó ninguna (estado inválido)
+      if (detalle.producto.plantillaId !== null) {
+        throw new CustomError('Este producto requiere una variante seleccionada.', 400);
+      }
+      // Si el producto no tiene variantes, usamos el stock directo del producto
+      stockFisicoVariante = detalle.producto.stock;
+    }
 
-      this.validarStockInformativo(stockAValidar, nuevaCantidad);
+    // F. El producto pertenece al tipo correcto de paquete
+    if (pedido.paquetePublicado.tipo === 'ENERGICO' && detalle.producto.tipo !== 'ENERGICO') {
+      throw new CustomError('Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS.', 400);
+    }
+
+    // Calcular disponibilidadReal = MIN(cuposRestantesPaquete, stockFisicoVariante)
+    const cuposRestantesPaquete = (pedido.paquetePublicado.cant_productos || 0) - (pedido.paquetePublicado.cant_productos_reservados || 0);
+    let disponibilidadReal: number;
+    if (pedido.paquetePublicado.tipo === 'SINERGICO') {
+      disponibilidadReal = cuposRestantesPaquete; // Para SINERGICO, el stock físico es flexible, el límite es el cupo
+    } else { // ENERGICO
+      if (stockFisicoVariante === null) {
+        throw new CustomError('Producto ENÉRGICO sin stock físico definido.', 500);
+      }
+      disponibilidadReal = Math.min(cuposRestantesPaquete, stockFisicoVariante);
+    }
+
+    // B. El paquete tiene cupos disponibles & C. La variante tiene stock físico suficiente
+    if (disponibilidadReal < nuevaCantidad) {
+      throw new CustomError(`No hay suficiente disponibilidad para la cantidad solicitada. Disponibilidad real: ${disponibilidadReal}`, 409);
     }
 
     const precioBase =
@@ -367,7 +423,7 @@ export class PedidoService {
     const precioUnitario = this.calcularPrecioConDescuento(
       precioBase,
       pedido.paquetePublicado.descuento || 0
-    );
+    ); // E. La variante pertenece al paquete correcto (producto)
 
     await this.prisma.pedidoDetalle.update({
       where: { id: detalle.id },
