@@ -11,6 +11,40 @@ export class PedidoPagoService {
 
   constructor(private readonly mercadoPagoService: MercadoPagoService) { }
 
+  private calcularCuposRestantes(cantProductos: number | null, cantReservados: number) {
+    return cantProductos === null ? null : cantProductos - cantReservados;
+  }
+
+  private calcularDisponibilidadReal(
+    tipoPaquete: string,
+    cuposRestantes: number | null,
+    stockFisico: number | null,
+    productoNombre: string
+  ) {
+    if (tipoPaquete === 'SINERGICO') {
+      return cuposRestantes;
+    }
+
+    if (stockFisico === null) {
+      throw new CustomError(`Producto ENÉRGICO (${productoNombre}) sin stock físico definido.`, 500);
+    }
+
+    return cuposRestantes === null ? stockFisico : Math.min(cuposRestantes, stockFisico);
+  }
+
+  private validarDisponibilidad(
+    disponibilidadReal: number | null,
+    cantidad: number,
+    productoNombre: string
+  ) {
+    if (disponibilidadReal !== null && disponibilidadReal < cantidad) {
+      throw new CustomError(
+        `No hay suficiente disponibilidad para ${productoNombre}. Disponibilidad real: ${disponibilidadReal}, Solicitado: ${cantidad}.`,
+        409
+      );
+    }
+  }
+
   public async iniciarPago(pedidoId: number, usuarioId: number) {
     const pedido = await this.prisma.pedido.findUnique({
       where: { id_pedido: pedidoId },
@@ -98,22 +132,17 @@ export class PedidoPagoService {
         throw new CustomError('Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS.', 400);
       }
 
-      // Calcular disponibilidadReal = MIN(cuposRestantesPaquete, stockFisicoVariante)
-      const cuposRestantesPaquete = (pedido.paquetePublicado.cant_productos || 0) - (pedido.paquetePublicado.cant_productos_reservados || 0);
-      let disponibilidadReal: number;
-      if (pedido.paquetePublicado.tipo === 'SINERGICO') {
-        disponibilidadReal = cuposRestantesPaquete;
-      } else { // ENERGICO
-        if (stockFisicoVariante === null) {
-          throw new CustomError(`Producto ENÉRGICO (${productoNombre}) sin stock físico definido.`, 500);
-        }
-        disponibilidadReal = Math.min(cuposRestantesPaquete, stockFisicoVariante);
-      }
-
-      // B. El paquete tiene cupos disponibles & C. La variante tiene stock físico suficiente
-      if (disponibilidadReal < detalle.cantidad) {
-        throw new CustomError(`No hay suficiente disponibilidad para ${productoNombre}. Disponibilidad real: ${disponibilidadReal}, Solicitado: ${detalle.cantidad}.`, 409);
-      }
+      const cuposRestantesPaquete = this.calcularCuposRestantes(
+        pedido.paquetePublicado.cant_productos,
+        pedido.paquetePublicado.cant_productos_reservados || 0
+      );
+      const disponibilidadReal = this.calcularDisponibilidadReal(
+        pedido.paquetePublicado.tipo,
+        cuposRestantesPaquete,
+        stockFisicoVariante,
+        productoNombre
+      );
+      this.validarDisponibilidad(disponibilidadReal, detalle.cantidad, productoNombre);
     }
 
     const preference = await this.mercadoPagoService.crearPreferencia({
@@ -195,21 +224,30 @@ export class PedidoPagoService {
           throw new CustomError('El paquete ya no está activo para pagos. El pedido será reembolsado si el pago se procesa.', 400);
         }
 
-        // B. El paquete tiene cupos disponibles (optimistic locking)
-        const cuposDisponibles = (paqueteActualizado.cant_productos || 0) - (paqueteActualizado.cant_productos_reservados || 0);
-        if (totalProductosSolicitados > cuposDisponibles) {
-          throw new CustomError(`No hay suficientes cupos disponibles en el paquete. Solicitados: ${totalProductosSolicitados}, Disponibles: ${cuposDisponibles}.`, 409);
+        const cuposDisponibles = this.calcularCuposRestantes(
+          paqueteActualizado.cant_productos,
+          paqueteActualizado.cant_productos_reservados || 0
+        );
+        if (cuposDisponibles !== null && totalProductosSolicitados > cuposDisponibles) {
+          throw new CustomError(
+            `No hay suficientes cupos disponibles en el paquete. Solicitados: ${totalProductosSolicitados}, Disponibles: ${cuposDisponibles}.`,
+            409
+          );
         }
 
-        // Intento atómico de decrementar cupos del paquete
+        const wherePaquete =
+          paqueteActualizado.cant_productos === null
+            ? { id_paquete_publicado: pedido.paquetePublicadoId }
+            : {
+                id_paquete_publicado: pedido.paquetePublicadoId,
+                cant_productos_reservados: {
+                  lte: paqueteActualizado.cant_productos - totalProductosSolicitados,
+                },
+              };
+
+        // Intento atómico de reservar cupos del paquete
         const updatedPaqueteCount = await tx.paquetePublicado.updateMany({
-          where: {
-            id_paquete_publicado: pedido.paquetePublicadoId,
-            // Condición de bloqueo optimista: asegura que los cupos reservados actuales + los solicitados no excedan el total
-            cant_productos_reservados: {
-              lte: (paqueteActualizado.cant_productos || 0) - totalProductosSolicitados,
-            },
-          },
+          where: wherePaquete,
           data: {
             cant_productos_reservados: { increment: totalProductosSolicitados },
           },
@@ -316,7 +354,7 @@ export class PedidoPagoService {
           paqueteActualizado &&
           paqueteActualizado.estadoId === ESTADO_PAQUETE.ACTIVO &&
           paqueteActualizado.cant_productos !== null &&
-          paqueteActualizado.cant_productos_reservados >= (paqueteActualizado.cant_productos || 0)
+          paqueteActualizado.cant_productos_reservados + totalProductosSolicitados >= paqueteActualizado.cant_productos
         ) {
           emitirEvento = true;
         }

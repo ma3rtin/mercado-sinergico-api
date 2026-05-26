@@ -5,8 +5,8 @@ import { CrearPedidoDTO } from '../dtos/pedido/crearPedido.dto.js';
 import { ESTADO_PEDIDO } from '../constants/estado-pedido.js';
 import { ESTADO_PAQUETE } from '../constants/estado-paquete.js';
 
-import { 
-  PaqueteComputable 
+import {
+  PaqueteComputable
 } from '../types/computable.types.js';
 
 export type PedidoConPaquete = {
@@ -52,6 +52,32 @@ export class PedidoService {
 
   private calcularPrecioConDescuento(precioBase: number, descuento: number) {
     return precioBase * (1 - descuento / 100);
+  }
+
+  private calcularCuposRestantes(cantProductos: number | null, cantReservados: number) {
+    return cantProductos === null ? null : cantProductos - cantReservados;
+  }
+
+  private calcularDisponibilidadReal(
+    tipoPaquete: string,
+    cuposRestantes: number | null,
+    stockFisico: number | null
+  ) {
+    if (tipoPaquete === 'SINERGICO') {
+      return cuposRestantes;
+    }
+
+    if (stockFisico === null) {
+      throw new CustomError('Producto ENÉRGICO sin stock físico definido.', 500);
+    }
+
+    return cuposRestantes === null ? stockFisico : Math.min(cuposRestantes, stockFisico);
+  }
+
+  private validarDisponibilidad(disponibilidadReal: number | null, cantidad: number, mensajeBase: string) {
+    if (disponibilidadReal !== null && disponibilidadReal < cantidad) {
+      throw new CustomError(`${mensajeBase}. Disponibilidad real: ${disponibilidadReal}`, 409);
+    }
   }
 
   private async recalcularMontoTotal(pedidoId: number) {
@@ -137,7 +163,9 @@ export class PedidoService {
         throw new CustomError('El paquete no está activo para nuevos pedidos', 400);
       }
 
-      const productoEnPaquete = paquete.paqueteBase.productos[0]; // Debería haber solo uno por el `where`
+      const productoEnPaquete = paquete.paqueteBase.productos.find(
+        (p) => p.productoId === dto.productoId
+      );
       if (!productoEnPaquete) {
         throw new CustomError('El producto no pertenece al paquete', 400);
       }
@@ -181,20 +209,20 @@ export class PedidoService {
         throw new CustomError('Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS.', 400);
       }
 
-      // Calcular disponibilidadReal = MIN(cuposRestantesPaquete, stockFisicoVariante)
-      const cuposRestantesPaquete = (paquete.cant_productos || 0) - (paquete.cant_productos_reservados || 0);
-      let disponibilidadReal: number;
-      if (paquete.tipo === 'SINERGICO') {
-        disponibilidadReal = cuposRestantesPaquete; // Para SINERGICO, el stock físico es flexible, el límite es el cupo
-      } else { // ENERGICO
-        if (stockFisicoVariante === null) throw new CustomError('Producto ENÉRGICO sin stock físico definido.', 500);
-        disponibilidadReal = Math.min(cuposRestantesPaquete, stockFisicoVariante);
-      }
-
-      // B. El paquete tiene cupos disponibles & C. La variante tiene stock físico suficiente
-      if (disponibilidadReal < dto.cantidad) {
-        throw new CustomError(`No hay suficiente disponibilidad para la cantidad solicitada. Disponibilidad real: ${disponibilidadReal}`, 409);
-      }
+      const cuposRestantesPaquete = this.calcularCuposRestantes(
+        paquete.cant_productos,
+        paquete.cant_productos_reservados || 0
+      );
+      const disponibilidadReal = this.calcularDisponibilidadReal(
+        paquete.tipo,
+        cuposRestantesPaquete,
+        stockFisicoVariante
+      );
+      this.validarDisponibilidad(
+        disponibilidadReal,
+        dto.cantidad,
+        'No hay suficiente disponibilidad para la cantidad solicitada'
+      );
 
       const precioBase = producto.precio + precioExtra;
       const precioUnitario = this.calcularPrecioConDescuento(
@@ -240,14 +268,16 @@ export class PedidoService {
           varianteId: varianteSeleccionada?.id ?? null,
         },
       });
-      
+
       console.log('[crearPedido] detalleExistente:', detalleExistente ? 'SI' : 'NO');
 
       if (detalleExistente) {
         const nuevaCantidadTotal = detalleExistente.cantidad + dto.cantidad;
-        if (disponibilidadReal < nuevaCantidadTotal) {
-          throw new CustomError(`No hay suficiente disponibilidad para la cantidad total solicitada. Disponibilidad real: ${disponibilidadReal}`, 409);
-        }
+        this.validarDisponibilidad(
+          disponibilidadReal,
+          nuevaCantidadTotal,
+          'No hay suficiente disponibilidad para la cantidad total solicitada'
+        );
         await this.prisma.pedidoDetalle.update({
           where: { id: detalleExistente.id },
           data: {
@@ -401,22 +431,20 @@ export class PedidoService {
       throw new CustomError('Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS.', 400);
     }
 
-    // Calcular disponibilidadReal = MIN(cuposRestantesPaquete, stockFisicoVariante)
-    const cuposRestantesPaquete = (pedido.paquetePublicado.cant_productos || 0) - (pedido.paquetePublicado.cant_productos_reservados || 0);
-    let disponibilidadReal: number;
-    if (pedido.paquetePublicado.tipo === 'SINERGICO') {
-      disponibilidadReal = cuposRestantesPaquete; // Para SINERGICO, el stock físico es flexible, el límite es el cupo
-    } else { // ENERGICO
-      if (stockFisicoVariante === null) {
-        throw new CustomError('Producto ENÉRGICO sin stock físico definido.', 500);
-      }
-      disponibilidadReal = Math.min(cuposRestantesPaquete, stockFisicoVariante);
-    }
-
-    // B. El paquete tiene cupos disponibles & C. La variante tiene stock físico suficiente
-    if (disponibilidadReal < nuevaCantidad) {
-      throw new CustomError(`No hay suficiente disponibilidad para la cantidad solicitada. Disponibilidad real: ${disponibilidadReal}`, 409);
-    }
+    const cuposRestantesPaquete = this.calcularCuposRestantes(
+      pedido.paquetePublicado.cant_productos,
+      pedido.paquetePublicado.cant_productos_reservados || 0
+    );
+    const disponibilidadReal = this.calcularDisponibilidadReal(
+      pedido.paquetePublicado.tipo,
+      cuposRestantesPaquete,
+      stockFisicoVariante
+    );
+    this.validarDisponibilidad(
+      disponibilidadReal,
+      nuevaCantidad,
+      'No hay suficiente disponibilidad para la cantidad solicitada'
+    );
 
     const precioBase =
       detalle.producto.precio + (detalle.variante?.precioExtra || 0);
