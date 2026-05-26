@@ -105,7 +105,7 @@ export class ProductoService {
     const nuevoProducto = await this.prisma.producto.create({
       data: {
         ...rest,
-        tipo: tipo || TipoProducto.POR_DEFINIR,
+        tipo: tipo || TipoProducto.SINERGICO,
         categoria: { connect: { id_categoria: categoria_id } },
         marca: { connect: { id_marca: marca_id } },
         plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
@@ -286,6 +286,8 @@ export class ProductoService {
       });
     });
   }
+
+
 
   private async generarVariantesAutomaticas(
     productoId: number,

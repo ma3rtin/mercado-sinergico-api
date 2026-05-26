@@ -1,5 +1,5 @@
 import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaquete.dto.js';
-import { PaqueteBaseDTO } from '../dtos/paquete/paqueteBase.dto.js';
+import { PaqueteBaseDTO, TipoPaquete } from '../dtos/paquete/paqueteBase.dto.js';
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { Prisma } from '@prisma/client';
@@ -44,14 +44,42 @@ export class PaqueteBaseService {
         throw new CustomError('La categoría no existe', 400);
       }
 
+      // Validar tipo de paquete base y composición de productos
+      if (data.tipo === 'ENERGICO' && data.productos?.length) {
+        const productosIncompatibles = await tx.producto.findMany({
+          where: {
+            id_producto: { in: data.productos },
+            OR: [
+              { tipo: { not: 'ENERGICO' } },
+              { tipo: null }
+            ]
+          },
+          select: { nombre: true }
+        });
+
+        if (productosIncompatibles.length > 0) {
+          const nombres = productosIncompatibles.map(p => p.nombre).join(', ');
+          throw new CustomError(
+            `Un paquete de tipo ENÉRGICO solo puede contener productos de tipo ENÉRGICO. Los siguientes productos no son válidos: ${nombres}`,
+            400
+          );
+        }
+      }
+
       const paqueteCreado = await tx.paqueteBase.create({
         data: {
           nombre: data.nombre,
           descripcion: data.descripcion,
           imagen_url: data.imagen_url,
+          tipo: data.tipo || TipoPaquete.SINERGICO,
           categoria: {
             connect: { id_categoria: data.categoria_id },
           },
+          ...(data.marcaId && {
+            marca: {
+              connect: { id_marca: data.marcaId },
+            },
+          }),
         },
       });
 
@@ -79,6 +107,36 @@ export class PaqueteBaseService {
       }
     }
 
+    // Validar tipo de paquete base y composición de productos actuales
+    if (data.tipo === 'ENERGICO') {
+      const productosVinculados = await this.prisma.paqueteBaseProducto.findMany({
+        where: { paqueteBaseId: id },
+        select: { productoId: true }
+      });
+      const idsProductos = productosVinculados.map(pv => pv.productoId);
+
+      if (idsProductos.length > 0) {
+        const productosIncompatibles = await this.prisma.producto.findMany({
+          where: {
+            id_producto: { in: idsProductos },
+            OR: [
+              { tipo: { not: 'ENERGICO' } },
+              { tipo: null }
+            ]
+          },
+          select: { nombre: true }
+        });
+
+        if (productosIncompatibles.length > 0) {
+          const nombres = productosIncompatibles.map(p => p.nombre).join(', ');
+          throw new CustomError(
+            `No se puede cambiar el tipo a ENÉRGICO: el paquete contiene productos incompatibles de tipo SINÉRGICO: ${nombres}`,
+            400
+          );
+        }
+      }
+    }
+
     try {
       return await this.prisma.paqueteBase.update({
         where: { id_paquete_base: id },
@@ -86,9 +144,15 @@ export class PaqueteBaseService {
           nombre: data.nombre,
           descripcion: data.descripcion,
           imagen_url: data.imagen_url,
+          tipo: data.tipo,
           categoria: {
             connect: { id_categoria: data.categoria_id },
           },
+          ...(data.marcaId && {
+            marca: {
+              connect: { id_marca: data.marcaId },
+            },
+          }),
         },
       });
     } catch {
@@ -107,6 +171,35 @@ export class PaqueteBaseService {
   }
 
   public async agregarProductos(data: AgregarProductoPaqueteDTO) {
+    const paqueteEncontrado = await this.prisma.paqueteBase.findUnique({
+      where: { id_paquete_base: data.paqueteBaseId },
+    });
+
+    if (!paqueteEncontrado) {
+      throw new CustomError('Paquete no encontrado', 404);
+    }
+
+    if (paqueteEncontrado.tipo === 'ENERGICO') {
+      const productosIncompatibles = await this.prisma.producto.findMany({
+        where: {
+          id_producto: { in: data.productosId },
+          OR: [
+            { tipo: { not: 'ENERGICO' } },
+            { tipo: null }
+          ]
+        },
+        select: { nombre: true }
+      });
+
+      if (productosIncompatibles.length > 0) {
+        const nombres = productosIncompatibles.map(p => p.nombre).join(', ');
+        throw new CustomError(
+          `Un paquete de tipo ENÉRGICO solo puede contener productos de tipo ENÉRGICO. Los siguientes productos no son válidos: ${nombres}`,
+          400
+        );
+      }
+    }
+
     await this.prisma.paqueteBaseProducto.createMany({
       data: data.productosId.map((id) => ({
         paqueteBaseId: data.paqueteBaseId,
@@ -175,6 +268,7 @@ export class PaqueteBaseService {
           imagen_url: paqueteOriginal.imagen_url,
           categoria_id: paqueteOriginal.categoria_id,
           marcaId: paqueteOriginal.marcaId,
+          tipo: paqueteOriginal.tipo,
         },
       });
 
