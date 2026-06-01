@@ -23,13 +23,13 @@ export class CategoriaService {
 
     try {
       return await this.client.categoria.create({
-        data: { nombre },
+        data: { nombre: nombre.trim() },
       });
     } catch (error: unknown) {
       const err = error as { code?: string };
 
       if (err.code === 'P2002') {
-        throw new CustomError('La categoría ya existe', 409, { cause: error });
+        throw new CustomError('La categoría ya existe', 400, { cause: error });
       }
 
       throw new CustomError('Error al crear la categoría', 500, {

@@ -13,6 +13,10 @@ export class CategoriaController {
 
   public getById = asyncHandler(async (req: Request, res: Response) => {
     const id: number = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      throw new CustomError('ID inválido', 400);
+    }
+
     const categoria = await this.service.getById(id);
 
     if (!categoria) {
@@ -24,7 +28,7 @@ export class CategoriaController {
 
   public create = asyncHandler(async (req: Request, res: Response) => {
     const { nombre } = req.body;
-    if (!nombre) {
+    if (!nombre || typeof nombre !== 'string' || nombre.trim().length === 0) {
       throw new CustomError('El nombre es requerido', 400);
     }
 

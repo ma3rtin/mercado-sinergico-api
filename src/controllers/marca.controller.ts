@@ -27,7 +27,7 @@ export class MarcaController {
 
   public create = asyncHandler(async (req: Request, res: Response) => {
     const { nombre } = req.body;
-    if (!nombre) {
+    if (!nombre || typeof nombre !== 'string' || nombre.trim().length === 0) {
       throw new CustomError('El nombre es requerido', 400);
     }
 
