@@ -91,15 +91,13 @@ export class ProductoExcelService {
                     }
 
                     // Determinar el tipo de producto
-                    let tipo: TipoPaquete = TipoPaquete.POR_DEFINIR;
+                    let tipo: TipoPaquete = TipoPaquete.SINERGICO;
                     if (row.tipo) {
                         const tipoUpper = row.tipo.toString().toUpperCase().trim();
                         if (tipoUpper === 'SINERGICO') {
                             tipo = TipoPaquete.SINERGICO;
                         } else if (tipoUpper === 'ENERGICO' || tipoUpper === 'ENERGETICO') {
                             tipo = TipoPaquete.ENERGICO;
-                        } else if (tipoUpper === 'POR_DEFINIR') {
-                            tipo = TipoPaquete.POR_DEFINIR;
                         } else {
                             throw new Error(`El valor '${row.tipo}' en la columna 'tipo' no es válido. Usa 'Sinergico' o 'Energetico'.`);
                         }

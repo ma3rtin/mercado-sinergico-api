@@ -51,7 +51,7 @@ export class VarianteService {
       producto: {
         id: producto.id_producto,
         nombre: producto.nombre,
-        tipo: productoWithTipo.tipo ?? TipoPaquete.POR_DEFINIR,
+        tipo: productoWithTipo.tipo ?? TipoPaquete.SINERGICO,
         plantilla: producto.plantilla,
       },
       variantes: variantes.map((v) => ({
@@ -368,7 +368,7 @@ export class VarianteService {
       precio: producto.precio,
       marca_id: producto.marca_id,
       categoria_id: producto.categoria_id,
-      stockTotal: productoWithTipo.tipo === TipoPaquete.POR_DEFINIR ? null : stockTotal,
+      stockTotal: stockTotal,
       distribucion,
     };
   }

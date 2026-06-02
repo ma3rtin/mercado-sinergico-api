@@ -12,7 +12,6 @@ import {
 export enum TipoProducto {
   SINERGICO = 'SINERGICO',
   ENERGICO = 'ENERGICO',
-  POR_DEFINIR = 'POR_DEFINIR',
 }
 
 export class ProductoDTO {

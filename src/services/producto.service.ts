@@ -1,5 +1,5 @@
 import { ProductoDTO, TipoProducto } from '../dtos/producto/producto.dto.js';
-import type { Prisma, Producto } from '@prisma/client';
+import { Prisma, Producto, TipoPaquete } from '@prisma/client';
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { ProductoItemListaDTO } from '../dtos/producto/productoItemLista.dto.js';
@@ -105,7 +105,7 @@ export class ProductoService {
     const nuevoProducto = await this.prisma.producto.create({
       data: {
         ...rest,
-        tipo: tipo || TipoProducto.POR_DEFINIR,
+        tipo: (tipo as unknown as TipoPaquete) || TipoPaquete.SINERGICO,
         categoria: { connect: { id_categoria: categoria_id } },
         marca: { connect: { id_marca: marca_id } },
         plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
@@ -153,7 +153,7 @@ export class ProductoService {
 
     const data: Prisma.ProductoUpdateInput = {
       ...rest,
-      tipo: tipo || undefined,
+      tipo: (tipo as unknown as TipoPaquete) || undefined,
       categoria: categoria_id
         ? { connect: { id_categoria: categoria_id } }
         : undefined,
