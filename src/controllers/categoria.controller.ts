@@ -35,4 +35,19 @@ export class CategoriaController {
     const newCategoria = await this.service.create(nombre);
     res.status(201).json(newCategoria);
   });
+
+  public updateCategoria = asyncHandler(async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      throw new CustomError('ID inválido', 400);
+    }
+
+    const { nombre } = req.body;
+    if (!nombre || typeof nombre !== 'string' || nombre.trim().length === 0) {
+      throw new CustomError('El nombre es requerido', 400);
+    }
+
+    const updatedCategoria = await this.service.update(id, nombre);
+    res.status(200).json(updatedCategoria);
+  });
 }

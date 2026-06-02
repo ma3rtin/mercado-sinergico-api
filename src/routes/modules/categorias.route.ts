@@ -7,7 +7,8 @@ const service = new CategoriaService();
 const controller = new CategoriaController(service);
 
 categoriaRouter.get('/', controller.getAll.bind(controller));
-categoriaRouter.post('/', controller.create.bind(controller));
 categoriaRouter.get('/:id', controller.getById.bind(controller));
+categoriaRouter.post('/',  controller.create.bind(controller));
+categoriaRouter.put('/:id',  controller.updateCategoria);
 
 export default categoriaRouter;

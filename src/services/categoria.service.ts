@@ -37,4 +37,31 @@ export class CategoriaService {
       });
     }
   }
+
+  public async update(id: number, nombre: string) {
+    if (!nombre || nombre.trim().length === 0) {
+      throw new CustomError('El nombre de la categoría es obligatorio', 400);
+    }
+
+    try {
+      return await this.client.categoria.update({
+        where: { id_categoria: id },
+        data: { nombre: nombre.trim() },
+      });
+    } catch (error: unknown) {
+      const err = error as { code?: string };
+
+      if (err.code === 'P2025') {
+        throw new CustomError('Categoria no encontrada', 404);
+      }
+
+      if (err.code === 'P2002') {
+        throw new CustomError('La categoría ya existe', 400, { cause: error });
+      }
+
+      throw new CustomError('Error al actualizar la categoría', 500, {
+        cause: error,
+      });
+    }
+  }
 }

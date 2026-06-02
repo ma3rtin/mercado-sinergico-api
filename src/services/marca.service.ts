@@ -35,4 +35,31 @@ export class MarcaService {
       });
     }
   }
+
+  public async update(id: number, nombre: string) {
+    if (!nombre || nombre.trim().length === 0) {
+      throw new CustomError('El nombre de la marca es obligatorio', 400);
+    }
+
+    try {
+      return await this.client.marca.update({
+        where: { id_marca: id },
+        data: { nombre: nombre.trim() },
+      });
+    } catch (error: unknown) {
+      const err = error as { code?: string };
+
+      if (err.code === 'P2025') {
+        throw new CustomError('Marca no encontrada', 404);
+      }
+
+      if (err.code === 'P2002') {
+        throw new CustomError('Ya existe una marca con ese nombre', 400);
+      }
+
+      throw new CustomError('Error al actualizar la marca', 500, {
+        cause: error,
+      });
+    }
+  }
 }

@@ -9,9 +9,6 @@ const controller = new MarcaController(service);
 marcaRouter.get('/', controller.getAll.bind(controller));
 marcaRouter.get('/:id', controller.getById.bind(controller));
 marcaRouter.post('/', controller.create.bind(controller));
-
-
-
-
+marcaRouter.put('/:id', controller.updateMarca);
 
 export default marcaRouter;
