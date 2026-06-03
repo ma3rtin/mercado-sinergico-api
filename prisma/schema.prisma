@@ -182,7 +182,7 @@ model LocalidadZona {
 
 model Categoria {
   id_categoria Int           @id @default(autoincrement())
-  nombre       String
+  nombre       String        @unique
   productos    Producto[]
   paquetes     PaqueteBase[]
 }
