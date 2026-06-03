@@ -27,10 +27,6 @@ export class MarcaController {
 
   public create = asyncHandler(async (req: Request, res: Response) => {
     const { nombre } = req.body;
-    if (!nombre || typeof nombre !== 'string' || nombre.trim().length === 0) {
-      throw new CustomError('El nombre es requerido', 400);
-    }
-
     const newMarca = await this.service.create(nombre);
     res.status(201).json(newMarca);
   });
@@ -42,10 +38,6 @@ export class MarcaController {
     }
 
     const { nombre } = req.body;
-    if (!nombre || typeof nombre !== 'string' || nombre.trim().length === 0) {
-      throw new CustomError('El nombre es requerido', 400);
-    }
-
     const updatedMarca = await this.service.update(id, nombre);
     res.status(200).json(updatedMarca);
   });
