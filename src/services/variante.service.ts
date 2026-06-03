@@ -359,9 +359,6 @@ export class VarianteService {
         })),
     }));
 
-    type ProductoWithTipo = typeof producto & { tipo: TipoPaquete | null };
-    const productoWithTipo = producto as ProductoWithTipo;
-
     return {
       nombre: producto.nombre,
       descripcion: producto.descripcion,
