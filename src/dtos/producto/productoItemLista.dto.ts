@@ -31,7 +31,7 @@ export class ProductoItemListaDTO {
       this.id = producto.id_producto;
       this.nombre = producto.nombre;
       this.precio = producto.precio;
-      this.tipo = producto.tipo || 'POR_DEFINIR';
+      this.tipo = producto.tipo || 'SINERGICO';
       this.stock = producto.stock;
       this.imagen = producto.imagen_url;
       this.marca = producto.marca?.nombre || '';

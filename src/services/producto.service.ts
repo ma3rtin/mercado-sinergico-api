@@ -287,6 +287,8 @@ export class ProductoService {
     });
   }
 
+
+
   private async generarVariantesAutomaticas(
     productoId: number,
     opcionesDisponibles: Record<string, number[]>,

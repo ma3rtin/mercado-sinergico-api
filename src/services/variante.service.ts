@@ -196,6 +196,10 @@ export class VarianteService {
     if (variantesExistentes.length !== variantes.length) {
       throw new CustomError('Algunas variantes no pertenecen al producto', 400);
     }
+    // Validar que el stock físico no sea negativo
+    if (variantes.some(v => v.stockFisico !== null && v.stockFisico < 0)) {
+      throw new CustomError('El stock físico no puede ser negativo.', 400);
+    }
 
     await this.prisma.$transaction(
       variantes.map((v) =>
@@ -238,7 +242,12 @@ export class VarianteService {
           activo?: boolean;
         } = {};
         if (v.sku !== undefined) dataToUpdate.sku = v.sku;
-        if (v.stockFisico !== undefined) dataToUpdate.stockFisico = v.stockFisico;
+        if (v.stockFisico !== undefined) {
+          if (v.stockFisico !== null && v.stockFisico < 0) {
+            throw new CustomError('El stock físico no puede ser negativo.', 400);
+          }
+          dataToUpdate.stockFisico = v.stockFisico;
+        }
         if (v.precioExtra !== undefined) dataToUpdate.precioExtra = v.precioExtra;
         if (v.activo !== undefined) dataToUpdate.activo = v.activo;
 
@@ -265,6 +274,11 @@ export class VarianteService {
 
     if (!variante) {
       throw new CustomError('Variante no encontrada', 404);
+    }
+
+    // Validar que el stock físico no sea negativo
+    if (data.stockFisico !== null && (data.stockFisico ?? 0) < 0) {
+      throw new CustomError('El stock físico no puede ser negativo.', 400);
     }
 
     // Si hay imagen, subirla a Cloudinary
