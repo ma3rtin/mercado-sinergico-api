@@ -27,11 +27,18 @@ export class MarcaController {
 
   public create = asyncHandler(async (req: Request, res: Response) => {
     const { nombre } = req.body;
-    if (!nombre) {
-      throw new CustomError('El nombre es requerido', 400);
-    }
-
     const newMarca = await this.service.create(nombre);
     res.status(201).json(newMarca);
+  });
+
+  public updateMarca = asyncHandler(async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+      throw new CustomError('ID inválido', 400);
+    }
+
+    const { nombre } = req.body;
+    const updatedMarca = await this.service.update(id, nombre);
+    res.status(200).json(updatedMarca);
   });
 }

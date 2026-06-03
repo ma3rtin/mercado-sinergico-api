@@ -373,16 +373,13 @@ export class VarianteService {
         })),
     }));
 
-    type ProductoWithTipo = typeof producto & { tipo: TipoPaquete | null };
-    const productoWithTipo = producto as ProductoWithTipo;
-
     return {
       nombre: producto.nombre,
       descripcion: producto.descripcion,
       precio: producto.precio,
       marca_id: producto.marca_id,
       categoria_id: producto.categoria_id,
-      stockTotal: productoWithTipo.tipo === null ? null : stockTotal,
+      stockTotal: stockTotal,
       distribucion,
     };
   }

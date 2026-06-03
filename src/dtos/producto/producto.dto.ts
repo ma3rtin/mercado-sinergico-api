@@ -1,18 +1,14 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
-  IsEnum,
+  IsIn,
   IsNumber,
   IsOptional,
   IsPositive,
   IsString,
   ValidateIf,
 } from 'class-validator';
-
-export enum TipoProducto {
-  SINERGICO = 'SINERGICO',
-  ENERGICO = 'ENERGICO',
-}
+import { TipoPaquete } from '@prisma/client';
 
 export class ProductoDTO {
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
@@ -82,9 +78,11 @@ export class ProductoDTO {
   @Type(() => Number)
   plantillaId?: number;
 
-  @IsEnum(TipoProducto, { message: 'El tipo debe ser SINERGICO o ENERGICO' })
+  @IsIn([TipoPaquete.SINERGICO, TipoPaquete.ENERGICO], {
+    message: 'El tipo debe ser SINERGICO o ENERGICO',
+  })
   @IsOptional()
-  tipo?: TipoProducto;
+  tipo?: TipoPaquete;
 
   @IsOptional()
   opcionesDisponibles?: Record<string, number[]>;

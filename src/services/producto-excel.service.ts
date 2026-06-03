@@ -98,8 +98,6 @@ export class ProductoExcelService {
                             tipo = TipoPaquete.SINERGICO;
                         } else if (tipoUpper === 'ENERGICO' || tipoUpper === 'ENERGETICO') {
                             tipo = TipoPaquete.ENERGICO;
-                        } else if (tipoUpper === 'POR_DEFINIR') {
-                            tipo = TipoPaquete.SINERGICO;
                         } else {
                             throw new Error(`El valor '${row.tipo}' en la columna 'tipo' no es válido. Usa 'Sinergico' o 'Energetico'.`);
                         }

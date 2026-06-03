@@ -1,5 +1,5 @@
-import { ProductoDTO, TipoProducto } from '../dtos/producto/producto.dto.js';
-import type { Prisma, Producto } from '@prisma/client';
+import { ProductoDTO } from '../dtos/producto/producto.dto.js';
+import { Prisma, Producto, TipoPaquete } from '@prisma/client';
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { ProductoItemListaDTO } from '../dtos/producto/productoItemLista.dto.js';
@@ -87,7 +87,7 @@ export class ProductoService {
       );
     }
 
-    if (!plantillaId && tipo === TipoProducto.ENERGICO && !rest.stock) {
+    if (!plantillaId && tipo === TipoPaquete.ENERGICO && !rest.stock) {
       throw new CustomError(
         'Los productos energéticos sin variantes deben tener stock definido.',
         400
@@ -105,7 +105,7 @@ export class ProductoService {
     const nuevoProducto = await this.prisma.producto.create({
       data: {
         ...rest,
-        tipo: tipo || TipoProducto.SINERGICO,
+        tipo: tipo || TipoPaquete.SINERGICO,
         categoria: { connect: { id_categoria: categoria_id } },
         marca: { connect: { id_marca: marca_id } },
         plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
@@ -292,7 +292,7 @@ export class ProductoService {
   private async generarVariantesAutomaticas(
     productoId: number,
     opcionesDisponibles: Record<string, number[]>,
-    tipo?: TipoProducto
+    tipo?: TipoPaquete
   ) {
     const producto = await this.prisma.producto.findUnique({
       where: { id_producto: productoId },
@@ -343,7 +343,7 @@ export class ProductoService {
           .join('-')}`;
 
       let stockInicial: number | null;
-      if (tipo === TipoProducto.ENERGICO) {
+      if (tipo === TipoPaquete.ENERGICO) {
         stockInicial = 0;
       } else {
         stockInicial = null;
