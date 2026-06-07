@@ -158,7 +158,9 @@ export class ProductoService {
         ? { connect: { id_categoria: categoria_id } }
         : undefined,
       marca: marca_id ? { connect: { id_marca: marca_id } } : undefined,
-      plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
+      plantilla: plantillaId === null 
+        ? { disconnect: true } 
+        : (plantillaId ? { connect: { id: plantillaId } } : undefined),
     };
 
     if (imagenes) {
