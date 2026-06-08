@@ -40,7 +40,7 @@ router.post(
   ...soloAdmin,
   procesarSubidaImagen([
     { name: 'icono', maxCount: 1 },
-    { name: 'imagenes', maxCount: 5 },
+    { name: 'imagenes', maxCount: 16 },
   ]),
   validarDto(ProductoDTO),
   productoController.createProducto.bind(productoController)
@@ -51,7 +51,7 @@ router.put(
   ...soloAdmin,
   procesarSubidaImagen([
     { name: 'icono', maxCount: 1 },
-    { name: 'imagenes', maxCount: 5 },
+    { name: 'imagenes', maxCount: 16 },
   ]),
   validarDto(ProductoDTO),
   productoController.updateProducto.bind(productoController)

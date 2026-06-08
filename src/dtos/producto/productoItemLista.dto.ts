@@ -26,6 +26,7 @@ export class ProductoItemListaDTO {
     categoria: string;
     tieneVariantes: boolean;
     cantidadVariantes: number;
+    plantillaId: number | null;
   
     constructor(producto: ProductoItemData) {
       this.id = producto.id_producto;
@@ -38,5 +39,6 @@ export class ProductoItemListaDTO {
       this.categoria = producto.categoria?.nombre || '';
       this.tieneVariantes = producto.plantillaId !== null;
       this.cantidadVariantes = producto.variantes?.length || 0;
+      this.plantillaId = producto.plantillaId;
     }
   }
