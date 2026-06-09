@@ -96,10 +96,10 @@ export class ProductoExcelService {
                         const tipoUpper = row.tipo.toString().toUpperCase().trim();
                         if (tipoUpper === 'SINERGICO') {
                             tipo = TipoPaquete.SINERGICO;
-                        } else if (tipoUpper === 'ENERGICO' || tipoUpper === 'ENERGETICO') {
+                        } else if (tipoUpper === 'ENERGICO' || tipoUpper === 'ENERGICO') {
                             tipo = TipoPaquete.ENERGICO;
                         } else {
-                            throw new Error(`El valor '${row.tipo}' en la columna 'tipo' no es válido. Usa 'Sinergico' o 'Energetico'.`);
+                            throw new Error(`El valor '${row.tipo}' en la columna 'tipo' no es válido. Usa 'Sinergico' o 'Energico'.`);
                         }
                     }
 

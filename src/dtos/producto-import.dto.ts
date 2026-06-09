@@ -2,7 +2,8 @@ import { IsString, IsNumber, IsOptional, IsEnum } from 'class-validator';
 
 export enum TipoProducto {
     SINERGICO = 'SINERGICO',
-    ENERGETICO = 'ENERGETICO',
+    ENERGICO = 'ENERGICO',
+    POR_DEFINIR = 'POR_DEFINIR',
 }
 
 export class ProductoImportDto {
