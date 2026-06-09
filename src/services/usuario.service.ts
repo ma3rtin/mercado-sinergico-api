@@ -4,7 +4,13 @@ import { DireccionDTO } from '../dtos/direccion/direccion.dto.js';
 import { LoginDTO } from '../dtos/usuario/login.dto.js';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto.js';
 import { UsuarioUpdateDTO } from '../dtos/usuario/usuarioUpdate.dto.js';
-import type { Direccion, Prisma, Usuario } from '@prisma/client';
+import type { Direccion, Prisma, Usuario, Localidad, Zona } from '@prisma/client';
+
+export type UsuarioMapeado = Usuario & {
+  rol: { nombre: string } | null;
+  localidad: (Localidad & { zonas: Zona[] }) | null;
+  direccion: (Direccion & { localidad: (Localidad & { zonas: Zona[] }) | null }) | null;
+};
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { FirebaseUser } from '../middlewares/firebaseAuth.middleware.js';
@@ -108,7 +114,7 @@ export class UsuarioService {
     });
   }
 
-  public async obtenerUsuario(userId: number): Promise<any | null> {
+  public async obtenerUsuario(userId: number): Promise<UsuarioMapeado | null> {
     const user = await this.prismaClient.usuario.findUnique({
       where: { id: userId },
       include: {
