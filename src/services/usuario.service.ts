@@ -142,11 +142,11 @@ export class UsuarioService {
 
     if (!user) return null;
 
-    const mapLocalidad = (loc: any) => {
+    const mapLocalidad = (loc: (Localidad & { zonas: { zona: Zona }[] }) | null) => {
       if (!loc) return null;
       return {
         ...loc,
-        zonas: loc.zonas ? loc.zonas.map((lz: any) => lz.zona) : [],
+        zonas: loc.zonas ? loc.zonas.map((lz: { zona: Zona }) => lz.zona) : [],
       };
     };
 
