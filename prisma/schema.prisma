@@ -140,6 +140,7 @@ model Direccion {
   numero        Int
   piso          Int?
   departamento  String?
+  observaciones String?
 }
 
 // ============================================

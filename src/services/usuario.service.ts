@@ -91,6 +91,7 @@ export class UsuarioService {
           numero: direccion.numero,
           piso: direccion.piso,
           departamento: direccion.departamento,
+          observaciones: direccion.observaciones,
         },
       });
 
@@ -157,7 +158,7 @@ export class UsuarioService {
     userId: number,
     datos: Partial<UsuarioDTO>
   ): Promise<Usuario> {
-    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url, localidad_id, calle, numero, piso, dpto, cp } = datos as UsuarioUpdateDTO;
+    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url, localidad_id, calle, numero, piso, dpto, cp, observaciones } = datos as UsuarioUpdateDTO;
 
     let contraseñaHash: string | undefined = undefined;
     if (contraseña) {
@@ -182,7 +183,7 @@ export class UsuarioService {
       },
     });
 
-    const hayDatosDeDireccion  = localidadIdNum || calle || numeroNum || pisoNum || dpto || cpNum;
+    const hayDatosDeDireccion  = localidadIdNum || calle || numeroNum || pisoNum || dpto || cpNum || observaciones;
     if (hayDatosDeDireccion  && localidadIdNum) {
       await this.prismaClient.direccion.upsert({
         where: { usuarioId: userId },
@@ -193,6 +194,7 @@ export class UsuarioService {
           piso: pisoNum ?? undefined,
           departamento: dpto ?? undefined,
           codigo_postal: cpNum ?? undefined,
+          observaciones: observaciones ?? undefined,
         },
         create: {
           usuarioId: userId,
@@ -202,6 +204,7 @@ export class UsuarioService {
           piso: pisoNum ?? undefined,
           departamento: dpto ?? undefined,
           codigo_postal: cpNum ?? 0,
+          observaciones: observaciones ?? undefined,
         },
       });
     }
