@@ -4,7 +4,13 @@ import { DireccionDTO } from '../dtos/direccion/direccion.dto.js';
 import { LoginDTO } from '../dtos/usuario/login.dto.js';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto.js';
 import { UsuarioUpdateDTO } from '../dtos/usuario/usuarioUpdate.dto.js';
-import type { Direccion, Prisma, Usuario } from '@prisma/client';
+import type { Direccion, Prisma, Usuario, Localidad, Zona } from '@prisma/client';
+
+export type UsuarioMapeado = Usuario & {
+  rol: { nombre: string } | null;
+  localidad: (Localidad & { zonas: Zona[] }) | null;
+  direccion: (Direccion & { localidad: (Localidad & { zonas: Zona[] }) | null }) | null;
+};
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { FirebaseUser } from '../middlewares/firebaseAuth.middleware.js';
@@ -91,6 +97,7 @@ export class UsuarioService {
           numero: direccion.numero,
           piso: direccion.piso,
           departamento: direccion.departamento,
+          observaciones: direccion.observaciones,
         },
       });
 
@@ -107,24 +114,57 @@ export class UsuarioService {
     });
   }
 
-  public async obtenerUsuario(userId: number): Promise<Usuario | null> {
-    return await this.prismaClient.usuario.findUnique({
+  public async obtenerUsuario(userId: number): Promise<UsuarioMapeado | null> {
+    const user = await this.prismaClient.usuario.findUnique({
       where: { id: userId },
       include: {
         rol: { select: { nombre: true } },
-        localidad: true,
+        localidad: {
+          include: {
+            zonas: {
+              include: { zona: true }
+            }
+          }
+        },
         direccion: {
-          include: { localidad: true },
+          include: {
+            localidad: {
+              include: {
+                zonas: {
+                  include: { zona: true }
+                }
+              }
+            }
+          },
         },
       },
     });
+
+    if (!user) return null;
+
+    const mapLocalidad = (loc: (Localidad & { zonas: { zona: Zona }[] }) | null) => {
+      if (!loc) return null;
+      return {
+        ...loc,
+        zonas: loc.zonas ? loc.zonas.map((lz: { zona: Zona }) => lz.zona) : [],
+      };
+    };
+
+    return {
+      ...user,
+      localidad: mapLocalidad(user.localidad),
+      direccion: user.direccion ? {
+        ...user.direccion,
+        localidad: mapLocalidad(user.direccion.localidad),
+      } : null,
+    };
   }
 
   public async actualizarUsuario(
     userId: number,
     datos: Partial<UsuarioDTO>
   ): Promise<Usuario> {
-    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url, localidad_id, calle, numero, piso, dpto, cp } = datos as UsuarioUpdateDTO;
+    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url, localidad_id, calle, numero, piso, dpto, cp, observaciones } = datos as UsuarioUpdateDTO;
 
     let contraseñaHash: string | undefined = undefined;
     if (contraseña) {
@@ -149,7 +189,7 @@ export class UsuarioService {
       },
     });
 
-    const hayDatosDeDireccion  = localidadIdNum || calle || numeroNum || pisoNum || dpto || cpNum;
+    const hayDatosDeDireccion  = localidadIdNum || calle || numeroNum || pisoNum || dpto || cpNum || observaciones;
     if (hayDatosDeDireccion  && localidadIdNum) {
       await this.prismaClient.direccion.upsert({
         where: { usuarioId: userId },
@@ -160,6 +200,7 @@ export class UsuarioService {
           piso: pisoNum ?? undefined,
           departamento: dpto ?? undefined,
           codigo_postal: cpNum ?? undefined,
+          observaciones: observaciones ?? undefined,
         },
         create: {
           usuarioId: userId,
@@ -169,11 +210,12 @@ export class UsuarioService {
           piso: pisoNum ?? undefined,
           departamento: dpto ?? undefined,
           codigo_postal: cpNum ?? 0,
+          observaciones: observaciones ?? undefined,
         },
       });
     }
 
-    return usuario;
+    return (await this.obtenerUsuario(userId)) ?? usuario;
   }
 
   public async loginConFirebase(
