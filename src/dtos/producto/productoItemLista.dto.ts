@@ -26,17 +26,19 @@ export class ProductoItemListaDTO {
     categoria: string;
     tieneVariantes: boolean;
     cantidadVariantes: number;
+    plantillaId: number | null;
   
     constructor(producto: ProductoItemData) {
       this.id = producto.id_producto;
       this.nombre = producto.nombre;
       this.precio = producto.precio;
-      this.tipo = producto.tipo || 'POR_DEFINIR';
+      this.tipo = producto.tipo || 'SINERGICO';
       this.stock = producto.stock;
       this.imagen = producto.imagen_url;
       this.marca = producto.marca?.nombre || '';
       this.categoria = producto.categoria?.nombre || '';
       this.tieneVariantes = producto.plantillaId !== null;
       this.cantidadVariantes = producto.variantes?.length || 0;
+      this.plantillaId = producto.plantillaId;
     }
   }

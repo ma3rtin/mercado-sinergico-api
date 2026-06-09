@@ -32,4 +32,31 @@ export class UsuarioUpdateDTO {
     @Type(() => Number)
     @IsNumber({}, { message: 'El id de la localidad debe ser un número' })
     localidad_id?: number;
+
+    @IsOptional()
+    @IsString()
+    calle?: string;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsNumber()
+    numero?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsNumber()
+    piso?: number;
+
+    @IsOptional()
+    @IsString()
+    dpto?: string;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsNumber()
+    cp?: number;
+
+    @IsOptional()
+    @IsString()
+    observaciones?: string;
 }
