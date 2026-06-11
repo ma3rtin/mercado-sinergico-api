@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { PlantillaService } from '../services/plantilla.service.js';
 import { PlantillaDTO } from '../dtos/plantilla/plantilla.dto.js';
 import { CustomError } from '../errors/custom.error.js';
@@ -134,19 +135,18 @@ export class PlantillaController {
         } catch (error) {
             console.error('Error eliminando plantilla:', error);
             
-            if (error instanceof Error) {
-                // Manejar casos donde la plantilla no existe
-                if (error.message.includes('not found') || error.message.includes('no encontrada')) {
+            if (error instanceof Prisma.PrismaClientKnownRequestError) {
+                // P2025: El registro a eliminar no existe
+                if (error.code === 'P2025') {
                     return res.status(404).json({ message: 'Plantilla no encontrada' });
                 }
-                
-                // Manejar casos donde hay productos asociados
-                if (error.message.includes('foreign key') || error.message.includes('constraint')) {
+                // P2003: Restricción de clave foránea (productos asociados)
+                if (error.code === 'P2003') {
                     return res.status(409).json({ message: 'No se puede eliminar la plantilla porque tiene productos asociados' });
                 }
             }
             
-            res.status(500).send(new CustomError('Error al eliminar la plantilla', 500));
+            res.status(500).json(new CustomError('Error al eliminar la plantilla', 500));
         }
     }
 
