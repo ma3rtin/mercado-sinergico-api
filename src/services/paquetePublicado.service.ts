@@ -86,7 +86,13 @@ export class PaquetePublicadoService {
       ...(skip !== undefined && { skip }),
       ...(take !== undefined && { take }),
       include: {
-        paqueteBase: { include: { marca: true, categoria: true } },
+        paqueteBase: {
+          include: {
+            marca: true,
+            categoria: true,
+            productos: true,
+          }
+        },
         zona: true,
         estado: true,
         pedidos: {
