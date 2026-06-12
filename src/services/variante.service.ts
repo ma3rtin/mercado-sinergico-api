@@ -1,6 +1,6 @@
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
-import { TipoPaquete } from '@prisma/client';
+import { TipoPaquete, Prisma } from '@prisma/client';
 import { GenerarVariantesDTO } from '../dtos/variante/generarVariantes.dto.js';
 import { ActualizarStockVariantesDTO } from '../dtos/variante/actualizarStockVariantes.dto.js';
 import { ActualizarVarianteDTO } from '../dtos/variante/actualizarVariante.dto.js';
@@ -51,7 +51,7 @@ export class VarianteService {
       producto: {
         id: producto.id_producto,
         nombre: producto.nombre,
-        tipo: productoWithTipo.tipo ?? TipoPaquete.POR_DEFINIR,
+        tipo: productoWithTipo.tipo ?? TipoPaquete.SINERGICO,
         plantilla: producto.plantilla,
       },
       variantes: variantes.map((v) => ({
@@ -196,6 +196,10 @@ export class VarianteService {
     if (variantesExistentes.length !== variantes.length) {
       throw new CustomError('Algunas variantes no pertenecen al producto', 400);
     }
+    // Validar que el stock físico no sea negativo
+    if (variantes.some(v => v.stockFisico !== null && v.stockFisico < 0)) {
+      throw new CustomError('El stock físico no puede ser negativo.', 400);
+    }
 
     await this.prisma.$transaction(
       variantes.map((v) =>
@@ -238,7 +242,12 @@ export class VarianteService {
           activo?: boolean;
         } = {};
         if (v.sku !== undefined) dataToUpdate.sku = v.sku;
-        if (v.stockFisico !== undefined) dataToUpdate.stockFisico = v.stockFisico;
+        if (v.stockFisico !== undefined) {
+          if (v.stockFisico !== null && v.stockFisico < 0) {
+            throw new CustomError('El stock físico no puede ser negativo.', 400);
+          }
+          dataToUpdate.stockFisico = v.stockFisico;
+        }
         if (v.precioExtra !== undefined) dataToUpdate.precioExtra = v.precioExtra;
         if (v.activo !== undefined) dataToUpdate.activo = v.activo;
 
@@ -267,6 +276,11 @@ export class VarianteService {
       throw new CustomError('Variante no encontrada', 404);
     }
 
+    // Validar que el stock físico no sea negativo
+    if (data.stockFisico !== null && (data.stockFisico ?? 0) < 0) {
+      throw new CustomError('El stock físico no puede ser negativo.', 400);
+    }
+
     // Si hay imagen, subirla a Cloudinary
     let imagen_url: string | undefined = undefined;
     if (imagenBuffer) {
@@ -276,15 +290,16 @@ export class VarianteService {
       );
     }
 
+    const dataToUpdate: Prisma.ProductoVarianteUpdateInput = {};
+    if (data.sku !== undefined) dataToUpdate.sku = data.sku;
+    if (data.stockFisico !== undefined) dataToUpdate.stockFisico = data.stockFisico;
+    if (data.precioExtra !== undefined) dataToUpdate.precioExtra = data.precioExtra;
+    if (data.activo !== undefined) dataToUpdate.activo = data.activo;
+    if (imagen_url !== undefined) dataToUpdate.imagen_url = imagen_url;
+
     return this.prisma.productoVariante.update({
       where: { id: varianteId },
-      data: {
-        sku: data.sku,
-        stockFisico: data.stockFisico,
-        precioExtra: data.precioExtra,
-        activo: data.activo,
-        ...(imagen_url !== undefined && { imagen_url }),
-      },
+      data: dataToUpdate,
       include: {
         opciones: {
           include: {
@@ -359,16 +374,13 @@ export class VarianteService {
         })),
     }));
 
-    type ProductoWithTipo = typeof producto & { tipo: TipoPaquete | null };
-    const productoWithTipo = producto as ProductoWithTipo;
-
     return {
       nombre: producto.nombre,
       descripcion: producto.descripcion,
       precio: producto.precio,
       marca_id: producto.marca_id,
       categoria_id: producto.categoria_id,
-      stockTotal: productoWithTipo.tipo === TipoPaquete.POR_DEFINIR ? null : stockTotal,
+      stockTotal: stockTotal,
       distribucion,
     };
   }

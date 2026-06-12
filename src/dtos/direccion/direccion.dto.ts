@@ -40,6 +40,10 @@ export class DireccionDTO {
   departamento?: string;
 
   @IsOptional()
+  @IsString({ message: 'Las observaciones deben ser una cadena de texto' })
+  observaciones?: string;
+
+  @IsOptional()
   @IsString({ message: 'La imagen debe ser una cadena de texto' })
   imagen_url!: string;
 }

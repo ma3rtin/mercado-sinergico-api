@@ -1,19 +1,14 @@
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import {
   IsArray,
-  IsEnum,
+  IsIn,
   IsNumber,
   IsOptional,
   IsPositive,
   IsString,
   ValidateIf,
 } from 'class-validator';
-
-export enum TipoProducto {
-  SINERGICO = 'SINERGICO',
-  ENERGICO = 'ENERGICO',
-  POR_DEFINIR = 'POR_DEFINIR',
-}
+import { TipoPaquete } from '@prisma/client';
 
 export class ProductoDTO {
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
@@ -77,15 +72,21 @@ export class ProductoDTO {
   @Type(() => Number)
   stock?: number;
 
-  @IsNumber({}, { message: 'El id de la plantilla debe ser un número' })
-  @IsPositive({ message: 'El id de la plantilla debe ser un número positivo' })
-  @IsOptional()
-  @Type(() => Number)
-  plantillaId?: number;
+@Transform(({ value }) => {
+  if (value === '' || value === 'null' || value === null || value === undefined) return null;
+  const num = Number(value);
+  return isNaN(num) ? null : num;
+})
+@IsNumber({}, { message: 'El id de la plantilla debe ser un número' })
+@IsPositive({ message: 'El id de la plantilla debe ser un número positivo' })
+@IsOptional()
+plantillaId?: number | null;
 
-  @IsEnum(TipoProducto, { message: 'El tipo debe ser SINERGICO, ENERGICO o POR_DEFINIR' })
+  @IsIn([TipoPaquete.SINERGICO, TipoPaquete.ENERGICO], {
+    message: 'El tipo debe ser SINERGICO o ENERGICO',
+  })
   @IsOptional()
-  tipo?: TipoProducto;
+  tipo?: TipoPaquete;
 
   @IsOptional()
   opcionesDisponibles?: Record<string, number[]>;

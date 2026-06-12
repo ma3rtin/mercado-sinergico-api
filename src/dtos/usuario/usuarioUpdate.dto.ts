@@ -55,4 +55,8 @@ export class UsuarioUpdateDTO {
     @Type(() => Number)
     @IsNumber()
     cp?: number;
+
+    @IsOptional()
+    @IsString()
+    observaciones?: string;
 }

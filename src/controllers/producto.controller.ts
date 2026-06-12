@@ -47,7 +47,7 @@ export class ProductoController {
       profundidad: body.profundidad ? Number(body.profundidad) : undefined,
       stock: body.stock ? Number(body.stock) : undefined,
       plantillaId: body.plantillaId ? Number(body.plantillaId) : undefined,
-      tipo: body.tipo || 'POR_DEFINIR',
+      tipo: body.tipo || 'SINERGICO',
       opcionesDisponibles:
         typeof body.opcionesDisponibles === 'string'
           ? (JSON.parse(body.opcionesDisponibles) as Record<string, number[]>)

@@ -17,8 +17,8 @@ export class AppRoutes {
     const router = Router();
 
     router.use('/api/usuarios', usuarioRouter);
+    router.use('/api/productos/excel', productoExcelRouter); // ⚠️ debe ir ANTES de /api/productos
     router.use('/api/productos', productoRouter);
-    router.use('/api/productos/excel', productoExcelRouter);
     router.use('/api/paquetes-base', paqueteBaseRouter);
     router.use('/api/paquetes-publicados', paquetePublicadoRouter);
     router.use('/api/zonas', zonaRouter);
