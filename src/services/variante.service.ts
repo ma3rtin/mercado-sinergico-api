@@ -1,6 +1,6 @@
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
-import { TipoPaquete } from '@prisma/client';
+import { TipoPaquete, Prisma } from '@prisma/client';
 import { GenerarVariantesDTO } from '../dtos/variante/generarVariantes.dto.js';
 import { ActualizarStockVariantesDTO } from '../dtos/variante/actualizarStockVariantes.dto.js';
 import { ActualizarVarianteDTO } from '../dtos/variante/actualizarVariante.dto.js';
@@ -290,7 +290,7 @@ export class VarianteService {
       );
     }
 
-    const dataToUpdate: any = {};
+    const dataToUpdate: Prisma.ProductoVarianteUpdateInput = {};
     if (data.sku !== undefined) dataToUpdate.sku = data.sku;
     if (data.stockFisico !== undefined) dataToUpdate.stockFisico = data.stockFisico;
     if (data.precioExtra !== undefined) dataToUpdate.precioExtra = data.precioExtra;

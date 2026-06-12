@@ -144,9 +144,13 @@ export class PlantillaController {
                 if (error.code === 'P2003') {
                     return res.status(409).json({ message: 'No se puede eliminar la plantilla porque tiene productos asociados' });
                 }
+            } else if (error instanceof Error) {
+                if (error.message.includes('not found') || error.message.includes('no encontrada')) {
+                    return res.status(404).json({ message: 'Plantilla no encontrada' });
+                }
             }
             
-            res.status(500).json(new CustomError('Error al eliminar la plantilla', 500));
+            res.status(500).send(new CustomError('Error al eliminar la plantilla', 500));
         }
     }
 
