@@ -217,6 +217,8 @@ model Producto {
   // Tipo de producto: ENERGICO (con stock) o SINERGICO (bajo pedido)
   tipo TipoPaquete? @default(SINERGICO)
 
+  archivado Boolean @default(false)
+
   plantillaId  Int?
   plantilla    Plantilla? @relation(fields: [plantillaId], references: [id])
   categoria_id Int
@@ -301,6 +303,7 @@ model PaquetePublicado {
   imagen_url                String?
   tipo                      TipoPaquete            @default(SINERGICO)
   descuento                 Float?
+  archivado                 Boolean                @default(false)
 
   pedidos              Pedido[]
   variantesDisponibles DisponibilidadVariantePaquete[]

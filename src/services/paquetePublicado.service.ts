@@ -80,11 +80,17 @@ export class PaquetePublicadoService {
 
   // ─── Queries ─────────────────────────────────────────────────────────────────
 
-  async getAll(skip?: number, take?: number) {
+  async getAll(skip?: number, take?: number, includeArchived = false) {
+    const where: Prisma.PaquetePublicadoWhereInput = {};
+    if (!includeArchived) {
+      where.archivado = false;
+    }
+
     const paquetes = await this.prisma.paquetePublicado.findMany({
       orderBy: { id_paquete_publicado: 'desc' },
       ...(skip !== undefined && { skip }),
       ...(take !== undefined && { take }),
+      where,
       include: {
         paqueteBase: {
           include: {
@@ -855,5 +861,20 @@ export class PaquetePublicadoService {
     });
 
     return { mensaje: 'Notificación enviada correctamente.', notificados: correos.length };
+  }
+
+  async archivar(id: number, archivado: boolean) {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+    });
+    if (!paquete) {
+      throw new CustomError('Paquete no encontrado', 404);
+    }
+    const updated = await this.prisma.paquetePublicado.update({
+      where: { id_paquete_publicado: id },
+      data: { archivado },
+      include: this._includeCompleto,
+    });
+    return this._mapComputedFields(updated as PaqueteComputable);
   }
 }
