@@ -16,4 +16,8 @@ export type PaqueteComputable = {
   cant_usuarios_registrados?: number;
   cant_productos_reservados?: number;
   monto_total?: number | string | null;
+  tipo?: string;
+  paqueteBase?: {
+    tipo?: string;
+  };
 };
