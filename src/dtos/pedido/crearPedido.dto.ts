@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsOptional } from 'class-validator';
+import { IsInt, IsNotEmpty, IsNumber, IsOptional, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CrearPedidoDTO {
@@ -11,7 +11,8 @@ export class CrearPedidoDTO {
     @IsOptional()
     varianteId?: number;
 
-    @IsNumber()
+    @IsInt({ message: 'La cantidad debe ser un número entero' })
     @IsNotEmpty({ message: 'La cantidad es obligatoria' })
+    @Min(1, { message: 'La cantidad debe ser al menos 1' })
     cantidad!: number;
 }

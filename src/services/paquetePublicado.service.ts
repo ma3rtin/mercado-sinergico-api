@@ -51,13 +51,18 @@ export class PaquetePublicadoService {
       recaudacion += Number(ped.monto_total || 0);
     });
 
+    const pedidosIncluidos = Array.isArray(paquete.pedidos);
+
     return {
       ...paquete,
       tipo: paquete.tipo === 'POR_DEFINIR' && paquete.paqueteBase?.tipo 
         ? paquete.paqueteBase.tipo 
         : paquete.tipo,
       cant_usuarios_registrados: usuariosIds.size > 0 ? usuariosIds.size : paquete.cant_usuarios_registrados,
-      cant_productos_reservados: reservados > 0 ? reservados : paquete.cant_productos_reservados,
+      cant_productos_reservados: Math.max(
+        0,
+        pedidosIncluidos ? reservados : (paquete.cant_productos_reservados || 0)
+      ),
       monto_total: recaudacion > 0 ? recaudacion : paquete.monto_total
     };
   }
