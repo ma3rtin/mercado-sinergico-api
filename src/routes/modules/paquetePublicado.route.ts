@@ -43,3 +43,7 @@ paquetePublicadoRouter.post('/:id/entregar',         ...soloAdmin, controller.ma
 paquetePublicadoRouter.post('/:id/marcar-en-camino', ...soloAdmin, controller.marcarPedidosEnCamino.bind(controller));
 paquetePublicadoRouter.post('/:id/cancelar',         ...soloAdmin, controller.cancelar.bind(controller));
 paquetePublicadoRouter.post('/:id/notificar',        ...soloAdmin, controller.notificar.bind(controller));
+
+paquetePublicadoRouter.get('/:id/exportar-fabrica',   ...soloAdmin, controller.exportarFabrica.bind(controller));
+paquetePublicadoRouter.get('/:id/exportar-logistica', ...soloAdmin, controller.exportarLogistica.bind(controller));
+

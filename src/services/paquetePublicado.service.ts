@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import { PaquetePublicadoDTO } from '../dtos/paquete/paquetePublicado.dto.js';
 import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdate.dto.js';
 import { CustomError } from '../errors/custom.error.js';
@@ -71,7 +72,31 @@ export class PaquetePublicadoService {
       estado: true,
       pedidos: {
         include: {
-          usuario: { select: { id: true, nombre: true, email: true } },
+          usuario: {
+            select: {
+              id: true,
+              nombre: true,
+              email: true,
+              telefono: true,
+              direccion: {
+                select: {
+                  id: true,
+                  calle: true,
+                  numero: true,
+                  piso: true,
+                  departamento: true,
+                  codigo_postal: true,
+                  localidad: {
+                    select: {
+                      id_localidad: true,
+                      nombre: true,
+                      codigo_postal: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
           detalles: true,
         },
       },
@@ -97,7 +122,31 @@ export class PaquetePublicadoService {
         estado: true,
         pedidos: {
           include: {
-            usuario: { select: { id: true, nombre: true, email: true } },
+            usuario: {
+              select: {
+                id: true,
+                nombre: true,
+                email: true,
+                telefono: true,
+                direccion: {
+                  select: {
+                    id: true,
+                    calle: true,
+                    numero: true,
+                    piso: true,
+                    departamento: true,
+                    codigo_postal: true,
+                    localidad: {
+                      select: {
+                        id_localidad: true,
+                        nombre: true,
+                        codigo_postal: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
             detalles: true,
           },
         },
@@ -125,11 +174,50 @@ export class PaquetePublicadoService {
         estado: true,
         pedidos: {
           include: {
-            usuario: { select: { id: true, nombre: true, email: true } },
+            usuario: {
+              select: {
+                id: true,
+                nombre: true,
+                email: true,
+                telefono: true,
+                direccion: {
+                  select: {
+                    id: true,
+                    calle: true,
+                    numero: true,
+                    piso: true,
+                    departamento: true,
+                    codigo_postal: true,
+                    localidad: {
+                      select: {
+                        id_localidad: true,
+                        nombre: true,
+                        codigo_postal: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
             estado: true,
             detalles: {
               include: {
-                producto: { include: { imagenes: true } },
+                producto: {
+                  include: {
+                    imagenes: true,
+                    marca: true,
+                  },
+                },
+                variante: {
+                  include: {
+                    opciones: {
+                      include: {
+                        caracteristica: true,
+                        opcion: true,
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -143,7 +231,25 @@ export class PaquetePublicadoService {
     const mappedPedidos = pedidos.map((p) => {
       const pRecord = p as PedidoComputable;
       const { detalles, ...pRest } = pRecord;
-      return { ...pRest, pedidoProductos: detalles };
+      const mappedDetalles = (detalles || []).map((d: any) => {
+        let varianteString = '';
+        if (d.variante) {
+          if (d.variante.opciones && d.variante.opciones.length > 0) {
+            varianteString = d.variante.opciones
+              .map((o: any) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
+              .join(', ');
+          } else if (d.variante.sku) {
+            varianteString = d.variante.sku;
+          }
+        }
+        const skuVal = d.variante?.sku || d.producto?.sku || String(d.productoId);
+        return {
+          ...d,
+          variante: varianteString || undefined,
+          sku: skuVal,
+        };
+      });
+      return { ...pRest, pedidoProductos: mappedDetalles };
     });
 
     return this._mapComputedFields({
@@ -240,7 +346,31 @@ export class PaquetePublicadoService {
         estado: { select: { nombre: true, id_estado: true } },
         pedidos: {
           include: {
-            usuario: { select: { id: true, nombre: true, email: true } },
+            usuario: {
+              select: {
+                id: true,
+                nombre: true,
+                email: true,
+                telefono: true,
+                direccion: {
+                  select: {
+                    id: true,
+                    calle: true,
+                    numero: true,
+                    piso: true,
+                    departamento: true,
+                    codigo_postal: true,
+                    localidad: {
+                      select: {
+                        id_localidad: true,
+                        nombre: true,
+                        codigo_postal: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
             detalles: true,
           },
         },
@@ -855,5 +985,318 @@ export class PaquetePublicadoService {
     });
 
     return { mensaje: 'Notificación enviada correctamente.', notificados: correos.length };
+  }
+
+  async exportarFabrica(id: number): Promise<Buffer> {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: {
+        paqueteBase: {
+          include: {
+            productos: {
+              include: {
+                producto: {
+                  include: {
+                    marca: true,
+                    variantes: {
+                      include: {
+                        opciones: {
+                          include: {
+                            caracteristica: true,
+                            opcion: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        zona: true,
+        pedidos: {
+          include: {
+            detalles: {
+              include: {
+                producto: {
+                  include: {
+                    marca: true,
+                  },
+                },
+                variante: {
+                  include: {
+                    opciones: {
+                      include: {
+                        caracteristica: true,
+                        opcion: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!paquete) {
+      throw new CustomError('Paquete no encontrado', 404);
+    }
+
+    // Filtrar pedidos aprobados (todos los que no son Pendientes (1) ni Reembolsados (3))
+    const pedidosAprobados = (paquete.pedidos || []).filter(
+      (ped) => ped.estadoId !== 1 && ped.estadoId !== 3
+    );
+
+    const consolidado = new Map<
+      string,
+      {
+        sku: string;
+        producto: string;
+        variante: string;
+        marca: string;
+        precioUnitario: number;
+        cantidadTotal: number;
+      }
+    >();
+
+    // 1. Inicializar con productos base del paquete
+    paquete.paqueteBase?.productos?.forEach((pp: any) => {
+      const prod = pp.producto;
+      if (!prod) return;
+
+      const skuVal = prod.sku || String(prod.id_producto);
+      const key = `${prod.id_producto}-`;
+      consolidado.set(key, {
+        sku: skuVal,
+        producto: prod.nombre,
+        variante: '-',
+        marca: prod.marca?.nombre || 'N/A',
+        precioUnitario: prod.precio,
+        cantidadTotal: 0,
+      });
+    });
+
+    // 2. Sumar cantidades de pedidos reales
+    pedidosAprobados.forEach((pedido: any) => {
+      pedido.detalles?.forEach((pp: any) => {
+        let varianteStr = '-';
+        let skuVal = pp.producto?.sku || String(pp.productoId);
+
+        if (pp.variante) {
+          skuVal = pp.variante.sku || skuVal;
+          if (pp.variante.opciones && pp.variante.opciones.length > 0) {
+            varianteStr = pp.variante.opciones
+              .map((o: any) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
+              .join(', ');
+          }
+        }
+
+        const key = `${pp.productoId}-${varianteStr}`;
+        const current = consolidado.get(key) || {
+          sku: skuVal,
+          producto: pp.producto?.nombre || 'N/A',
+          variante: varianteStr,
+          marca: pp.producto?.marca?.nombre || 'N/A',
+          precioUnitario: pp.precio_unitario || pp.producto?.precio || 0,
+          cantidadTotal: 0,
+        };
+
+        current.cantidadTotal += pp.cantidad;
+        consolidado.set(key, current);
+      });
+    });
+
+    const dataRows: any[][] = [];
+    let totalGral = 0;
+
+    consolidado.forEach((info) => {
+      // Omitir los que tienen cantidad 0 si hay otros con variante y cantidad > 0 del mismo producto
+      // Pero para mantener la consistencia con el front, los mostramos a todos.
+      const subtotal = info.precioUnitario * info.cantidadTotal;
+      totalGral += subtotal;
+      dataRows.push([
+        info.sku,
+        info.producto,
+        info.variante,
+        info.marca,
+        info.precioUnitario,
+        info.cantidadTotal,
+        subtotal,
+      ]);
+    });
+
+    const now = new Date().toLocaleString('es-AR');
+    const rows = [
+      ['# REPORTES MERCADO SINERGICO #'],
+      ['Tipo', 'REPORTE PARA PROVEEDOR'],
+      ['Paquete', `${paquete.paqueteBase?.nombre || 'N/A'} (ID: ${paquete.id_paquete_publicado})`],
+      ['Zona', paquete.zona?.nombre || 'N/A'],
+      ['Fecha Generacion', now],
+      ['Pedidos Pagados', pedidosAprobados.length],
+      [],
+      ['SKU (ID)', 'Producto', 'Variante/Modelo', 'Marca', 'Precio Unit.', 'Cant. Total', 'Subtotal'],
+      ...dataRows,
+      [],
+      ['', '', '', '', '', 'TOTAL A FACTURAR', totalGral],
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+
+    worksheet['!cols'] = [
+      { wch: 15 }, // SKU
+      { wch: 30 }, // Producto
+      { wch: 25 }, // Variante
+      { wch: 15 }, // Marca
+      { wch: 12 }, // Precio Unit.
+      { wch: 12 }, // Cant. Total
+      { wch: 15 }, // Subtotal
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Consolidado');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    return buffer as Buffer;
+  }
+
+  async exportarLogistica(id: number): Promise<Buffer> {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: {
+        paqueteBase: true,
+        zona: true,
+        pedidos: {
+          include: {
+            estado: true,
+            usuario: {
+              include: {
+                direccion: {
+                  include: {
+                    localidad: true,
+                  },
+                },
+              },
+            },
+            detalles: {
+              include: {
+                producto: true,
+                variante: {
+                  include: {
+                    opciones: {
+                      include: {
+                        caracteristica: true,
+                        opcion: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!paquete) {
+      throw new CustomError('Paquete no encontrado', 404);
+    }
+
+    // Filtrar pedidos aprobados (todos los que no son Pendientes (1) ni Reembolsados (3))
+    const pedidosAprobados = (paquete.pedidos || []).filter(
+      (ped) => ped.estadoId !== 1 && ped.estadoId !== 3
+    );
+
+    const dataRows: any[][] = [];
+    let totalRecaudado = 0;
+
+    pedidosAprobados.forEach((ped: any) => {
+      const idPed = ped.id_pedido ?? 'N/A';
+      const nombre = ped.usuario?.nombre || 'N/A';
+      const email = ped.usuario?.email || 'N/A';
+      const total = ped.monto_total ?? 0;
+      totalRecaudado += total;
+
+      // Map labels like in the frontend to make them consistent
+      let estadoLabel = 'Desconocido';
+      switch (ped.estadoId) {
+        case 1: estadoLabel = 'Pendiente'; break;
+        case 2: estadoLabel = 'Pagado'; break;
+        case 3: estadoLabel = 'Reembolsado'; break;
+        case 4: estadoLabel = 'En preparación'; break;
+        case 5: estadoLabel = 'En camino'; break;
+        case 6: estadoLabel = 'Recibido'; break;
+      }
+
+      const dir = ped.usuario?.direccion;
+      const direccion = dir
+        ? `${dir.calle} ${dir.numero}${dir.piso ? ', Piso ' + dir.piso : ''}${
+            dir.departamento ? ', Depto ' + dir.departamento : ''
+          }${dir.localidad?.nombre ? ', ' + dir.localidad.nombre : ''}`
+        : 'N/A';
+
+      const detalle = (ped.detalles || [])
+        .map((pp: any) => {
+          let varianteStr = '';
+          if (pp.variante) {
+            if (pp.variante.opciones && pp.variante.opciones.length > 0) {
+              varianteStr = pp.variante.opciones
+                .map((o: any) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
+                .join(', ');
+            } else if (pp.variante.sku) {
+              varianteStr = pp.variante.sku;
+            }
+          }
+          return `${pp.cantidad}x ${pp.producto?.nombre || 'N/A'}${
+            varianteStr ? ' (' + varianteStr + ')' : ''
+          }`;
+        })
+        .join(' | ');
+
+      dataRows.push([idPed, nombre, direccion, detalle, email, total, estadoLabel]);
+    });
+
+    const now = new Date().toLocaleString('es-AR');
+    const rows = [
+      ['# REPORTES MERCADO SINERGICO #'],
+      ['Tipo', 'HOJA DE RUTA / LOGISTICA'],
+      ['Paquete', `${paquete.paqueteBase?.nombre || 'N/A'} (ID: ${paquete.id_paquete_publicado})`],
+      ['Zona', paquete.zona?.nombre || 'N/A'],
+      ['Fecha Generacion', now],
+      ['Pedidos Pagados', pedidosAprobados.length],
+      [],
+      [
+        'ID Pedido',
+        'Comprador',
+        'Dirección de Entrega',
+        'Detalle Productos',
+        'Email',
+        'Total Pedido',
+        'Estado',
+      ],
+      ...dataRows,
+      [],
+      ['', '', '', '', '', 'TOTAL PAGADO RECAUDADO', totalRecaudado],
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+
+    worksheet['!cols'] = [
+      { wch: 10 }, // ID Pedido
+      { wch: 20 }, // Comprador
+      { wch: 35 }, // Dirección de Entrega
+      { wch: 45 }, // Detalle Productos
+      { wch: 25 }, // Email
+      { wch: 15 }, // Total Pedido
+      { wch: 15 }, // Estado
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Logistica');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    return buffer as Buffer;
   }
 }

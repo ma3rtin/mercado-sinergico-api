@@ -52,6 +52,7 @@ export class ProductoController {
         typeof body.opcionesDisponibles === 'string'
           ? (JSON.parse(body.opcionesDisponibles) as Record<string, number[]>)
           : body.opcionesDisponibles,
+      sku: body.sku,
     };
 
     if (campos?.icono?.[0]) {

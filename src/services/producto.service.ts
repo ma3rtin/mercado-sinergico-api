@@ -77,6 +77,7 @@ export class ProductoService {
       plantillaId,
       tipo,
       opcionesDisponibles,
+      sku,
       ...rest
     } = producto;
 
@@ -129,19 +130,34 @@ export class ProductoService {
       },
     });
 
-    if (plantillaId && opcionesDisponibles) {
-      await this.generarVariantesAutomaticas(
-        nuevoProducto.id_producto,
-        opcionesDisponibles,
-        tipo
-      );
+    if (plantillaId) {
+      if (opcionesDisponibles) {
+        await this.generarVariantesAutomaticas(
+          nuevoProducto.id_producto,
+          opcionesDisponibles,
+          tipo,
+          sku
+        );
+      }
+    } else {
+      const baseSku = sku?.trim() || nuevoProducto.nombre.substring(0, 10).toUpperCase().replace(/[^A-Z0-9]/ig, '');
+      const uniqueSku = await this.generateUniqueSku(baseSku || 'PROD');
+      await this.prisma.productoVariante.create({
+        data: {
+          productoId: nuevoProducto.id_producto,
+          sku: uniqueSku,
+          stockFisico: nuevoProducto.stock,
+          precioExtra: 0,
+          activo: true,
+        },
+      });
     }
 
     return nuevoProducto;
   }
 
   public async update(id: number, producto: ProductoDTO) {
-    const { categoria_id, marca_id, imagenes, plantillaId, tipo, ...rest } =
+    const { categoria_id, marca_id, imagenes, plantillaId, tipo, sku, ...rest } =
       producto;
 
     if (plantillaId && rest.stock !== undefined && rest.stock !== null) {
@@ -170,7 +186,7 @@ export class ProductoService {
       };
     }
 
-    return this.prisma.producto.update({
+    const updatedProduct = await this.prisma.producto.update({
       where: { id_producto: id },
       data,
       include: {
@@ -187,6 +203,46 @@ export class ProductoService {
         },
       },
     });
+
+    // Sincronizar SKU y stock en variante por defecto si es producto simple
+    if (!plantillaId) {
+      const existingVariant = await this.prisma.productoVariante.findFirst({
+        where: { productoId: id }
+      });
+
+      let finalSku = sku?.trim();
+      if (!finalSku) {
+        if (existingVariant?.sku) {
+          finalSku = existingVariant.sku;
+        } else {
+          finalSku = await this.generateUniqueSku(updatedProduct.nombre.substring(0, 10).toUpperCase().replace(/[^A-Z0-9]/ig, '') || 'PROD');
+        }
+      } else if (!existingVariant || existingVariant.sku !== finalSku) {
+        finalSku = await this.generateUniqueSku(finalSku);
+      }
+
+      if (existingVariant) {
+        await this.prisma.productoVariante.update({
+          where: { id: existingVariant.id },
+          data: {
+            sku: finalSku,
+            stockFisico: rest.stock !== undefined ? rest.stock : undefined
+          }
+        });
+      } else {
+        await this.prisma.productoVariante.create({
+          data: {
+            productoId: id,
+            sku: finalSku,
+            stockFisico: rest.stock || null,
+            precioExtra: 0,
+            activo: true
+          }
+        });
+      }
+    }
+
+    return updatedProduct;
   }
 
   public async delete(id: number) {
@@ -294,7 +350,8 @@ export class ProductoService {
   private async generarVariantesAutomaticas(
     productoId: number,
     opcionesDisponibles: Record<string, number[]>,
-    tipo?: TipoPaquete
+    tipo?: TipoPaquete,
+    productSku?: string
   ) {
     const producto = await this.prisma.producto.findUnique({
       where: { id_producto: productoId },
@@ -338,11 +395,15 @@ export class ProductoService {
         )
       );
 
-      const sku = `${producto.nombre
-        .substring(0, 10)
-        .toUpperCase()}-${opcionesNombres
+      const basePrefix = productSku?.trim()
+        ? productSku.trim().toUpperCase().replace(/\s+/g, '-')
+        : producto.nombre.substring(0, 10).toUpperCase().replace(/\s+/g, '-');
+
+      const baseSku = `${basePrefix}-${opcionesNombres
           .map((o) => o?.nombre.substring(0, 4).toUpperCase())
           .join('-')}`;
+
+      const sku = await this.generateUniqueSku(baseSku);
 
       let stockInicial: number | null;
       if (tipo === TipoPaquete.ENERGICO) {
@@ -399,5 +460,21 @@ export class ProductoService {
 
     generarRecursivo(0, {});
     return resultado;
+  }
+
+  private async generateUniqueSku(base: string): Promise<string> {
+    const formattedBase = base.toUpperCase().replace(/[^A-Z0-9-]/g, '').substring(0, 30);
+    let sku = formattedBase;
+    let counter = 1;
+    while (true) {
+      const exists = await this.prisma.productoVariante.findUnique({
+        where: { sku }
+      });
+      if (!exists) {
+        return sku;
+      }
+      sku = `${formattedBase}-${counter}`;
+      counter++;
+    }
   }
 }

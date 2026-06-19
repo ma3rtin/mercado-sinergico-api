@@ -14,6 +14,10 @@ jest.mock("../../src/prisma/client", () => {
   const mockPaqueteBaseProductoDeleteMany = jest.fn();
   const mockProductoImagenDeleteMany = jest.fn();
   const mockProductoVarianteDeleteMany = jest.fn();
+  const mockProductoVarianteFindUnique = jest.fn();
+  const mockProductoVarianteFindFirst = jest.fn();
+  const mockProductoVarianteCreate = jest.fn();
+  const mockProductoVarianteUpdate = jest.fn();
 
   return {
     prisma: {
@@ -31,7 +35,13 @@ jest.mock("../../src/prisma/client", () => {
           plantilla: { findUnique: mockPlantillaFindUnique },
           paqueteBaseProducto: { deleteMany: mockPaqueteBaseProductoDeleteMany },
           productoImagen: { deleteMany: mockProductoImagenDeleteMany },
-          productoVariante: { deleteMany: mockProductoVarianteDeleteMany },
+          productoVariante: {
+            deleteMany: mockProductoVarianteDeleteMany,
+            findUnique: mockProductoVarianteFindUnique,
+            findFirst: mockProductoVarianteFindFirst,
+            create: mockProductoVarianteCreate,
+            update: mockProductoVarianteUpdate,
+          },
         };
         return callback(tx);
       }),
@@ -47,7 +57,13 @@ jest.mock("../../src/prisma/client", () => {
       plantilla: { findUnique: mockPlantillaFindUnique },
       paqueteBaseProducto: { deleteMany: mockPaqueteBaseProductoDeleteMany },
       productoImagen: { deleteMany: mockProductoImagenDeleteMany },
-      productoVariante: { deleteMany: mockProductoVarianteDeleteMany },
+      productoVariante: {
+        deleteMany: mockProductoVarianteDeleteMany,
+        findUnique: mockProductoVarianteFindUnique,
+        findFirst: mockProductoVarianteFindFirst,
+        create: mockProductoVarianteCreate,
+        update: mockProductoVarianteUpdate,
+      },
     },
     __mocks: {
       mockTransaction,
@@ -62,6 +78,10 @@ jest.mock("../../src/prisma/client", () => {
       mockPaqueteBaseProductoDeleteMany,
       mockProductoImagenDeleteMany,
       mockProductoVarianteDeleteMany,
+      mockProductoVarianteFindUnique,
+      mockProductoVarianteFindFirst,
+      mockProductoVarianteCreate,
+      mockProductoVarianteUpdate,
     },
   };
 });
@@ -84,6 +104,10 @@ describe("ProductoService", () => {
       mockPlantillaFindUnique,
       mockPaqueteBaseProductoDeleteMany,
       mockProductoImagenDeleteMany,
+      mockProductoVarianteFindUnique,
+      mockProductoVarianteFindFirst,
+      mockProductoVarianteCreate,
+      mockProductoVarianteUpdate,
     } = require("../../src/prisma/client").__mocks;
 
     // mocks por defecto
@@ -96,6 +120,10 @@ describe("ProductoService", () => {
     mockProductoDelete.mockResolvedValue({});
     mockPaqueteBaseProductoDeleteMany.mockResolvedValue({ count: 0 });
     mockProductoImagenDeleteMany.mockResolvedValue({ count: 0 });
+    mockProductoVarianteFindUnique.mockResolvedValue(null);
+    mockProductoVarianteFindFirst.mockResolvedValue(null);
+    mockProductoVarianteCreate.mockResolvedValue({});
+    mockProductoVarianteUpdate.mockResolvedValue({});
     mockPlantillaFindUnique.mockResolvedValue(null);
   });
 

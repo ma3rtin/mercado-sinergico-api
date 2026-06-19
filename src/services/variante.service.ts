@@ -72,7 +72,7 @@ export class VarianteService {
   }
 
   public async generarVariantes(data: GenerarVariantesDTO) {
-    const { productoId, opcionesDisponibles } = data;
+    const { productoId, opcionesDisponibles, sku: customSku } = data;
 
     const producto = await this.prisma.producto.findUnique({
       where: { id_producto: productoId },
@@ -134,27 +134,51 @@ export class VarianteService {
     });
     const opcionesMap = new Map(opciones.map((o) => [o.id, o]));
 
-    const promesasVariantes = combinaciones.map((combinacion) => {
+    const variantesData: { combinacion: Record<string, number>; sku: string }[] = [];
+    for (const combinacion of combinaciones) {
       const opcionesNombres = Object.values(combinacion).map(
         (opcionId) => opcionesMap.get(opcionId)?.nombre || ''
       );
 
-      const sku = `${producto.nombre
-        .substring(0, 10)
-        .toUpperCase()
-        .replace(/\s+/g, '-')}-${opcionesNombres
+      const basePrefix = customSku?.trim()
+        ? customSku.trim().toUpperCase().replace(/\s+/g, '-')
+        : producto.nombre.substring(0, 10).toUpperCase().replace(/\s+/g, '-');
+
+      const baseSku = `${basePrefix}-${opcionesNombres
           .map((nombre) => nombre.substring(0, 4).toUpperCase().replace(/\s+/g, ''))
           .join('-')}`;
 
+      let sku = baseSku.toUpperCase().replace(/[^A-Z0-9-]/g, '').substring(0, 30);
+      const formattedBase = sku;
+      let counter = 1;
+      while (true) {
+        const existsDb = await this.prisma.productoVariante.findUnique({
+          where: { sku }
+        });
+        const existsLocal = variantesData.some(v => v.sku === sku);
+        if (!existsDb && !existsLocal) {
+          break;
+        }
+        sku = `${formattedBase}-${counter}`;
+        counter++;
+      }
+
+      variantesData.push({
+        combinacion,
+        sku,
+      });
+    }
+
+    const promesasVariantes = variantesData.map((v) => {
       return this.prisma.productoVariante.create({
         data: {
           productoId,
-          sku,
+          sku: v.sku,
           stockFisico: stockInicial,
           precioExtra: 0,
           activo: true,
           opciones: {
-            create: Object.entries(combinacion).map(([caracId, opcionId]) => ({
+            create: Object.entries(v.combinacion).map(([caracId, opcionId]) => ({
               caracteristicaId: parseInt(caracId),
               opcionId: opcionId as number,
             })),

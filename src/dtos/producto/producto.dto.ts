@@ -90,4 +90,8 @@ plantillaId?: number | null;
 
   @IsOptional()
   opcionesDisponibles?: Record<string, number[]>;
+
+  @IsString({ message: 'El SKU debe ser una cadena de texto' })
+  @IsOptional()
+  sku?: string;
 }
