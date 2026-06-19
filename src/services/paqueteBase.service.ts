@@ -1,4 +1,3 @@
-import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaquete.dto.js';
 import { PaqueteBaseDTO, TipoPaquete } from '../dtos/paquete/paqueteBase.dto.js';
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
@@ -170,45 +169,63 @@ export class PaqueteBaseService {
     }
   }
 
-  public async agregarProductos(data: AgregarProductoPaqueteDTO) {
-    const paqueteEncontrado = await this.prisma.paqueteBase.findUnique({
-      where: { id_paquete_base: data.paqueteBaseId },
+  /**
+   * Reemplaza la lista completa de productos de un paquete base.
+   * Elimina todas las asociaciones existentes y crea las nuevas en una sola transacción.
+   * Permite productosId vacío para dejar el paquete sin productos.
+   */
+  public async sincronizarProductos(paqueteBaseId: number, productosId: number[]) {
+    if (productosId.some((id) => !Number.isInteger(id) || id <= 0)) {
+      throw new CustomError('Los productosId deben ser enteros positivos', 400);
+    }
+
+    if (new Set(productosId).size !== productosId.length) {
+      throw new CustomError('La lista de productos no puede contener duplicados', 400);
+    }
+
+    const paquete = await this.prisma.paqueteBase.findUnique({
+      where: { id_paquete_base: paqueteBaseId },
     });
 
-    if (!paqueteEncontrado) {
+    if (!paquete) {
       throw new CustomError('Paquete no encontrado', 404);
     }
 
-    if (paqueteEncontrado.tipo === 'ENERGICO') {
-      const productosIncompatibles = await this.prisma.producto.findMany({
+    if (paquete.tipo === 'ENERGICO' && productosId.length > 0) {
+      const incompatibles = await this.prisma.producto.findMany({
         where: {
-          id_producto: { in: data.productosId },
-          OR: [
-            { tipo: { not: 'ENERGICO' } },
-            { tipo: null }
-          ]
+          id_producto: { in: productosId },
+          OR: [{ tipo: { not: 'ENERGICO' } }, { tipo: null }],
         },
-        select: { nombre: true }
+        select: { nombre: true },
       });
 
-      if (productosIncompatibles.length > 0) {
-        const nombres = productosIncompatibles.map(p => p.nombre).join(', ');
+      if (incompatibles.length > 0) {
+        const nombres = incompatibles.map(p => p.nombre).join(', ');
         throw new CustomError(
-          `Un paquete de tipo ENÉRGICO solo puede contener productos de tipo ENÉRGICO. Los siguientes productos no son válidos: ${nombres}`,
+          `Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS. Incompatibles: ${nombres}`,
           400
         );
       }
     }
 
-    await this.prisma.paqueteBaseProducto.createMany({
-      data: data.productosId.map((id) => ({
-        paqueteBaseId: data.paqueteBaseId,
-        productoId: id,
-      })),
+    await this.prisma.$transaction(async (tx) => {
+      await tx.paqueteBaseProducto.deleteMany({
+        where: { paqueteBaseId },
+      });
+
+      if (productosId.length > 0) {
+        await tx.paqueteBaseProducto.createMany({
+          data: productosId.map((productoId) => ({
+            paqueteBaseId,
+            productoId,
+          })),
+        });
+      }
     });
 
-    const paquete = await this.prisma.paqueteBase.findUnique({
-      where: { id_paquete_base: data.paqueteBaseId },
+    const paqueteActualizado = await this.prisma.paqueteBase.findUnique({
+      where: { id_paquete_base: paqueteBaseId },
       include: {
         productos: {
           include: { producto: true },
@@ -216,11 +233,11 @@ export class PaqueteBaseService {
       },
     });
 
-    if (!paquete) {
-      throw new CustomError('Paquete no encontrado', 404);
+    if (!paqueteActualizado) {
+      throw new CustomError('Paquete no encontrado tras sincronizar', 404);
     }
 
-    return paquete;
+    return paqueteActualizado;
   }
 
   public async getProductosByPaquete(id: number) {
