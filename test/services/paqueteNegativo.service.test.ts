@@ -1,3 +1,9 @@
+jest.mock("../../src/services/email.service", () => ({
+  EmailService: jest.fn().mockImplementation(() => ({
+    enviarEmail: jest.fn().mockResolvedValue(true),
+  })),
+}));
+
 import { PedidoPagoService } from "../../src/services/pedidoPago.service";
 import { PaquetePublicadoService } from "../../src/services/paquetePublicado.service";
 import { PedidoService } from "../../src/services/pedido.service";
