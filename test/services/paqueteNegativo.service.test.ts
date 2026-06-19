@@ -4,6 +4,14 @@ jest.mock("../../src/services/email.service", () => ({
   })),
 }));
 
+jest.mock("../../src/payments/mercadopago/mercadopago.service", () => ({
+  MercadoPagoService: jest.fn().mockImplementation(() => ({
+    crearPreferencia: jest.fn(),
+    obtenerPago: jest.fn(),
+    reembolsarPago: jest.fn(),
+  })),
+}));
+
 import { PedidoPagoService } from "../../src/services/pedidoPago.service";
 import { PaquetePublicadoService } from "../../src/services/paquetePublicado.service";
 import { PedidoService } from "../../src/services/pedido.service";
