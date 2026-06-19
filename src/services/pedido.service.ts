@@ -39,12 +39,17 @@ export class PedidoService {
       recaudacion += Number(ped.monto_total || 0);
     });
 
+    const pedidosIncluidos = Array.isArray(paquete.pedidos);
+
     return {
       ...pedido,
       paquetePublicado: {
         ...paquete,
         cant_usuarios_registrados: usuariosIds.size > 0 ? usuariosIds.size : paquete.cant_usuarios_registrados,
-        cant_productos_reservados: reservados > 0 ? reservados : paquete.cant_productos_reservados,
+        cant_productos_reservados: Math.max(
+          0,
+          pedidosIncluidos ? reservados : (paquete.cant_productos_reservados || 0)
+        ),
         monto_total: recaudacion > 0 ? recaudacion : paquete.monto_total
       }
     };
@@ -562,19 +567,19 @@ export class PedidoService {
   }
 
   public async bajarseDePaquete(usuarioId: number, paqueteId: number) {
+    // Filtramos directamente por estadoId=PENDIENTE para evitar confundir
+    // el pedido actual con pedidos anteriores (reembolsados, etc.) del mismo usuario
+    // en el mismo paquete, que findFirst sin filtro devolvería primero (menor id).
     const pedido = await this.prisma.pedido.findFirst({
       where: {
         usuarioId,
-        paquetePublicadoId: paqueteId
+        paquetePublicadoId: paqueteId,
+        estadoId: ESTADO_PEDIDO.PENDIENTE,
       },
     });
 
     if (!pedido) {
-      throw new CustomError('No hay un pedido activo en este paquete', 404);
-    }
-
-    if (pedido.estadoId !== ESTADO_PEDIDO.PENDIENTE) {
-      throw new CustomError('Solo se puede cancelar un pedido pendiente de pago. Para reembolsar un pedido ya pagado, usá la opción de reembolso.', 400);
+      throw new CustomError('No hay un pedido pendiente en este paquete', 404);
     }
 
     await this.prisma.pedido.delete({
