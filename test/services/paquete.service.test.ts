@@ -10,6 +10,7 @@ jest.mock("../../src/prisma/client", () => {
   const mockPaqueteBaseDelete = jest.fn();
   const mockCategoriaFindUnique = jest.fn();
   const mockPaqueteBaseProductoCreateMany = jest.fn();
+  const mockPaqueteBaseProductoDeleteMany = jest.fn();
 
   return {
     prisma: {
@@ -23,7 +24,10 @@ jest.mock("../../src/prisma/client", () => {
             delete: mockPaqueteBaseDelete,
             findMany: mockPaqueteBaseFindMany,
           },
-          paqueteBaseProducto: { createMany: mockPaqueteBaseProductoCreateMany },
+          paqueteBaseProducto: {
+            createMany: mockPaqueteBaseProductoCreateMany,
+            deleteMany: mockPaqueteBaseProductoDeleteMany,
+          },
         };
         return await callback(tx);
       }),
@@ -35,7 +39,10 @@ jest.mock("../../src/prisma/client", () => {
         delete: mockPaqueteBaseDelete,
       },
       categoria: { findUnique: mockCategoriaFindUnique },
-      paqueteBaseProducto: { createMany: mockPaqueteBaseProductoCreateMany },
+      paqueteBaseProducto: {
+        createMany: mockPaqueteBaseProductoCreateMany,
+        deleteMany: mockPaqueteBaseProductoDeleteMany,
+      },
     },
     __mocks: {
       mockTransaction,
@@ -46,6 +53,7 @@ jest.mock("../../src/prisma/client", () => {
       mockPaqueteBaseDelete,
       mockCategoriaFindUnique,
       mockPaqueteBaseProductoCreateMany,
+      mockPaqueteBaseProductoDeleteMany,
     },
   };
 });
@@ -130,5 +138,83 @@ describe("PaqueteBaseService", () => {
     const result = await service.delete(1);
     expect(result).toHaveProperty("id_paquete_base");
     expect(result.nombre).toBe("Test");
+  });
+
+  describe("sincronizarProductos", () => {
+    let mockDeleteMany: jest.Mock;
+    let mockCreateMany: jest.Mock;
+    let mockTransaction: jest.Mock;
+
+    beforeEach(() => {
+      const m = require("../../src/prisma/client").__mocks;
+      mockDeleteMany = m.mockPaqueteBaseProductoDeleteMany;
+      mockCreateMany = m.mockPaqueteBaseProductoCreateMany;
+      mockTransaction = m.mockTransaction;
+
+      mockDeleteMany.mockResolvedValue({ count: 0 });
+      mockCreateMany.mockResolvedValue({ count: 0 });
+    });
+
+    it("usa transacción para el reemplazo", async () => {
+      await service.sincronizarProductos(1, [10, 20]);
+      expect(mockTransaction).toHaveBeenCalled();
+    });
+
+    it("llama a deleteMany antes de createMany para reemplazar la lista", async () => {
+      const orden: string[] = [];
+      mockDeleteMany.mockImplementation(() => { orden.push("delete"); return Promise.resolve({ count: 0 }); });
+      mockCreateMany.mockImplementation(() => { orden.push("create"); return Promise.resolve({ count: 2 }); });
+
+      await service.sincronizarProductos(1, [10, 20]);
+
+      expect(orden).toEqual(["delete", "create"]);
+    });
+
+    it("pasa los productosId correctos a createMany", async () => {
+      await service.sincronizarProductos(1, [10, 20]);
+
+      expect(mockCreateMany).toHaveBeenCalledWith({
+        data: [
+          { paqueteBaseId: 1, productoId: 10 },
+          { paqueteBaseId: 1, productoId: 20 },
+        ],
+      });
+    });
+
+    it("llama a deleteMany con el paqueteBaseId correcto", async () => {
+      await service.sincronizarProductos(1, [10]);
+
+      expect(mockDeleteMany).toHaveBeenCalledWith({ where: { paqueteBaseId: 1 } });
+    });
+
+    it("acepta productosId vacío y no llama a createMany", async () => {
+      await service.sincronizarProductos(1, []);
+
+      expect(mockDeleteMany).toHaveBeenCalled();
+      expect(mockCreateMany).not.toHaveBeenCalled();
+    });
+
+    it("lanza error 404 si el paquete no existe", async () => {
+      const { mockPaqueteBaseFindUnique } = require("../../src/prisma/client").__mocks;
+      mockPaqueteBaseFindUnique.mockResolvedValueOnce(null);
+
+      await expect(service.sincronizarProductos(999, [1])).rejects.toThrow("Paquete no encontrado");
+    });
+
+    it("rechaza productosId duplicados antes de tocar la base", async () => {
+      await expect(service.sincronizarProductos(1, [10, 10])).rejects.toThrow(
+        "La lista de productos no puede contener duplicados"
+      );
+
+      expect(mockTransaction).not.toHaveBeenCalled();
+    });
+
+    it("rechaza productosId no positivos antes de tocar la base", async () => {
+      await expect(service.sincronizarProductos(1, [0])).rejects.toThrow(
+        "Los productosId deben ser enteros positivos"
+      );
+
+      expect(mockTransaction).not.toHaveBeenCalled();
+    });
   });
 });

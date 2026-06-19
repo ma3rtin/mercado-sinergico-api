@@ -17,7 +17,7 @@ describe("PaqueteController", () => {
       getById: jest.fn().mockResolvedValue({ id_paquete_base: 1, nombre: "Test" }),
       update: jest.fn().mockResolvedValue({ id_paquete_base: 1, nombre: "Test Updated" }),
       delete: jest.fn().mockResolvedValue({ id_paquete_base: 1, nombre: "Test" }),
-      agregarProductos: jest.fn().mockResolvedValue({ id_paquete_base: 1, nombre: "Test" }),
+      sincronizarProductos: jest.fn().mockResolvedValue({ id_paquete_base: 1, nombre: "Test" }),
     } as any;
     
     imagenService = {
