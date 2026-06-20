@@ -7,8 +7,14 @@ import { Prisma } from '@prisma/client';
 export class PaqueteBaseService {
   private prisma = prisma;
 
-  public async getAll() {
+  public async getAll(includeArchived = false) {
+    const where: Prisma.PaqueteBaseWhereInput = {};
+    if (!includeArchived) {
+      where.archivado = false;
+    }
+
     return this.prisma.paqueteBase.findMany({
+      where,
       include: {
         productos: {
           include: { producto: true },
@@ -168,6 +174,19 @@ export class PaqueteBaseService {
     } catch {
       throw new CustomError(`Paquete con id=${id} no encontrado`, 404);
     }
+  }
+
+  public async archivar(id: number, archivado: boolean) {
+    const paquete = await this.prisma.paqueteBase.findUnique({
+      where: { id_paquete_base: id },
+    });
+    if (!paquete) {
+      throw new CustomError('Paquete base no encontrado', 404);
+    }
+    return this.prisma.paqueteBase.update({
+      where: { id_paquete_base: id },
+      data: { archivado },
+    });
   }
 
   public async agregarProductos(data: AgregarProductoPaqueteDTO) {

@@ -198,15 +198,7 @@ export class ProductoService {
   }
 
   public async delete(id: number) {
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.productoVariante.deleteMany({ where: { productoId: id } });
-
-      await tx.paqueteBaseProducto.deleteMany({ where: { productoId: id } });
-
-      await tx.productoImagen.deleteMany({ where: { productoId: id } });
-
-      return tx.producto.delete({ where: { id_producto: id } });
-    });
+    return this.archivar(id, true);
   }
 
   public async archivar(id: number, archivado: boolean) {

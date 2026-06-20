@@ -265,6 +265,7 @@ model PaqueteBase {
 
   productos  PaqueteBaseProducto[]
   publicados PaquetePublicado[]
+  archivado  Boolean             @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -12,8 +12,9 @@ export class PaqueteController {
     private imagenService: ImagenService
   ) { }
 
-  public getAll = asyncHandler(async (_req: Request, res: Response) => {
-    const paquetes = await this.paqueteService.getAll();
+  public getAll = asyncHandler(async (req: Request, res: Response) => {
+    const includeArchived = req.query.includeArchived === 'true';
+    const paquetes = await this.paqueteService.getAll(includeArchived);
     if (!paquetes) throw new CustomError('Paquetes no encontrados', 404);
 
     res.status(200).json(paquetes);
@@ -117,6 +118,20 @@ export class PaqueteController {
     const paquete = await this.paqueteService.delete(Number(id));
 
     res.status(200).json(paquete);
+  });
+
+  public archivar = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const idNum = Number(id);
+    if (!id || isNaN(idNum)) throw new CustomError('Id de paquete no proporcionado o inválido', 400);
+
+    const { archivado } = req.body;
+    if (typeof archivado !== 'boolean') {
+      throw new CustomError('El campo "archivado" debe ser un booleano', 400);
+    }
+
+    const result = await this.paqueteService.archivar(idNum, archivado);
+    res.status(200).json(result);
   });
 
   public agregarProductos = asyncHandler(async (req: Request, res: Response) => {

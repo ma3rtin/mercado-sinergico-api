@@ -2,6 +2,7 @@ import { PaquetePublicadoDTO } from '../dtos/paquete/paquetePublicado.dto.js';
 import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdate.dto.js';
 import { CustomError } from '../errors/custom.error.js';
 import { prisma } from '../prisma/client.js';
+import { Prisma } from '@prisma/client';
 import { EmailService } from './email.service.js';
 import { PedidoPagoService } from './pedidoPago.service.js';
 import { mercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
@@ -201,6 +202,7 @@ export class PaquetePublicadoService {
         zonaId: { in: zonaIds },
         estadoId: ESTADO_PAQUETE.ACTIVO,
         fecha_fin: { gte: ahora },
+        archivado: false,
       },
       include: {
         paqueteBase: {
@@ -221,6 +223,7 @@ export class PaquetePublicadoService {
       where: {
         paqueteBase: { productos: { some: { productoId: productId } } },
         estadoId: ESTADO_PAQUETE.ACTIVO,
+        archivado: false,
       },
       include: {
         paqueteBase: { include: { marca: true, categoria: true } },
@@ -239,6 +242,7 @@ export class PaquetePublicadoService {
       where: {
         estadoId: ESTADO_PAQUETE.ACTIVO,
         fecha_fin: { lte: dentroDe30Dias },
+        archivado: false,
       },
       include: {
         paqueteBase: { include: { marca: true, categoria: true } },
@@ -269,6 +273,7 @@ export class PaquetePublicadoService {
       where: {
         id_paquete_publicado: { not: id },
         estadoId: ESTADO_PAQUETE.ACTIVO,
+        archivado: false,
       },
       include: {
         paqueteBase: { include: { marca: true, categoria: true } },
