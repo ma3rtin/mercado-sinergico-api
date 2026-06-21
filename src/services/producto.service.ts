@@ -340,8 +340,9 @@ export class ProductoService {
 
       const sku = `${producto.nombre
         .substring(0, 10)
-        .toUpperCase()}-${opcionesNombres
-          .map((o) => o?.nombre.substring(0, 4).toUpperCase())
+        .toUpperCase()
+        .replace(/\s+/g, '-')}-${productoId}-${opcionesNombres
+          .map((o) => o?.nombre.substring(0, 4).toUpperCase().replace(/\s+/g, ''))
           .join('-')}`;
 
       let stockInicial: number | null;

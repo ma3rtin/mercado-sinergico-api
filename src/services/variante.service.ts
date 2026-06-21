@@ -142,7 +142,7 @@ export class VarianteService {
       const sku = `${producto.nombre
         .substring(0, 10)
         .toUpperCase()
-        .replace(/\s+/g, '-')}-${opcionesNombres
+        .replace(/\s+/g, '-')}-${productoId}-${opcionesNombres
           .map((nombre) => nombre.substring(0, 4).toUpperCase().replace(/\s+/g, ''))
           .join('-')}`;
 

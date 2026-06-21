@@ -37,8 +37,10 @@ export class PlantillaService {
             });
 
             // 3. Armo sets de ids
-            const idsActuales = actuales.map(c => c.id);
-            const idsNuevos = dto.caracteristicas.map(c => c.id).filter(Boolean);
+            const idsActuales = actuales.map(c => Number(c.id));
+            const idsNuevos = dto.caracteristicas
+                .map(c => (c.id !== undefined && c.id !== null) ? Number(c.id) : null)
+                .filter((id): id is number => id !== null);
 
             // 3.a Eliminar características
             const idsEliminar = idsActuales.filter(idC => !idsNuevos.includes(idC));
@@ -49,15 +51,18 @@ export class PlantillaService {
             // 3.b Crear o actualizar características y sus opciones
             for (const c of dto.caracteristicas) {
                 if (c.id) {
+                    const cIdParsed = Number(c.id);
                     // actualizar característica
                     await tx.caracteristica.update({
-                        where: { id: c.id },
+                        where: { id: cIdParsed },
                         data: { nombre: c.nombre },
                     });
 
-                    const actualesOpc = actuales.find(a => a.id === c.id)?.opciones ?? [];
-                    const idsOpcActuales = actualesOpc.map(o => o.id);
-                    const idsOpcNuevas = c.opciones.map(o => o.id).filter(Boolean);
+                    const actualesOpc = actuales.find(a => Number(a.id) === cIdParsed)?.opciones ?? [];
+                    const idsOpcActuales = actualesOpc.map(o => Number(o.id));
+                    const idsOpcNuevas = c.opciones
+                        .map(o => (o.id !== undefined && o.id !== null) ? Number(o.id) : null)
+                        .filter((id): id is number => id !== null);
 
                     // eliminar opciones
                     const idsOpcEliminar = idsOpcActuales.filter(idO => !idsOpcNuevas.includes(idO));
@@ -69,12 +74,12 @@ export class PlantillaService {
                     for (const o of c.opciones) {
                         if (o.id) {
                             await tx.opcion.update({
-                                where: { id: o.id },
+                                where: { id: Number(o.id) },
                                 data: { nombre: o.nombre },
                             });
                         } else {
                             await tx.opcion.create({
-                                data: { nombre: o.nombre, caracteristicaId: c.id },
+                                data: { nombre: o.nombre, caracteristicaId: cIdParsed },
                             });
                         }
                     }
