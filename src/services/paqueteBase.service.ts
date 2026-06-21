@@ -50,6 +50,24 @@ export class PaqueteBaseService {
         throw new CustomError('La categoría no existe', 400);
       }
 
+      if (data.productos?.length) {
+        const productosArchivados = await tx.producto.findMany({
+          where: {
+            id_producto: { in: data.productos },
+            archivado: true,
+          },
+          select: { nombre: true },
+        });
+
+        if (productosArchivados.length > 0) {
+          const nombres = productosArchivados.map((p) => p.nombre).join(', ');
+          throw new CustomError(
+            `No se pueden agregar productos archivados a un paquete base: ${nombres}`,
+            400
+          );
+        }
+      }
+
       // Validar tipo de paquete base y composición de productos
       if (data.tipo === 'ENERGICO' && data.productos?.length) {
         const productosIncompatibles = await tx.producto.findMany({
@@ -167,13 +185,7 @@ export class PaqueteBaseService {
   }
 
   public async delete(id: number) {
-    try {
-      return await this.prisma.paqueteBase.delete({
-        where: { id_paquete_base: id },
-      });
-    } catch {
-      throw new CustomError(`Paquete con id=${id} no encontrado`, 404);
-    }
+    return this.archivar(id, true);
   }
 
   public async archivar(id: number, archivado: boolean) {
@@ -196,6 +208,24 @@ export class PaqueteBaseService {
 
     if (!paqueteEncontrado) {
       throw new CustomError('Paquete no encontrado', 404);
+    }
+
+    if (data.productosId?.length) {
+      const productosArchivados = await this.prisma.producto.findMany({
+        where: {
+          id_producto: { in: data.productosId },
+          archivado: true,
+        },
+        select: { nombre: true },
+      });
+
+      if (productosArchivados.length > 0) {
+        const nombres = productosArchivados.map((p) => p.nombre).join(', ');
+        throw new CustomError(
+          `No se pueden agregar productos archivados a un paquete base: ${nombres}`,
+          400
+        );
+      }
     }
 
     if (paqueteEncontrado.tipo === 'ENERGICO') {

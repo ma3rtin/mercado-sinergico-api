@@ -1,7 +1,7 @@
-import { ProductoService } from "../../src/services/producto.service";
-import { ProductoDTO } from "../../src/dtos/producto/producto.dto";
+import { ProductoService } from "../../../src/services/producto.service";
+import { ProductoDTO } from "../../../src/dtos/producto/producto.dto";
 
-jest.mock("../../src/prisma/client", () => {
+jest.mock("../../../src/prisma/client", () => {
   const mockTransaction = jest.fn();
   const mockProductoFindMany = jest.fn();
   const mockProductoFindUnique = jest.fn();
@@ -84,7 +84,7 @@ describe("ProductoService", () => {
       mockPlantillaFindUnique,
       mockPaqueteBaseProductoDeleteMany,
       mockProductoImagenDeleteMany,
-    } = require("../../src/prisma/client").__mocks;
+    } = require("../../../src/prisma/client").__mocks;
 
     // mocks por defecto
     mockCategoriaFindUnique.mockResolvedValue({ id_categoria: 1, nombre: "Categoria Test" });
@@ -104,6 +104,30 @@ describe("ProductoService", () => {
       const resultado = await service.getAll();
       expect(resultado).toEqual([]);
     });
+
+    it("debería filtrar por archivado = false por defecto", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll();
+      expect(mockProductoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            archivado: false,
+          }),
+        })
+      );
+    });
+
+    it("debería no filtrar por archivado cuando includeArchived es true", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, 0, 10, true);
+      expect(mockProductoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({
+            archivado: false,
+          }),
+        })
+      );
+    });
   });
 
   describe("create", () => {
@@ -120,7 +144,7 @@ describe("ProductoService", () => {
         categoria_id: 1,
       };
 
-      const { mockProductoCreate } = require("../../src/prisma/client").__mocks;
+      const { mockProductoCreate } = require("../../../src/prisma/client").__mocks;
       mockProductoCreate.mockResolvedValue({ id_producto: 1, ...dto });
 
       const result = await service.create(dto);
@@ -132,7 +156,7 @@ describe("ProductoService", () => {
   describe("update", () => {
     it("debería actualizar un producto", async () => {
       const dto: ProductoDTO = { nombre: "Updated", descripcion: "Desc", precio: 100, marca_id: 1, peso: 1, altura: 1, ancho: 1, profundidad: 1, categoria_id: 1 };
-      const { mockProductoUpdate } = require("../../src/prisma/client").__mocks;
+      const { mockProductoUpdate } = require("../../../src/prisma/client").__mocks;
       mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dto });
 
       const result = await service.update(1, dto);
@@ -141,21 +165,51 @@ describe("ProductoService", () => {
   });
 
   describe("delete", () => {
-    it("debería eliminar un producto", async () => {
+    it("debería archivar el producto al intentar eliminarlo", async () => {
       const { 
-        mockProductoDelete, 
-        mockProductoVarianteDeleteMany,
-        mockPaqueteBaseProductoDeleteMany,
-        mockProductoImagenDeleteMany
-      } = require("../../src/prisma/client").__mocks;
+        mockProductoFindUnique,
+        mockProductoUpdate,
+      } = require("../../../src/prisma/client").__mocks;
       
-      mockProductoVarianteDeleteMany.mockResolvedValue({ count: 0 });
-      mockPaqueteBaseProductoDeleteMany.mockResolvedValue({ count: 0 });
-      mockProductoImagenDeleteMany.mockResolvedValue({ count: 0 });
-      mockProductoDelete.mockResolvedValue({ id_producto: 1, nombre: "Deleted" });
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, nombre: "Test Product", archivado: false });
+      mockProductoUpdate.mockResolvedValue({ id_producto: 1, nombre: "Test Product", archivado: true });
 
       const result = await service.delete(1);
-      expect(result.nombre).toBe("Deleted");
+      expect(result.archivado).toBe(true);
+      expect(mockProductoUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id_producto: 1 },
+          data: { archivado: true },
+        })
+      );
+    });
+  });
+
+  describe("archivar", () => {
+    it("debería actualizar archivado a true", async () => {
+      const { 
+        mockProductoFindUnique,
+        mockProductoUpdate,
+      } = require("../../../src/prisma/client").__mocks;
+      
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, nombre: "Test Product", archivado: false });
+      mockProductoUpdate.mockResolvedValue({ id_producto: 1, nombre: "Test Product", archivado: true });
+
+      const result = await service.archivar(1, true);
+      expect(result.archivado).toBe(true);
+      expect(mockProductoUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id_producto: 1 },
+          data: { archivado: true },
+        })
+      );
+    });
+
+    it("debería lanzar error si el producto no existe", async () => {
+      const { mockProductoFindUnique } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindUnique.mockResolvedValue(null);
+
+      await expect(service.archivar(99, true)).rejects.toThrow("Producto no encontrado");
     });
   });
 });

@@ -1,8 +1,8 @@
-import { PedidoPagoService } from "../../src/services/pedidoPago.service";
-import { ESTADO_PAQUETE } from "../../src/constants/estado-paquete";
-import { ESTADO_PEDIDO } from "../../src/constants/estado-pedido";
+import { PedidoPagoService } from "../../../src/services/pedidoPago.service";
+import { ESTADO_PAQUETE } from "../../../src/constants/estado-paquete";
+import { ESTADO_PEDIDO } from "../../../src/constants/estado-pedido";
 
-jest.mock("../../src/prisma/client", () => {
+jest.mock("../../../src/prisma/client", () => {
   const mockTransaction = jest.fn();
   const mockPedidoFindUnique = jest.fn();
 
@@ -18,7 +18,7 @@ jest.mock("../../src/prisma/client", () => {
   };
 });
 
-jest.mock("../../src/events/despachadorEventos", () => ({
+jest.mock("../../../src/events/despachadorEventos", () => ({
   despachadorEventosApp: { emit: jest.fn() },
   DespachadorEventos: { PAQUETE_COMPLETO: "PAQUETE_COMPLETO" },
 }));
@@ -33,7 +33,7 @@ describe("PedidoPagoService", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mocks = require("../../src/prisma/client").__mocks;
+    mocks = require("../../../src/prisma/client").__mocks;
     mercadoPagoService = {
       crearPreferencia: jest.fn(),
       obtenerPago: jest.fn(),
