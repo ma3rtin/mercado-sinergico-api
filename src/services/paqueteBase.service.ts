@@ -44,6 +44,23 @@ export class PaqueteBaseService {
         throw new CustomError('La categoría no existe', 400);
       }
 
+      // Validar existencia de productos
+      if (data.productos?.length) {
+        const productosExistentes = await tx.producto.findMany({
+          where: {
+            id_producto: { in: data.productos },
+          },
+          select: { id_producto: true },
+        });
+
+        if (productosExistentes.length !== data.productos.length) {
+          throw new CustomError(
+            'Uno o más productos seleccionados no existen.',
+            400
+          );
+        }
+      }
+
       // Validar tipo de paquete base y composición de productos
       if (data.tipo === 'ENERGICO' && data.productos?.length) {
         const productosIncompatibles = await tx.producto.findMany({
@@ -61,6 +78,24 @@ export class PaqueteBaseService {
           const nombres = productosIncompatibles.map(p => p.nombre).join(', ');
           throw new CustomError(
             `Un paquete de tipo ENÉRGICO solo puede contener productos de tipo ENÉRGICO. Los siguientes productos no son válidos: ${nombres}`,
+            400
+          );
+        }
+      }
+
+      if (data.tipo === 'SINERGICO' && data.productos?.length) {
+        const productosIncompatibles = await tx.producto.findMany({
+          where: {
+            id_producto: { in: data.productos },
+            tipo: 'ENERGICO',
+          },
+          select: { nombre: true }
+        });
+
+        if (productosIncompatibles.length > 0) {
+          const nombres = productosIncompatibles.map(p => p.nombre).join(', ');
+          throw new CustomError(
+            `Un paquete de tipo SINÉRGICO solo puede contener productos de tipo SINÉRGICO. Los siguientes productos no son válidos: ${nombres}`,
             400
           );
         }
@@ -137,6 +172,32 @@ export class PaqueteBaseService {
       }
     }
 
+    if (data.tipo === 'SINERGICO') {
+      const productosVinculados = await this.prisma.paqueteBaseProducto.findMany({
+        where: { paqueteBaseId: id },
+        select: { productoId: true }
+      });
+      const idsProductos = productosVinculados.map(pv => pv.productoId);
+
+      if (idsProductos.length > 0) {
+        const productosIncompatibles = await this.prisma.producto.findMany({
+          where: {
+            id_producto: { in: idsProductos },
+            tipo: 'ENERGICO',
+          },
+          select: { nombre: true }
+        });
+
+        if (productosIncompatibles.length > 0) {
+          const nombres = productosIncompatibles.map(p => p.nombre).join(', ');
+          throw new CustomError(
+            `No se puede cambiar el tipo a SINÉRGICO: el paquete contiene productos incompatibles de tipo ENÉRGICO: ${nombres}`,
+            400
+          );
+        }
+      }
+    }
+
     try {
       return await this.prisma.paqueteBase.update({
         where: { id_paquete_base: id },
@@ -179,6 +240,23 @@ export class PaqueteBaseService {
       throw new CustomError('Paquete no encontrado', 404);
     }
 
+    // Validar existencia de productos
+    if (data.productosId?.length) {
+      const productosExistentes = await this.prisma.producto.findMany({
+        where: {
+          id_producto: { in: data.productosId },
+        },
+        select: { id_producto: true },
+      });
+
+      if (productosExistentes.length !== data.productosId.length) {
+        throw new CustomError(
+          'Uno o más productos seleccionados no existen.',
+          400
+        );
+      }
+    }
+
     if (paqueteEncontrado.tipo === 'ENERGICO') {
       const productosIncompatibles = await this.prisma.producto.findMany({
         where: {
@@ -195,6 +273,24 @@ export class PaqueteBaseService {
         const nombres = productosIncompatibles.map(p => p.nombre).join(', ');
         throw new CustomError(
           `Un paquete de tipo ENÉRGICO solo puede contener productos de tipo ENÉRGICO. Los siguientes productos no son válidos: ${nombres}`,
+          400
+        );
+      }
+    }
+
+    if (paqueteEncontrado.tipo === 'SINERGICO') {
+      const productosIncompatibles = await this.prisma.producto.findMany({
+        where: {
+          id_producto: { in: data.productosId },
+          tipo: 'ENERGICO',
+        },
+        select: { nombre: true }
+      });
+
+      if (productosIncompatibles.length > 0) {
+        const nombres = productosIncompatibles.map(p => p.nombre).join(', ');
+        throw new CustomError(
+          `Un paquete de tipo SINÉRGICO solo puede contener productos de tipo SINÉRGICO. Los siguientes productos no son válidos: ${nombres}`,
           400
         );
       }

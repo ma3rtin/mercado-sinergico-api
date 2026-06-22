@@ -14,7 +14,7 @@ const plantillaController = new PlantillaController(plantillaService);
 router.get('/', plantillaController.getPlantillas.bind(plantillaController));
 router.get('/:id', plantillaController.getPlantillaById.bind(plantillaController));
 router.post('/', validarDto(PlantillaDTO), plantillaController.crearPlantilla.bind(plantillaController));
-router.put('/:id', plantillaController.actualizarPlantilla.bind(plantillaController));
+router.put('/:id', validarDto(PlantillaDTO), plantillaController.actualizarPlantilla.bind(plantillaController));
 router.delete('/:id', plantillaController.eliminarPlantilla.bind(plantillaController));
 
 
