@@ -57,25 +57,23 @@ describe('VarianteService - Integracion (Base de Datos Real)', () => {
   });
 
   beforeEach(async () => {
-    // 1. Crear Categoria
-    const categoria = await prisma.categoria.create({
-      data: { nombre: `Cat_Int_${Date.now()}_${Math.random()}` },
-    });
+    // Batch 1: categoria, marca, plantilla — no dependen entre si (parallel)
+    const [categoria, marca, plantilla] = await Promise.all([
+      prisma.categoria.create({
+        data: { nombre: `Cat_Int_${Date.now()}_${Math.random()}` },
+      }),
+      prisma.marca.create({
+        data: { nombre: `Marca_Int_${Date.now()}_${Math.random()}` },
+      }),
+      prisma.plantilla.create({
+        data: { nombre: `Plantilla_Int_${Date.now()}_${Math.random()}` },
+      }),
+    ]);
     createdCategoriaId = categoria.id_categoria;
-
-    // 2. Crear Marca
-    const marca = await prisma.marca.create({
-      data: { nombre: `Marca_Int_${Date.now()}_${Math.random()}` },
-    });
     createdMarcaId = marca.id_marca;
-
-    // 3. Crear Plantilla
-    const plantilla = await prisma.plantilla.create({
-      data: { nombre: `Plantilla_Int_${Date.now()}_${Math.random()}` },
-    });
     createdPlantillaId = plantilla.id;
 
-    // 4. Crear Caracteristica
+    // Paso 2: caracteristica (depende de createdPlantillaId)
     const caracteristica = await prisma.caracteristica.create({
       data: {
         nombre: `Carac_Int_${Date.now()}`,
@@ -84,19 +82,21 @@ describe('VarianteService - Integracion (Base de Datos Real)', () => {
     });
     createdCaracteristicaId = caracteristica.id;
 
-    // 5. Crear 3 Opciones
-    const opcion1 = await prisma.opcion.create({
-      data: { nombre: 'Opcion_A', caracteristicaId: createdCaracteristicaId },
-    });
-    const opcion2 = await prisma.opcion.create({
-      data: { nombre: 'Opcion_B', caracteristicaId: createdCaracteristicaId },
-    });
-    const opcion3 = await prisma.opcion.create({
-      data: { nombre: 'Opcion_C', caracteristicaId: createdCaracteristicaId },
-    });
+    // Batch 3: 3 opciones en paralelo (dependen de createdCaracteristicaId)
+    const [opcion1, opcion2, opcion3] = await Promise.all([
+      prisma.opcion.create({
+        data: { nombre: 'Opcion_A', caracteristicaId: createdCaracteristicaId },
+      }),
+      prisma.opcion.create({
+        data: { nombre: 'Opcion_B', caracteristicaId: createdCaracteristicaId },
+      }),
+      prisma.opcion.create({
+        data: { nombre: 'Opcion_C', caracteristicaId: createdCaracteristicaId },
+      }),
+    ]);
     createdOpcionIds = [opcion1.id, opcion2.id, opcion3.id];
 
-    // 6. Crear Producto
+    // Paso 4: producto (depende de createdCategoriaId, createdMarcaId, createdPlantillaId)
     const producto = await prisma.producto.create({
       data: {
         nombre: `Prod_Int_${Date.now()}`,
@@ -110,57 +110,57 @@ describe('VarianteService - Integracion (Base de Datos Real)', () => {
     });
     createdProductoId = producto.id_producto;
 
-    // 7. Crear 3 variantes (activo: true, false, true)
-    const var1 = await prisma.productoVariante.create({
-      data: {
-        productoId: createdProductoId,
-        sku: `SKU-VAR-1-${Date.now()}`,
-        stockFisico: 10,
-        precioExtra: 0,
-        activo: true,
-        opciones: {
-          create: {
-            caracteristicaId: createdCaracteristicaId,
-            opcionId: opcion1.id,
+    // Batch 5: 3 variantes en paralelo (dependen de createdProductoId y sus opciones)
+    const [var1, var2, var3] = await Promise.all([
+      prisma.productoVariante.create({
+        data: {
+          productoId: createdProductoId,
+          sku: `SKU-VAR-1-${Date.now()}`,
+          stockFisico: 10,
+          precioExtra: 0,
+          activo: true,
+          opciones: {
+            create: {
+              caracteristicaId: createdCaracteristicaId,
+              opcionId: opcion1.id,
+            },
           },
         },
-      },
-    });
-
-    const var2 = await prisma.productoVariante.create({
-      data: {
-        productoId: createdProductoId,
-        sku: `SKU-VAR-2-${Date.now()}`,
-        stockFisico: 5,
-        precioExtra: 50,
-        activo: false,
-        opciones: {
-          create: {
-            caracteristicaId: createdCaracteristicaId,
-            opcionId: opcion2.id,
+      }),
+      prisma.productoVariante.create({
+        data: {
+          productoId: createdProductoId,
+          sku: `SKU-VAR-2-${Date.now()}`,
+          stockFisico: 5,
+          precioExtra: 50,
+          activo: false,
+          opciones: {
+            create: {
+              caracteristicaId: createdCaracteristicaId,
+              opcionId: opcion2.id,
+            },
           },
         },
-      },
-    });
-
-    const var3 = await prisma.productoVariante.create({
-      data: {
-        productoId: createdProductoId,
-        sku: `SKU-VAR-3-${Date.now()}`,
-        stockFisico: 0,
-        precioExtra: 100,
-        activo: true,
-        opciones: {
-          create: {
-            caracteristicaId: createdCaracteristicaId,
-            opcionId: opcion3.id,
+      }),
+      prisma.productoVariante.create({
+        data: {
+          productoId: createdProductoId,
+          sku: `SKU-VAR-3-${Date.now()}`,
+          stockFisico: 0,
+          precioExtra: 100,
+          activo: true,
+          opciones: {
+            create: {
+              caracteristicaId: createdCaracteristicaId,
+              opcionId: opcion3.id,
+            },
           },
         },
-      },
-    });
+      }),
+    ]);
 
     createdVarianteIds = [var1.id, var2.id, var3.id];
-  });
+  }, 30000);
 
   afterEach(async () => {
     // Borrar de forma segura los registros creados por ID en orden inverso
@@ -202,7 +202,7 @@ describe('VarianteService - Integracion (Base de Datos Real)', () => {
         where: { id_categoria: createdCategoriaId },
       });
     }
-  });
+  }, 30000);
 
   it('debería activar una variante individual', async () => {
     const targetId = createdVarianteIds[1]; // Arranca en false
