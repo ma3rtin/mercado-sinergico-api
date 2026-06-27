@@ -10,6 +10,7 @@ jest.mock("../../src/prisma/client", () => {
   const mockPaqueteBaseDelete = jest.fn();
   const mockCategoriaFindUnique = jest.fn();
   const mockPaqueteBaseProductoCreateMany = jest.fn();
+  const mockPaqueteBaseProductoDeleteMany = jest.fn();
   const mockPaqueteBaseProductoFindMany = jest.fn();
   const mockProductoFindMany = jest.fn();
 
@@ -56,6 +57,7 @@ jest.mock("../../src/prisma/client", () => {
       mockPaqueteBaseDelete,
       mockCategoriaFindUnique,
       mockPaqueteBaseProductoCreateMany,
+      mockPaqueteBaseProductoDeleteMany,
       mockPaqueteBaseProductoFindMany,
       mockProductoFindMany,
     },
@@ -255,7 +257,7 @@ describe("PaqueteBaseService", () => {
     const { mockPaqueteBaseFindUnique } = require("../../src/prisma/client").__mocks;
     mockPaqueteBaseFindUnique.mockResolvedValue(null);
 
-    await expect(service.agregarProductos({ paqueteBaseId: 999, productosId: [1] }))
+    await expect(service.sincronizarProductos(999, [1]))
       .rejects.toThrow("Paquete no encontrado");
   });
 
@@ -264,7 +266,7 @@ describe("PaqueteBaseService", () => {
     mockPaqueteBaseFindUnique.mockResolvedValue({ id_paquete_base: 1, tipo: "SINERGICO" });
     mockProductoFindMany.mockResolvedValueOnce([]);
 
-    await expect(service.agregarProductos({ paqueteBaseId: 1, productosId: [999] }))
+    await expect(service.sincronizarProductos(1, [999]))
       .rejects.toThrow("Uno o más productos seleccionados no existen.");
   });
 
@@ -275,7 +277,7 @@ describe("PaqueteBaseService", () => {
       .mockResolvedValueOnce([{ id_producto: 5, nombre: "Prod Energico", tipo: "ENERGICO" }])
       .mockResolvedValueOnce([{ id_producto: 5, nombre: "Prod Energico", tipo: "ENERGICO" }]);
 
-    await expect(service.agregarProductos({ paqueteBaseId: 1, productosId: [5] }))
+    await expect(service.sincronizarProductos(1, [5]))
       .rejects.toThrow("Un paquete de tipo SINÉRGICO solo puede contener productos de tipo SINÉRGICO");
   });
 
@@ -286,7 +288,7 @@ describe("PaqueteBaseService", () => {
       .mockResolvedValueOnce([{ id_producto: 6, nombre: "Prod Sinergico", tipo: "SINERGICO" }])
       .mockResolvedValueOnce([{ id_producto: 6, nombre: "Prod Sinergico", tipo: "SINERGICO" }]);
 
-    await expect(service.agregarProductos({ paqueteBaseId: 1, productosId: [6] }))
+    await expect(service.sincronizarProductos(1, [6]))
       .rejects.toThrow("Un paquete de tipo ENÉRGICO solo puede contener productos de tipo ENÉRGICO");
   });
 

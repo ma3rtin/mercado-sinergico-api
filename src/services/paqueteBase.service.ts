@@ -253,15 +253,15 @@ export class PaqueteBaseService {
     }
 
     // Validar existencia de productos
-    if (data.productosId?.length) {
+    if (productosId?.length) {
       const productosExistentes = await this.prisma.producto.findMany({
         where: {
-          id_producto: { in: data.productosId },
+          id_producto: { in: productosId },
         },
         select: { id_producto: true },
       });
 
-      if (productosExistentes.length !== data.productosId.length) {
+      if (productosExistentes.length !== productosId.length) {
         throw new CustomError(
           'Uno o más productos seleccionados no existen.',
           400
@@ -269,10 +269,10 @@ export class PaqueteBaseService {
       }
     }
 
-    if (paqueteEncontrado.tipo === 'ENERGICO') {
+    if (paquete.tipo === 'ENERGICO') {
       const productosIncompatibles = await this.prisma.producto.findMany({
         where: {
-          id_producto: { in: data.productosId },
+          id_producto: { in: productosId },
           OR: [
             { tipo: { not: 'ENERGICO' } },
             { tipo: null }
@@ -290,10 +290,10 @@ export class PaqueteBaseService {
       }
     }
 
-    if (paqueteEncontrado.tipo === 'SINERGICO') {
+    if (paquete.tipo === 'SINERGICO') {
       const productosIncompatibles = await this.prisma.producto.findMany({
         where: {
-          id_producto: { in: data.productosId },
+          id_producto: { in: productosId },
           tipo: 'ENERGICO',
         },
         select: { nombre: true }
