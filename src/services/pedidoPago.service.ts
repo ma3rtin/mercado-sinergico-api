@@ -81,6 +81,7 @@ export class PedidoPagoService {
             estadoId: true, // Necesario para validar paquete activo
             cant_productos: true,
             cant_productos_reservados: true,
+            paqueteBaseId: true,
           },
         },
       },
@@ -103,7 +104,39 @@ export class PedidoPagoService {
       throw new CustomError('El paquete ya no está activo para pagos', 400);
     }
 
-    // Validar disponibilidad real para cada detalle del pedido
+    // Validar que todos los productos del pedido sigan perteneciendo al paquete base
+    const productosBase = await this.prisma.paqueteBaseProducto.findMany({
+      where: { paqueteBaseId: pedido.paquetePublicado.paqueteBaseId },
+      select: { productoId: true },
+    });
+    const productosBaseIds = new Set(productosBase.map((p) => p.productoId));
+
+    for (const detalle of pedido.detalles) {
+      if (!productosBaseIds.has(detalle.productoId)) {
+        throw new CustomError(
+          'El pedido contiene productos que ya no están disponibles en este paquete. Actualizá tu pedido antes de pagar.',
+          400
+        );
+      }
+    }
+
+    // Validar cupo global del paquete: total del pedido contra reservas confirmadas
+    const totalProductosSolicitados = pedido.detalles.reduce(
+      (sum: number, d: { cantidad: number }) => sum + d.cantidad,
+      0
+    );
+    const cuposRestantesPaquete = this.calcularCuposRestantes(
+      pedido.paquetePublicado.cant_productos,
+      pedido.paquetePublicado.cant_productos_reservados || 0
+    );
+    if (cuposRestantesPaquete !== null && totalProductosSolicitados > cuposRestantesPaquete) {
+      throw new CustomError(
+        'Ya no hay cupo suficiente para completar este pedido. Actualizá tu pedido antes de pagar.',
+        400
+      );
+    }
+
+    // Validar disponibilidad por producto/variante
     for (const detalle of pedido.detalles) {
       const productoNombre = detalle.producto.nombre;
       let stockFisicoVariante: number | null = null;
@@ -121,7 +154,7 @@ export class PedidoPagoService {
         stockFisicoVariante = detalle.variante.stockFisico;
       } else {
         // Si el producto tiene variantes pero no se seleccionó ninguna (estado inválido)
-        if (detalle.producto.tipo === 'ENERGICO' && !detalle.producto.stock) { // Asumiendo que ENERGICO sin variante debe tener stock directo
+        if (detalle.producto.tipo === 'ENERGICO' && !detalle.producto.stock) {
           throw new CustomError(`Producto ENÉRGICO (${productoNombre}) sin variante y sin stock físico definido.`, 500);
         }
         stockFisicoVariante = detalle.producto.stock;
@@ -132,17 +165,16 @@ export class PedidoPagoService {
         throw new CustomError('Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS.', 400);
       }
 
-      const cuposRestantesPaquete = this.calcularCuposRestantes(
-        pedido.paquetePublicado.cant_productos,
-        pedido.paquetePublicado.cant_productos_reservados || 0
-      );
-      const disponibilidadReal = this.calcularDisponibilidadReal(
-        pedido.paquetePublicado.tipo,
-        cuposRestantesPaquete,
-        stockFisicoVariante,
-        productoNombre
-      );
-      this.validarDisponibilidad(disponibilidadReal, detalle.cantidad, productoNombre);
+      // Stock físico por producto/variante (solo aplica a ENERGICO; cupo global ya validado)
+      if (pedido.paquetePublicado.tipo === 'ENERGICO') {
+        const disponibilidadReal = this.calcularDisponibilidadReal(
+          pedido.paquetePublicado.tipo,
+          null,
+          stockFisicoVariante,
+          productoNombre
+        );
+        this.validarDisponibilidad(disponibilidadReal, detalle.cantidad, productoNombre);
+      }
     }
 
     const preference = await this.mercadoPagoService.crearPreferencia({
@@ -201,8 +233,7 @@ export class PedidoPagoService {
 
       let emitirEvento = false;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await this.prisma.$transaction(async (tx: any) => {
+      await this.prisma.$transaction(async (tx) => {
         // Re-fetch paquetePublicado dentro de la transacción para asegurar los datos más recientes
         const paqueteActualizado = await tx.paquetePublicado.findUnique({
           where: { id_paquete_publicado: pedido.paquetePublicadoId },
@@ -212,6 +243,7 @@ export class PedidoPagoService {
             cant_productos: true,
             cant_productos_reservados: true,
             estadoId: true,
+            paqueteBaseId: true,
           },
         });
 
@@ -224,6 +256,22 @@ export class PedidoPagoService {
           throw new CustomError('El paquete ya no está activo para pagos. El pedido será reembolsado si el pago se procesa.', 400);
         }
 
+        // Validar que todos los productos del pedido sigan perteneciendo al paquete base (defensa de carrera)
+        const productosBase = await tx.paqueteBaseProducto.findMany({
+          where: { paqueteBaseId: paqueteActualizado.paqueteBaseId },
+          select: { productoId: true },
+        });
+        const productosBaseIds = new Set(productosBase.map((p) => p.productoId));
+
+        for (const detalle of pedido.detalles) {
+          if (!productosBaseIds.has(detalle.productoId)) {
+            throw new CustomError(
+              'El pedido contiene productos que ya no están disponibles en este paquete. Actualizá tu pedido antes de pagar.',
+              400
+            );
+          }
+        }
+
         const cuposDisponibles = this.calcularCuposRestantes(
           paqueteActualizado.cant_productos,
           paqueteActualizado.cant_productos_reservados || 0
@@ -233,6 +281,21 @@ export class PedidoPagoService {
             `No hay suficientes cupos disponibles en el paquete. Solicitados: ${totalProductosSolicitados}, Disponibles: ${cuposDisponibles}.`,
             409
           );
+        }
+
+        const pedidoClaim = await tx.pedido.updateMany({
+          where: {
+            id_pedido: pedidoId,
+            estadoId: ESTADO_PEDIDO.PENDIENTE,
+          },
+          data: {
+            estadoId: ESTADO_PEDIDO.PAGADO,
+            paymentId: pago.id?.toString(),
+          },
+        });
+
+        if (pedidoClaim.count === 0) {
+          return;
         }
 
         const wherePaquete =
@@ -316,15 +379,6 @@ export class PedidoPagoService {
             }
           }
         }
-
-        // Pedido pasa a Pagado
-        await tx.pedido.update({
-          where: { id_pedido: pedidoId },
-          data: {
-            estadoId: ESTADO_PEDIDO.PAGADO,
-            paymentId: pago.id?.toString(),
-          },
-        });
 
         // Recalcular cant_usuarios_registrados con el conteo real post-pago.
         // Se usa SET (no increment) para que sea siempre consistente.
@@ -421,22 +475,18 @@ export class PedidoPagoService {
     }
 
     // Actualizar la base de datos en transacción
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await this.prisma.$transaction(async (tx: any) => {
+    await this.prisma.$transaction(async (tx) => {
       // Cancelar el paquete
       await tx.paquetePublicado.update({
         where: { id_paquete_publicado: paqueteId },
-        data: { estadoId: ESTADO_PAQUETE.CANCELADO }
+        data: { 
+          estadoId: ESTADO_PAQUETE.CANCELADO,
+          cant_productos_reservados: 0
+        }
       });
 
       for (const pedido of paquete.pedidos) {
-        let totalProductosPedido = 0;
-
         if (pedido.estadoId === ESTADO_PEDIDO.PAGADO) {
-          totalProductosPedido = pedido.detalles.reduce(
-            (sum: number, d: { cantidad: number }) => sum + d.cantidad, 0
-          );
-
           if (paquete.tipo === 'ENERGICO') {
             // Devolver stock físico para paquetes ENÉRGICO
             for (const detalle of pedido.detalles) {
@@ -453,12 +503,6 @@ export class PedidoPagoService {
               }
             }
           }
-
-          // Descontar del contador reservado (tanto ENÉRGICO como SINÉRGICO)
-          await tx.paquetePublicado.update({
-            where: { id_paquete_publicado: paqueteId },
-            data: { cant_productos_reservados: { decrement: totalProductosPedido } }
-          });
         }
 
         // Marcar pedido como Reembolsado (tanto Pagados como Pendientes)
@@ -483,6 +527,7 @@ export class PedidoPagoService {
           select: {
             estadoId: true,
             tipo: true,
+            cant_productos_reservados: true,
           }
         },
         detalles: true,
@@ -509,8 +554,7 @@ export class PedidoPagoService {
     }
 
     // Actualizar en transacción
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await this.prisma.$transaction(async (tx: any) => {
+    await this.prisma.$transaction(async (tx) => {
       let totalProductosPedido = 0;
 
       if (pedido.paquetePublicado.tipo === 'ENERGICO') {
@@ -534,10 +578,11 @@ export class PedidoPagoService {
         );
       }
 
-      // Descontar del contador reservado
+      // Descontar del contador reservado de forma segura
+      const nuevasReservas = Math.max(0, (pedido.paquetePublicado.cant_productos_reservados || 0) - totalProductosPedido);
       await tx.paquetePublicado.update({
         where: { id_paquete_publicado: pedido.paquetePublicadoId },
-        data: { cant_productos_reservados: { decrement: totalProductosPedido } }
+        data: { cant_productos_reservados: nuevasReservas }
       });
 
       // Marcar pedido como Reembolsado

@@ -1,6 +1,6 @@
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
-import { TipoPaquete } from '@prisma/client';
+import { TipoPaquete, Prisma } from '@prisma/client';
 import { GenerarVariantesDTO } from '../dtos/variante/generarVariantes.dto.js';
 import { ActualizarStockVariantesDTO } from '../dtos/variante/actualizarStockVariantes.dto.js';
 import { ActualizarVarianteDTO } from '../dtos/variante/actualizarVariante.dto.js';
@@ -290,15 +290,16 @@ export class VarianteService {
       );
     }
 
+    const dataToUpdate: Prisma.ProductoVarianteUpdateInput = {};
+    if (data.sku !== undefined) dataToUpdate.sku = data.sku;
+    if (data.stockFisico !== undefined) dataToUpdate.stockFisico = data.stockFisico;
+    if (data.precioExtra !== undefined) dataToUpdate.precioExtra = data.precioExtra;
+    if (data.activo !== undefined) dataToUpdate.activo = data.activo;
+    if (imagen_url !== undefined) dataToUpdate.imagen_url = imagen_url;
+
     return this.prisma.productoVariante.update({
       where: { id: varianteId },
-      data: {
-        sku: data.sku,
-        stockFisico: data.stockFisico,
-        precioExtra: data.precioExtra,
-        activo: data.activo,
-        ...(imagen_url !== undefined && { imagen_url }),
-      },
+      data: dataToUpdate,
       include: {
         opciones: {
           include: {

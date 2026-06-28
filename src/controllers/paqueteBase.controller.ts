@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { PaqueteBaseService } from '../services/paqueteBase.service.js';
 import { PaqueteBaseDTO, TipoPaquete } from '../dtos/paquete/paqueteBase.dto.js';
-import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaquete.dto.js';
 import { ImagenService } from '../services/imagen.service.js';
 import { CustomError } from '../errors/custom.error.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -134,11 +133,13 @@ export class PaqueteController {
     res.status(200).json(result);
   });
 
-  public agregarProductos = asyncHandler(async (req: Request, res: Response) => {
-    const dto: AgregarProductoPaqueteDTO = req.body;
+  public sincronizarProductos = asyncHandler(async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) throw new CustomError('ID de paquete inválido', 400);
 
-    const paquete = await this.paqueteService.agregarProductos(dto);
+    const productosId: number[] = req.body.productosId ?? [];
 
+    const paquete = await this.paqueteService.sincronizarProductos(id, productosId);
     res.status(200).json(paquete);
   });
 

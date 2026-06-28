@@ -1,5 +1,6 @@
 import { PedidoService } from "../../../src/services/pedido.service";
 import { ESTADO_PAQUETE } from "../../../src/constants/estado-paquete";
+import { ESTADO_PEDIDO } from "../../../src/constants/estado-pedido";
 
 jest.mock("../../../src/prisma/client", () => {
   const mockPaquetePublicadoFindUnique = jest.fn();
@@ -10,6 +11,7 @@ jest.mock("../../../src/prisma/client", () => {
   const mockPedidoDetalleUpdate = jest.fn();
   const mockPedidoDetalleAggregate = jest.fn();
   const mockPedidoUpdate = jest.fn();
+  const mockPedidoDelete = jest.fn();
 
   return {
     prisma: {
@@ -18,6 +20,7 @@ jest.mock("../../../src/prisma/client", () => {
         findFirst: mockPedidoFindFirst,
         create: mockPedidoCreate,
         update: mockPedidoUpdate,
+        delete: mockPedidoDelete,
       },
       pedidoDetalle: {
         findFirst: mockPedidoDetalleFindFirst,
@@ -35,6 +38,7 @@ jest.mock("../../../src/prisma/client", () => {
       mockPedidoDetalleUpdate,
       mockPedidoDetalleAggregate,
       mockPedidoUpdate,
+      mockPedidoDelete,
     },
   };
 });
@@ -141,5 +145,46 @@ describe("PedidoService", () => {
         cantidad: 3,
       })
     ).resolves.toBe(456);
+  });
+
+  describe("bajarseDePaquete", () => {
+    it("permite abandonar un pedido pendiente y consulta solo pedidos pendientes", async () => {
+      mocks.mockPedidoFindFirst.mockResolvedValue({
+        id_pedido: 42,
+        usuarioId: 10,
+        estadoId: ESTADO_PEDIDO.PENDIENTE,
+      });
+      mocks.mockPedidoDelete.mockResolvedValue({ id_pedido: 42 });
+
+      await expect(service.bajarseDePaquete(10, 20)).resolves.toEqual({ ok: true });
+      // Verifica que el query filtra por estadoId=PENDIENTE (no solo por usuarioId+paqueteId)
+      expect(mocks.mockPedidoFindFirst).toHaveBeenCalledWith({
+        where: { usuarioId: 10, paquetePublicadoId: 20, estadoId: ESTADO_PEDIDO.PENDIENTE },
+      });
+      expect(mocks.mockPedidoDelete).toHaveBeenCalledWith({ where: { id_pedido: 42 } });
+    });
+
+    it("regresión: no confunde un pedido reembolsado anterior con el pedido pendiente actual", async () => {
+      // El query filtra estadoId=PENDIENTE, así que si el único pedido encontrado es el
+      // reembolsado (id más bajo), findFirst devuelve null → 404 (no un 400 falso).
+      mocks.mockPedidoFindFirst.mockResolvedValue(null);
+
+      await expect(service.bajarseDePaquete(10, 20)).rejects.toThrow(
+        "No hay un pedido pendiente en este paquete"
+      );
+      expect(mocks.mockPedidoFindFirst).toHaveBeenCalledWith({
+        where: { usuarioId: 10, paquetePublicadoId: 20, estadoId: ESTADO_PEDIDO.PENDIENTE },
+      });
+      expect(mocks.mockPedidoDelete).not.toHaveBeenCalled();
+    });
+
+    it("lanza 404 si no existe pedido pendiente para el usuario en ese paquete", async () => {
+      mocks.mockPedidoFindFirst.mockResolvedValue(null);
+
+      await expect(service.bajarseDePaquete(10, 20)).rejects.toThrow(
+        "No hay un pedido pendiente en este paquete"
+      );
+      expect(mocks.mockPedidoDelete).not.toHaveBeenCalled();
+    });
   });
 });

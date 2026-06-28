@@ -186,12 +186,13 @@ describe("PaqueteBaseService", () => {
     expect(result.archivado).toBe(true);
   });
 
-  describe("agregarProductos", () => {
+  describe("sincronizarProductos", () => {
     it("debería lanzar un error si se intenta agregar productos archivados", async () => {
-      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      const { mockPaqueteBaseFindUnique, mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockPaqueteBaseFindUnique.mockResolvedValueOnce({ id_paquete_base: 1, nombre: "Test", tipo: "SINERGICO" });
       mockProductoFindMany.mockResolvedValueOnce([{ id_producto: 2, nombre: "Producto Archivado", archivado: true }]);
 
-      await expect(service.agregarProductos({ paqueteBaseId: 1, productosId: [2] })).rejects.toThrow(
+      await expect(service.sincronizarProductos(1, [2])).rejects.toThrow(
         "No se pueden agregar productos archivados a un paquete base"
       );
     });
