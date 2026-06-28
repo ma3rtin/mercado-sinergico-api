@@ -10,6 +10,7 @@ jest.mock("../../src/prisma/client", () => {
   const mockPaqueteBaseDelete = jest.fn();
   const mockCategoriaFindUnique = jest.fn();
   const mockPaqueteBaseProductoCreateMany = jest.fn();
+  const mockPaqueteBaseProductoDeleteMany = jest.fn();
   const mockPaqueteBaseProductoFindMany = jest.fn();
   const mockProductoFindMany = jest.fn();
 
@@ -26,7 +27,10 @@ jest.mock("../../src/prisma/client", () => {
             delete: mockPaqueteBaseDelete,
             findMany: mockPaqueteBaseFindMany,
           },
-          paqueteBaseProducto: { createMany: mockPaqueteBaseProductoCreateMany },
+          paqueteBaseProducto: {
+            createMany: mockPaqueteBaseProductoCreateMany,
+            deleteMany: mockPaqueteBaseProductoDeleteMany,
+          },
         };
         return await callback(tx);
       }),
@@ -41,6 +45,7 @@ jest.mock("../../src/prisma/client", () => {
       producto: { findMany: mockProductoFindMany },
       paqueteBaseProducto: {
         createMany: mockPaqueteBaseProductoCreateMany,
+        deleteMany: mockPaqueteBaseProductoDeleteMany,
         findMany: mockPaqueteBaseProductoFindMany,
       },
     },
@@ -53,6 +58,7 @@ jest.mock("../../src/prisma/client", () => {
       mockPaqueteBaseDelete,
       mockCategoriaFindUnique,
       mockPaqueteBaseProductoCreateMany,
+      mockPaqueteBaseProductoDeleteMany,
       mockPaqueteBaseProductoFindMany,
       mockProductoFindMany,
     },
@@ -156,6 +162,129 @@ describe("PaqueteBaseService", () => {
     expect(result.nombre).toBe("Test");
   });
 
+  describe("sincronizarProductos", () => {
+    let mockDeleteMany: jest.Mock;
+    let mockCreateMany: jest.Mock;
+    let mockTransaction: jest.Mock;
+    let mockProductoFindMany: jest.Mock;
+
+    beforeEach(() => {
+      const m = require("../../src/prisma/client").__mocks;
+      mockDeleteMany = m.mockPaqueteBaseProductoDeleteMany;
+      mockCreateMany = m.mockPaqueteBaseProductoCreateMany;
+      mockTransaction = m.mockTransaction;
+      mockProductoFindMany = m.mockProductoFindMany;
+
+      mockDeleteMany.mockResolvedValue({ count: 0 });
+      mockCreateMany.mockResolvedValue({ count: 0 });
+
+      // Por defecto, todos los productos pedidos "existen" y son SINERGICO,
+      // para que la validación de existencia no choque con los IDs de prueba (10, 20, etc.)
+      mockProductoFindMany.mockImplementation(async (params: any) => {
+        const ids: number[] = params?.where?.id_producto?.in ?? [];
+        if (params?.where?.OR || params?.where?.tipo) {
+          return []; // sin incompatibles por defecto
+        }
+        return ids.map((id) => ({ id_producto: id, nombre: `Prod ${id}`, tipo: "SINERGICO" }));
+      });
+    });
+
+    it("usa transacción para el reemplazo", async () => {
+      await service.sincronizarProductos(1, [10, 20]);
+      expect(mockTransaction).toHaveBeenCalled();
+    });
+
+    it("llama a deleteMany antes de createMany para reemplazar la lista", async () => {
+      const orden: string[] = [];
+      mockDeleteMany.mockImplementation(() => { orden.push("delete"); return Promise.resolve({ count: 0 }); });
+      mockCreateMany.mockImplementation(() => { orden.push("create"); return Promise.resolve({ count: 2 }); });
+
+      await service.sincronizarProductos(1, [10, 20]);
+
+      expect(orden).toEqual(["delete", "create"]);
+    });
+
+    it("pasa los productosId correctos a createMany", async () => {
+      await service.sincronizarProductos(1, [10, 20]);
+
+      expect(mockCreateMany).toHaveBeenCalledWith({
+        data: [
+          { paqueteBaseId: 1, productoId: 10 },
+          { paqueteBaseId: 1, productoId: 20 },
+        ],
+      });
+    });
+
+    it("llama a deleteMany con el paqueteBaseId correcto", async () => {
+      await service.sincronizarProductos(1, [10]);
+
+      expect(mockDeleteMany).toHaveBeenCalledWith({ where: { paqueteBaseId: 1 } });
+    });
+
+    it("acepta productosId vacío y no llama a createMany", async () => {
+      await service.sincronizarProductos(1, []);
+
+      expect(mockDeleteMany).toHaveBeenCalled();
+      expect(mockCreateMany).not.toHaveBeenCalled();
+    });
+
+    it("lanza error 404 si el paquete no existe", async () => {
+      const { mockPaqueteBaseFindUnique } = require("../../src/prisma/client").__mocks;
+      mockPaqueteBaseFindUnique.mockResolvedValueOnce(null);
+
+      await expect(service.sincronizarProductos(999, [1])).rejects.toThrow("Paquete no encontrado");
+    });
+
+    it("rechaza productosId duplicados antes de tocar la base", async () => {
+      await expect(service.sincronizarProductos(1, [10, 10])).rejects.toThrow(
+        "La lista de productos no puede contener duplicados"
+      );
+
+      expect(mockTransaction).not.toHaveBeenCalled();
+    });
+
+    it("rechaza productosId no positivos antes de tocar la base", async () => {
+      await expect(service.sincronizarProductos(1, [0])).rejects.toThrow(
+        "Los productosId deben ser enteros positivos"
+      );
+
+      expect(mockTransaction).not.toHaveBeenCalled();
+    });
+
+    it("debería fallar al sincronizar si uno o más productos no existen", async () => {
+      const { mockProductoFindMany } = require("../../src/prisma/client").__mocks;
+      mockProductoFindMany.mockResolvedValueOnce([]);
+
+      await expect(service.sincronizarProductos(1, [999])).rejects.toThrow(
+        "Uno o más productos seleccionados no existen."
+      );
+    });
+
+    it("debería fallar al sincronizar productos ENERGICOS en un paquete SINERGICO", async () => {
+      const { mockPaqueteBaseFindUnique, mockProductoFindMany } = require("../../src/prisma/client").__mocks;
+      mockPaqueteBaseFindUnique.mockResolvedValueOnce({ id_paquete_base: 1, tipo: "SINERGICO" });
+      mockProductoFindMany
+        .mockResolvedValueOnce([{ id_producto: 5, nombre: "Prod Energico", tipo: "ENERGICO" }])
+        .mockResolvedValueOnce([{ id_producto: 5, nombre: "Prod Energico", tipo: "ENERGICO" }]);
+
+      await expect(service.sincronizarProductos(1, [5])).rejects.toThrow(
+        "Un paquete SINÉRGICO solo puede contener productos SINÉRGICOS"
+      );
+    });
+
+    it("debería fallar al sincronizar productos SINERGICOS en un paquete ENERGICO", async () => {
+      const { mockPaqueteBaseFindUnique, mockProductoFindMany } = require("../../src/prisma/client").__mocks;
+      mockPaqueteBaseFindUnique.mockResolvedValueOnce({ id_paquete_base: 1, tipo: "ENERGICO" });
+      mockProductoFindMany
+        .mockResolvedValueOnce([{ id_producto: 6, nombre: "Prod Sinergico", tipo: "SINERGICO" }])
+        .mockResolvedValueOnce([{ id_producto: 6, nombre: "Prod Sinergico", tipo: "SINERGICO" }]);
+
+      await expect(service.sincronizarProductos(1, [6])).rejects.toThrow(
+        "Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS"
+      );
+    });
+  });
+
   it("debería fallar al crear si la categoría no existe", async () => {
     const { mockCategoriaFindUnique } = require("../../src/prisma/client").__mocks;
     mockCategoriaFindUnique.mockResolvedValue(null);
@@ -246,45 +375,6 @@ describe("PaqueteBaseService", () => {
     };
 
     await expect(service.create(dto)).rejects.toThrow("Un paquete de tipo SINÉRGICO solo puede contener productos de tipo SINÉRGICO");
-  });
-
-  it("debería fallar al agregar productos si el paquete no existe", async () => {
-    const { mockPaqueteBaseFindUnique } = require("../../src/prisma/client").__mocks;
-    mockPaqueteBaseFindUnique.mockResolvedValue(null);
-
-    await expect(service.agregarProductos({ paqueteBaseId: 999, productosId: [1] }))
-      .rejects.toThrow("Paquete no encontrado");
-  });
-
-  it("debería fallar al agregar productos si uno o más productos no existen", async () => {
-    const { mockPaqueteBaseFindUnique, mockProductoFindMany } = require("../../src/prisma/client").__mocks;
-    mockPaqueteBaseFindUnique.mockResolvedValue({ id_paquete_base: 1, tipo: "SINERGICO" });
-    mockProductoFindMany.mockResolvedValueOnce([]);
-
-    await expect(service.agregarProductos({ paqueteBaseId: 1, productosId: [999] }))
-      .rejects.toThrow("Uno o más productos seleccionados no existen.");
-  });
-
-  it("debería fallar al agregar productos ENERGICOS a un paquete SINERGICO", async () => {
-    const { mockPaqueteBaseFindUnique, mockProductoFindMany } = require("../../src/prisma/client").__mocks;
-    mockPaqueteBaseFindUnique.mockResolvedValue({ id_paquete_base: 1, tipo: "SINERGICO" });
-    mockProductoFindMany
-      .mockResolvedValueOnce([{ id_producto: 5, nombre: "Prod Energico", tipo: "ENERGICO" }])
-      .mockResolvedValueOnce([{ id_producto: 5, nombre: "Prod Energico", tipo: "ENERGICO" }]);
-
-    await expect(service.agregarProductos({ paqueteBaseId: 1, productosId: [5] }))
-      .rejects.toThrow("Un paquete de tipo SINÉRGICO solo puede contener productos de tipo SINÉRGICO");
-  });
-
-  it("debería fallar al agregar productos SINERGICOS a un paquete ENERGICO", async () => {
-    const { mockPaqueteBaseFindUnique, mockProductoFindMany } = require("../../src/prisma/client").__mocks;
-    mockPaqueteBaseFindUnique.mockResolvedValue({ id_paquete_base: 1, tipo: "ENERGICO" });
-    mockProductoFindMany
-      .mockResolvedValueOnce([{ id_producto: 6, nombre: "Prod Sinergico", tipo: "SINERGICO" }])
-      .mockResolvedValueOnce([{ id_producto: 6, nombre: "Prod Sinergico", tipo: "SINERGICO" }]);
-
-    await expect(service.agregarProductos({ paqueteBaseId: 1, productosId: [6] }))
-      .rejects.toThrow("Un paquete de tipo ENÉRGICO solo puede contener productos de tipo ENÉRGICO");
   });
 
   it("debería fallar al cambiar tipo a ENERGICO en update si contiene productos SINERGICOS", async () => {
