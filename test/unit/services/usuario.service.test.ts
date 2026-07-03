@@ -10,9 +10,9 @@ jest.mock("canvas", () => ({
     toBuffer: () => Buffer.from("fake"),
   }),
 }));
-import { UsuarioService } from "../../src/services/usuario.service";
+import { UsuarioService } from "../../../src/services/usuario.service";
 
-jest.mock("../../src/prisma/client", () => {
+jest.mock("../../../src/prisma/client", () => {
   const mockUsuarioCreate = jest.fn();
   const mockUsuarioFindUnique = jest.fn();
   const mockUsuarioUpdate = jest.fn();
@@ -41,12 +41,12 @@ jest.mock("../../src/prisma/client", () => {
   };
 });
 
-jest.mock("../../src/auth/jwt", () => ({
+jest.mock("../../../src/auth/jwt", () => ({
   crearToken: jest.fn().mockResolvedValue("fakeToken123"),
   decodificarToken: jest.fn(),
 }));
 
-jest.mock("../../src/auth/bcrypt", () => ({
+jest.mock("../../../src/auth/bcrypt", () => ({
   cifrarContraseña: jest.fn().mockResolvedValue("hashedPassword"),
   compararContraseñas: jest.fn().mockResolvedValue(true),
 }));
@@ -59,7 +59,7 @@ describe("UsuarioService", () => {
     service = new UsuarioService();
     jest.clearAllMocks();
 
-    mocks = require("../../src/prisma/client").__mocks;
+    mocks = require("../../../src/prisma/client").__mocks;
 
     mocks.mockUsuarioCreate.mockResolvedValue({
       id: 1,

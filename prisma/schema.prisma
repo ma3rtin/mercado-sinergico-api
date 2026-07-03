@@ -140,6 +140,7 @@ model Direccion {
   numero        Int
   piso          Int?
   departamento  String?
+  observaciones String?
 }
 
 // ============================================
@@ -182,7 +183,7 @@ model LocalidadZona {
 
 model Categoria {
   id_categoria Int           @id @default(autoincrement())
-  nombre       String
+  nombre       String        @unique
   productos    Producto[]
   paquetes     PaqueteBase[]
 }
@@ -214,7 +215,9 @@ model Producto {
   stock Int?
 
   // Tipo de producto: ENERGICO (con stock) o SINERGICO (bajo pedido)
-  tipo TipoPaquete? @default(POR_DEFINIR)
+  tipo TipoPaquete? @default(SINERGICO)
+
+  archivado Boolean @default(false)
 
   plantillaId  Int?
   plantilla    Plantilla? @relation(fields: [plantillaId], references: [id])
@@ -262,6 +265,7 @@ model PaqueteBase {
 
   productos  PaqueteBaseProducto[]
   publicados PaquetePublicado[]
+  archivado  Boolean             @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -280,7 +284,6 @@ model PaqueteBaseProducto {
 enum TipoPaquete {
   SINERGICO
   ENERGICO
-  POR_DEFINIR
 }
 
 model PaquetePublicado {
@@ -299,8 +302,9 @@ model PaquetePublicado {
   cant_usuarios_registrados Int                    @default(0)
   monto_total               Float?
   imagen_url                String?
-  tipo                      TipoPaquete            @default(POR_DEFINIR)
+  tipo                      TipoPaquete            @default(SINERGICO)
   descuento                 Float?
+  archivado                 Boolean                @default(false)
 
   pedidos              Pedido[]
   variantesDisponibles DisponibilidadVariantePaquete[]

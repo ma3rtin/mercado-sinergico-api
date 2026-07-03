@@ -1,5 +1,5 @@
-import { ProductoDTO, TipoProducto } from '../dtos/producto/producto.dto.js';
-import type { Prisma, Producto } from '@prisma/client';
+import { ProductoDTO } from '../dtos/producto/producto.dto.js';
+import { Prisma, Producto, TipoPaquete } from '@prisma/client';
 import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { ProductoItemListaDTO } from '../dtos/producto/productoItemLista.dto.js';
@@ -8,9 +8,17 @@ import { ProductoDetalleRespuestaDTO } from '../dtos/producto/productoDetalleRes
 export class ProductoService {
   private prisma = prisma;
 
-  public async getAll(name?: string, skip = 0, take = 10) {
+  public async getAll(name?: string, skip = 0, take = 10, includeArchived = false) {
+    const where: Prisma.ProductoWhereInput = {};
+    if (name) {
+      where.nombre = { contains: name };
+    }
+    if (!includeArchived) {
+      where.archivado = false;
+    }
+
     const productos = await this.prisma.producto.findMany({
-      where: name ? { nombre: { contains: name } } : undefined,
+      where,
       include: {
         categoria: true,
         marca: true,
@@ -87,9 +95,9 @@ export class ProductoService {
       );
     }
 
-    if (!plantillaId && tipo === TipoProducto.ENERGICO && !rest.stock) {
+    if (!plantillaId && tipo === TipoPaquete.ENERGICO && !rest.stock) {
       throw new CustomError(
-        'Los productos energéticos sin variantes deben tener stock definido.',
+        'Los productos enérgicos sin variantes deben tener stock definido.',
         400
       );
     }
@@ -105,7 +113,7 @@ export class ProductoService {
     const nuevoProducto = await this.prisma.producto.create({
       data: {
         ...rest,
-        tipo: tipo || TipoProducto.POR_DEFINIR,
+        tipo: tipo || TipoPaquete.SINERGICO,
         categoria: { connect: { id_categoria: categoria_id } },
         marca: { connect: { id_marca: marca_id } },
         plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
@@ -158,7 +166,9 @@ export class ProductoService {
         ? { connect: { id_categoria: categoria_id } }
         : undefined,
       marca: marca_id ? { connect: { id_marca: marca_id } } : undefined,
-      plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
+      plantilla: plantillaId === null 
+        ? { disconnect: true } 
+        : (plantillaId ? { connect: { id: plantillaId } } : undefined),
     };
 
     if (imagenes) {
@@ -188,14 +198,19 @@ export class ProductoService {
   }
 
   public async delete(id: number) {
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.productoVariante.deleteMany({ where: { productoId: id } });
+    return this.archivar(id, true);
+  }
 
-      await tx.paqueteBaseProducto.deleteMany({ where: { productoId: id } });
-
-      await tx.productoImagen.deleteMany({ where: { productoId: id } });
-
-      return tx.producto.delete({ where: { id_producto: id } });
+  public async archivar(id: number, archivado: boolean) {
+    const producto = await this.prisma.producto.findUnique({
+      where: { id_producto: id },
+    });
+    if (!producto) {
+      throw new CustomError('Producto no encontrado', 404);
+    }
+    return this.prisma.producto.update({
+      where: { id_producto: id },
+      data: { archivado },
     });
   }
 
@@ -287,10 +302,12 @@ export class ProductoService {
     });
   }
 
+
+
   private async generarVariantesAutomaticas(
     productoId: number,
     opcionesDisponibles: Record<string, number[]>,
-    tipo?: TipoProducto
+    tipo?: TipoPaquete
   ) {
     const producto = await this.prisma.producto.findUnique({
       where: { id_producto: productoId },
@@ -336,12 +353,13 @@ export class ProductoService {
 
       const sku = `${producto.nombre
         .substring(0, 10)
-        .toUpperCase()}-${opcionesNombres
-          .map((o) => o?.nombre.substring(0, 4).toUpperCase())
+        .toUpperCase()
+        .replace(/\s+/g, '-')}-${productoId}-${opcionesNombres
+          .map((o) => o?.nombre.substring(0, 4).toUpperCase().replace(/\s+/g, ''))
           .join('-')}`;
 
       let stockInicial: number | null;
-      if (tipo === TipoProducto.ENERGICO) {
+      if (tipo === TipoPaquete.ENERGICO) {
         stockInicial = 0;
       } else {
         stockInicial = null;

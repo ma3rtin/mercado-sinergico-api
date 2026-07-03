@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
-import { ProductoController } from "../../src/controllers/producto.controller";
-import { ProductoDTO } from "../../src/dtos/producto/producto.dto";
+import { ProductoController } from "../../../src/controllers/producto.controller";
+import { ProductoDTO } from "../../../src/dtos/producto/producto.dto";
 
 const next: jest.Mock = jest.fn();
 
-jest.mock('../../src/utils/asyncHandler', () => ({
+jest.mock('../../../src/utils/asyncHandler', () => ({
   asyncHandler: (fn: any) => async (req: any, res: any, next: any) => {
     try {
       await fn(req, res, next);

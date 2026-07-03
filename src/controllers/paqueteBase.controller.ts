@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { PaqueteBaseService } from '../services/paqueteBase.service.js';
-import { PaqueteBaseDTO } from '../dtos/paquete/paqueteBase.dto.js';
-import { AgregarProductoPaqueteDTO } from '../dtos/producto/agregarProductoPaquete.dto.js';
+import { PaqueteBaseDTO, TipoPaquete } from '../dtos/paquete/paqueteBase.dto.js';
 import { ImagenService } from '../services/imagen.service.js';
 import { CustomError } from '../errors/custom.error.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -12,8 +11,9 @@ export class PaqueteController {
     private imagenService: ImagenService
   ) { }
 
-  public getAll = asyncHandler(async (_req: Request, res: Response) => {
-    const paquetes = await this.paqueteService.getAll();
+  public getAll = asyncHandler(async (req: Request, res: Response) => {
+    const includeArchived = req.query.includeArchived === 'true';
+    const paquetes = await this.paqueteService.getAll(includeArchived);
     if (!paquetes) throw new CustomError('Paquetes no encontrados', 404);
 
     res.status(200).json(paquetes);
@@ -76,6 +76,7 @@ export class PaqueteController {
       marcaId: Number(body.marcaId),
       productos: productosArray,
       imagen_url: '',
+      tipo: body.tipo === 'ENERGICO' ? TipoPaquete.ENERGICO : TipoPaquete.SINERGICO,
     };
 
     if (req.file) {
@@ -118,11 +119,27 @@ export class PaqueteController {
     res.status(200).json(paquete);
   });
 
-  public agregarProductos = asyncHandler(async (req: Request, res: Response) => {
-    const dto: AgregarProductoPaqueteDTO = req.body;
+  public archivar = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const idNum = Number(id);
+    if (!id || isNaN(idNum)) throw new CustomError('Id de paquete no proporcionado o inválido', 400);
 
-    const paquete = await this.paqueteService.agregarProductos(dto);
+    const { archivado } = req.body;
+    if (typeof archivado !== 'boolean') {
+      throw new CustomError('El campo "archivado" debe ser un booleano', 400);
+    }
 
+    const result = await this.paqueteService.archivar(idNum, archivado);
+    res.status(200).json(result);
+  });
+
+  public sincronizarProductos = asyncHandler(async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) throw new CustomError('ID de paquete inválido', 400);
+
+    const productosId: number[] = req.body.productosId ?? [];
+
+    const paquete = await this.paqueteService.sincronizarProductos(id, productosId);
     res.status(200).json(paquete);
   });
 

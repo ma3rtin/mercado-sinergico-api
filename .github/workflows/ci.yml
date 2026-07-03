@@ -36,6 +36,9 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
+      - name: Run lint
+        run: npm run lint
+
       - name: Build
         run: npm run build
 

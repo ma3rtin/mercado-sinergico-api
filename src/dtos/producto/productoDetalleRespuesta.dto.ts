@@ -87,7 +87,7 @@ export class ProductoDetalleRespuestaDTO {
     this.nombre = data.producto.nombre;
     this.descripcion = data.producto.descripcion;
     this.precio = data.producto.precio;
-    this.tipo = data.producto.tipo || 'POR_DEFINIR';
+    this.tipo = data.producto.tipo || 'SINERGICO';
     this.stock = data.producto.stock;
     this.imagen = data.producto.imagen_url;
     this.imagenes = data.producto.imagenes?.map((img: ImagenData) => img.url) || [];
