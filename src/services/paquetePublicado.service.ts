@@ -2,6 +2,7 @@ import { PaquetePublicadoDTO } from '../dtos/paquete/paquetePublicado.dto.js';
 import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdate.dto.js';
 import { CustomError } from '../errors/custom.error.js';
 import { prisma } from '../prisma/client.js';
+import { Prisma } from '@prisma/client';
 import { EmailService } from './email.service.js';
 import { PedidoPagoService } from './pedidoPago.service.js';
 import { mercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
@@ -85,11 +86,17 @@ export class PaquetePublicadoService {
 
   // ─── Queries ─────────────────────────────────────────────────────────────────
 
-  async getAll(skip?: number, take?: number) {
+  async getAll(skip?: number, take?: number, includeArchived = false) {
+    const where: Prisma.PaquetePublicadoWhereInput = {};
+    if (!includeArchived) {
+      where.archivado = false;
+    }
+
     const paquetes = await this.prisma.paquetePublicado.findMany({
       orderBy: { id_paquete_publicado: 'desc' },
       ...(skip !== undefined && { skip }),
       ...(take !== undefined && { take }),
+      where,
       include: {
         paqueteBase: {
           include: {
@@ -200,6 +207,7 @@ export class PaquetePublicadoService {
         zonaId: { in: zonaIds },
         estadoId: ESTADO_PAQUETE.ACTIVO,
         fecha_fin: { gte: ahora },
+        archivado: false,
       },
       include: {
         paqueteBase: {
@@ -220,6 +228,7 @@ export class PaquetePublicadoService {
       where: {
         paqueteBase: { productos: { some: { productoId: productId } } },
         estadoId: ESTADO_PAQUETE.ACTIVO,
+        archivado: false,
       },
       include: {
         paqueteBase: { include: { marca: true, categoria: true } },
@@ -238,6 +247,7 @@ export class PaquetePublicadoService {
       where: {
         estadoId: ESTADO_PAQUETE.ACTIVO,
         fecha_fin: { lte: dentroDe30Dias },
+        archivado: false,
       },
       include: {
         paqueteBase: { include: { marca: true, categoria: true } },
@@ -268,6 +278,7 @@ export class PaquetePublicadoService {
       where: {
         id_paquete_publicado: { not: id },
         estadoId: ESTADO_PAQUETE.ACTIVO,
+        archivado: false,
       },
       include: {
         paqueteBase: { include: { marca: true, categoria: true } },
@@ -313,6 +324,9 @@ export class PaquetePublicadoService {
       }
     });
     if (!paqueteBase) throw new CustomError('El paquete base no existe', 404);
+    if (paqueteBase.archivado) {
+      throw new CustomError('No se puede publicar un paquete base archivado', 400);
+    }
 
     if (paqueteBase.tipo === 'ENERGICO') {
       let totalStock = 0;
@@ -358,6 +372,16 @@ export class PaquetePublicadoService {
     return this.prisma.$transaction(async (tx) => {
       const existente = await tx.paquetePublicado.findUnique({ where: { id_paquete_publicado: id } });
       if (!existente) throw new CustomError('No encontrado', 404);
+
+      if (dto.paqueteBaseId) {
+        const pb = await tx.paqueteBase.findUnique({
+          where: { id_paquete_base: Number(dto.paqueteBaseId) },
+        });
+        if (!pb) throw new CustomError('El paquete base no existe', 404);
+        if (pb.archivado) {
+          throw new CustomError('No se puede conectar un paquete base archivado', 400);
+        }
+      }
 
       // Actualizar paqueteBase: descripcion y/o imagen
       const baseUpdate: Record<string, unknown> = {};
@@ -417,32 +441,7 @@ export class PaquetePublicadoService {
   }
 
   async delete(id: number) {
-    const paquete = await this.prisma.paquetePublicado.findUnique({
-      where: { id_paquete_publicado: id },
-      include: { pedidos: { select: { id_pedido: true } } },
-    });
-    if (!paquete) throw new CustomError('No encontrado', 404);
-    if (paquete.pedidos.length > 0) {
-      throw new CustomError('No se puede borrar: tiene pedidos asociados.', 400);
-    }
-
-    // Intentar soft-delete con estado Cerrado (más seguro que Eliminado que puede no existir)
-    const estadoCerrado = await this.prisma.estadoPaquetePublicado.findFirst({
-      where: { nombre: { in: ['Cerrado', 'Cancelado', 'Eliminado'] } },
-      orderBy: { id_estado: 'asc' },
-    });
-
-    if (estadoCerrado) {
-      return this.prisma.paquetePublicado.update({
-        where: { id_paquete_publicado: id },
-        data: { estadoId: estadoCerrado.id_estado },
-      });
-    }
-
-    // Si no existe ningún estado terminal, hacer hard delete
-    return this.prisma.paquetePublicado.delete({
-      where: { id_paquete_publicado: id },
-    });
+    return this.archivar(id, true);
   }
 
   /** Descarta un duplicado: hard delete de la publicación y su paqueteBase asociado */
@@ -860,5 +859,20 @@ export class PaquetePublicadoService {
     });
 
     return { mensaje: 'Notificación enviada correctamente.', notificados: correos.length };
+  }
+
+  async archivar(id: number, archivado: boolean) {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+    });
+    if (!paquete) {
+      throw new CustomError('Paquete no encontrado', 404);
+    }
+    const updated = await this.prisma.paquetePublicado.update({
+      where: { id_paquete_publicado: id },
+      data: { archivado },
+      include: this._includeCompleto,
+    });
+    return this._mapComputedFields(updated as PaqueteComputable);
   }
 }

@@ -1,7 +1,7 @@
-import { VarianteService } from "../../src/services/variante.service";
+import { VarianteService } from "../../../src/services/variante.service";
 import { TipoPaquete } from "@prisma/client";
 
-jest.mock("../../src/prisma/client", () => {
+jest.mock("../../../src/prisma/client", () => {
   const mockTransaction = jest.fn();
   const mockProductoFindUnique = jest.fn();
   const mockOpcionFindMany = jest.fn();
@@ -38,7 +38,7 @@ describe("VarianteService - generarVariantes", () => {
   beforeEach(() => {
     service = new VarianteService();
     jest.clearAllMocks();
-    mocks = require("../../src/prisma/client").__mocks;
+    mocks = require("../../../src/prisma/client").__mocks;
   });
 
   it("debería generar variantes con SKU conteniendo el productoId", async () => {

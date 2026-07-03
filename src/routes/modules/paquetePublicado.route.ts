@@ -33,6 +33,7 @@ paquetePublicadoRouter.get('/:id', controller.getById.bind(controller));
 paquetePublicadoRouter.post('/', ...soloAdmin, procesarSubidaImagen('imagen'), controller.create.bind(controller));
 paquetePublicadoRouter.put('/:id', ...soloAdmin, procesarSubidaImagen('imagen'), validarDto(PaquetePublicadoUpdateDTO), controller.update.bind(controller));
 paquetePublicadoRouter.delete('/:id', ...soloAdmin, controller.delete.bind(controller));
+paquetePublicadoRouter.patch('/:id/archivar', ...soloAdmin, controller.archivar.bind(controller));
 
 // ─── Rutas de gestión (admin) ─────────────────────────────────────────────────
 paquetePublicadoRouter.post('/:id/duplicar',         ...soloAdmin, controller.duplicar.bind(controller));

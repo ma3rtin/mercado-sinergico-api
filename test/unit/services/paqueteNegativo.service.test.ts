@@ -1,10 +1,10 @@
-jest.mock("../../src/services/email.service", () => ({
+jest.mock("../../../src/services/email.service", () => ({
   EmailService: jest.fn().mockImplementation(() => ({
     enviarEmail: jest.fn().mockResolvedValue(true),
   })),
 }));
 
-jest.mock("../../src/payments/mercadopago/mercadopago.service", () => ({
+jest.mock("../../../src/payments/mercadopago/mercadopago.service", () => ({
   MercadoPagoService: jest.fn().mockImplementation(() => ({
     crearPreferencia: jest.fn(),
     obtenerPago: jest.fn(),
@@ -12,13 +12,13 @@ jest.mock("../../src/payments/mercadopago/mercadopago.service", () => ({
   })),
 }));
 
-import { PedidoPagoService } from "../../src/services/pedidoPago.service";
-import { PaquetePublicadoService } from "../../src/services/paquetePublicado.service";
-import { PedidoService } from "../../src/services/pedido.service";
-import { ESTADO_PAQUETE } from "../../src/constants/estado-paquete";
-import { ESTADO_PEDIDO } from "../../src/constants/estado-pedido";
+import { PedidoPagoService } from "../../../src/services/pedidoPago.service";
+import { PaquetePublicadoService } from "../../../src/services/paquetePublicado.service";
+import { PedidoService } from "../../../src/services/pedido.service";
+import { ESTADO_PAQUETE } from "../../../src/constants/estado-paquete";
+import { ESTADO_PEDIDO } from "../../../src/constants/estado-pedido";
 
-jest.mock("../../src/prisma/client", () => {
+jest.mock("../../../src/prisma/client", () => {
   const mockTransaction = jest.fn();
   const mockPaqueteFindUnique = jest.fn();
   const mockPedidoFindUnique = jest.fn();
@@ -49,7 +49,7 @@ describe("Pruebas de regresión para evitar reservas negativas en paquetes", () 
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mocks = require("../../src/prisma/client").__mocks;
+    mocks = require("../../../src/prisma/client").__mocks;
     pedidoPagoService = new PedidoPagoService({
       crearPreferencia: jest.fn(),
       obtenerPago: jest.fn(),

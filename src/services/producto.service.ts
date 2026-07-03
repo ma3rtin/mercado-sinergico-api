@@ -8,9 +8,17 @@ import { ProductoDetalleRespuestaDTO } from '../dtos/producto/productoDetalleRes
 export class ProductoService {
   private prisma = prisma;
 
-  public async getAll(name?: string, skip = 0, take = 10) {
+  public async getAll(name?: string, skip = 0, take = 10, includeArchived = false) {
+    const where: Prisma.ProductoWhereInput = {};
+    if (name) {
+      where.nombre = { contains: name };
+    }
+    if (!includeArchived) {
+      where.archivado = false;
+    }
+
     const productos = await this.prisma.producto.findMany({
-      where: name ? { nombre: { contains: name } } : undefined,
+      where,
       include: {
         categoria: true,
         marca: true,
@@ -190,14 +198,19 @@ export class ProductoService {
   }
 
   public async delete(id: number) {
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.productoVariante.deleteMany({ where: { productoId: id } });
+    return this.archivar(id, true);
+  }
 
-      await tx.paqueteBaseProducto.deleteMany({ where: { productoId: id } });
-
-      await tx.productoImagen.deleteMany({ where: { productoId: id } });
-
-      return tx.producto.delete({ where: { id_producto: id } });
+  public async archivar(id: number, archivado: boolean) {
+    const producto = await this.prisma.producto.findUnique({
+      where: { id_producto: id },
+    });
+    if (!producto) {
+      throw new CustomError('Producto no encontrado', 404);
+    }
+    return this.prisma.producto.update({
+      where: { id_producto: id },
+      data: { archivado },
     });
   }
 

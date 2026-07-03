@@ -1,13 +1,13 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { ActualizarCantidadDTO } from '../../src/dtos/pedido/actualizarCantidad.dto';
-import { CrearPedidoDTO } from '../../src/dtos/pedido/crearPedido.dto';
-import { SincronizarProductosDTO } from '../../src/dtos/paquete/sincronizarProductos.dto';
+import { ActualizarCantidadDTO } from '../../../src/dtos/pedido/actualizarCantidad.dto';
+import { CrearPedidoDTO } from '../../../src/dtos/pedido/crearPedido.dto';
+import { SincronizarProductosDTO } from '../../../src/dtos/paquete/sincronizarProductos.dto';
 
 describe('ActualizarCantidadDTO', () => {
   async function validar(cantidad: unknown) {
     const dto = plainToInstance(ActualizarCantidadDTO, { cantidad });
-    return validate(dto);
+    return validate(dto as object);
   }
 
   it('acepta cantidad = 1', async () => {
@@ -30,7 +30,7 @@ describe('ActualizarCantidadDTO', () => {
 describe('CrearPedidoDTO — campo cantidad', () => {
   async function validar(cantidad: unknown) {
     const dto = plainToInstance(CrearPedidoDTO, { productoId: 1, cantidad });
-    return validate(dto);
+    return validate(dto as object);
   }
 
   it('acepta cantidad = 1', async () => {
@@ -53,7 +53,7 @@ describe('CrearPedidoDTO — campo cantidad', () => {
 describe('SincronizarProductosDTO', () => {
   async function validar(productosId: unknown) {
     const dto = plainToInstance(SincronizarProductosDTO, { productosId });
-    return validate(dto);
+    return validate(dto as object);
   }
 
   it('acepta array vacío', async () => {

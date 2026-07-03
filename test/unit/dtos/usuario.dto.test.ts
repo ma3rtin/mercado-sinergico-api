@@ -1,5 +1,5 @@
 import { validate } from "class-validator";
-import { UsuarioDTO } from "../../src/dtos/usuario/usuario.dto";
+import { UsuarioDTO } from "../../../src/dtos/usuario/usuario.dto";
 
 describe("UsuarioDTO", () => {
     it("debería fallar si falta email o contraseña", async () => {
