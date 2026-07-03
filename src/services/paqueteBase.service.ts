@@ -49,15 +49,23 @@ export class PaqueteBaseService {
         throw new CustomError('La categoría no existe', 400);
       }
 
+      // Validar existencia de productos y que no estén archivados
       if (data.productos?.length) {
-        const productosArchivados = await tx.producto.findMany({
+        const productosExistentes = await tx.producto.findMany({
           where: {
             id_producto: { in: data.productos },
-            archivado: true,
           },
-          select: { nombre: true },
+          select: { id_producto: true, nombre: true, archivado: true },
         });
 
+        if (productosExistentes.length !== data.productos.length) {
+          throw new CustomError(
+            'Uno o más productos seleccionados no existen.',
+            400
+          );
+        }
+
+        const productosArchivados = productosExistentes.filter((p) => p.archivado);
         if (productosArchivados.length > 0) {
           const nombres = productosArchivados.map((p) => p.nombre).join(', ');
           throw new CustomError(
@@ -84,6 +92,24 @@ export class PaqueteBaseService {
           const nombres = productosIncompatibles.map(p => p.nombre).join(', ');
           throw new CustomError(
             `Un paquete de tipo ENÉRGICO solo puede contener productos de tipo ENÉRGICO. Los siguientes productos no son válidos: ${nombres}`,
+            400
+          );
+        }
+      }
+
+      if (data.tipo === 'SINERGICO' && data.productos?.length) {
+        const productosIncompatibles = await tx.producto.findMany({
+          where: {
+            id_producto: { in: data.productos },
+            tipo: 'ENERGICO',
+          },
+          select: { nombre: true }
+        });
+
+        if (productosIncompatibles.length > 0) {
+          const nombres = productosIncompatibles.map(p => p.nombre).join(', ');
+          throw new CustomError(
+            `Un paquete de tipo SINÉRGICO solo puede contener productos de tipo SINÉRGICO. Los siguientes productos no son válidos: ${nombres}`,
             400
           );
         }
@@ -160,6 +186,32 @@ export class PaqueteBaseService {
       }
     }
 
+    if (data.tipo === 'SINERGICO') {
+      const productosVinculados = await this.prisma.paqueteBaseProducto.findMany({
+        where: { paqueteBaseId: id },
+        select: { productoId: true }
+      });
+      const idsProductos = productosVinculados.map(pv => pv.productoId);
+
+      if (idsProductos.length > 0) {
+        const productosIncompatibles = await this.prisma.producto.findMany({
+          where: {
+            id_producto: { in: idsProductos },
+            tipo: 'ENERGICO',
+          },
+          select: { nombre: true }
+        });
+
+        if (productosIncompatibles.length > 0) {
+          const nombres = productosIncompatibles.map(p => p.nombre).join(', ');
+          throw new CustomError(
+            `No se puede cambiar el tipo a SINÉRGICO: el paquete contiene productos incompatibles de tipo ENÉRGICO: ${nombres}`,
+            400
+          );
+        }
+      }
+    }
+
     try {
       return await this.prisma.paqueteBase.update({
         where: { id_paquete_base: id },
@@ -200,12 +252,16 @@ export class PaqueteBaseService {
     });
   }
 
+  // Endpoi
+  public async agregarProductos(params: { paqueteBaseId: number; productosId: number[] }) {
+    return this.sincronizarProductos(params.paqueteBaseId, params.productosId);
+  }
   /**
    * Reemplaza la lista completa de productos de un paquete base.
    * Elimina todas las asociaciones existentes y crea las nuevas en una sola transacción.
    * Permite productosId vacío para dejar el paquete sin productos.
    */
-  public async sincronizarProductos(paqueteBaseId: number, productosId: number[]) {
+   public async sincronizarProductos(paqueteBaseId: number, productosId: number[]) {
     if (productosId.some((id) => !Number.isInteger(id) || id <= 0)) {
       throw new CustomError('Los productosId deben ser enteros positivos', 400);
     }
@@ -222,15 +278,23 @@ export class PaqueteBaseService {
       throw new CustomError('Paquete no encontrado', 404);
     }
 
+    // Validar existencia de productos y que no estén archivados
     if (productosId.length > 0) {
-      const productosArchivados = await this.prisma.producto.findMany({
+      const productosExistentes = await this.prisma.producto.findMany({
         where: {
           id_producto: { in: productosId },
-          archivado: true,
         },
-        select: { nombre: true },
+        select: { id_producto: true, nombre: true, archivado: true },
       });
 
+      if (productosExistentes.length !== productosId.length) {
+        throw new CustomError(
+          'Uno o más productos seleccionados no existen.',
+          400
+        );
+      }
+
+      const productosArchivados = productosExistentes.filter((p) => p.archivado);
       if (productosArchivados.length > 0) {
         const nombres = productosArchivados.map((p) => p.nombre).join(', ');
         throw new CustomError(
@@ -253,6 +317,24 @@ export class PaqueteBaseService {
         const nombres = incompatibles.map(p => p.nombre).join(', ');
         throw new CustomError(
           `Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS. Incompatibles: ${nombres}`,
+          400
+        );
+      }
+    }
+
+    if (paquete.tipo === 'SINERGICO' && productosId.length > 0) {
+      const incompatibles = await this.prisma.producto.findMany({
+        where: {
+          id_producto: { in: productosId },
+          tipo: 'ENERGICO',
+        },
+        select: { nombre: true },
+      });
+
+      if (incompatibles.length > 0) {
+        const nombres = incompatibles.map(p => p.nombre).join(', ');
+        throw new CustomError(
+          `Un paquete SINÉRGICO solo puede contener productos SINÉRGICOS. Incompatibles: ${nombres}`,
           400
         );
       }
