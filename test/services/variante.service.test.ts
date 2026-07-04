@@ -7,21 +7,28 @@ jest.mock("../../src/prisma/client", () => {
   const mockOpcionFindMany = jest.fn();
   const mockProductoVarianteCreate = jest.fn();
 
-  return {
-    prisma: {
-      $transaction: mockTransaction.mockImplementation(async (promises) => {
-        return Promise.all(promises);
-      }),
-      producto: {
-        findUnique: mockProductoFindUnique,
-      },
-      opcion: {
-        findMany: mockOpcionFindMany,
-      },
-      productoVariante: {
-        create: mockProductoVarianteCreate,
-      },
+  const mockPrisma = {
+    $transaction: mockTransaction,
+    producto: {
+      findUnique: mockProductoFindUnique,
     },
+    opcion: {
+      findMany: mockOpcionFindMany,
+    },
+    productoVariante: {
+      create: mockProductoVarianteCreate,
+    },
+  };
+
+  mockTransaction.mockImplementation(async (arg) => {
+    if (typeof arg === "function") {
+      return arg(mockPrisma);
+    }
+    return Promise.all(arg);
+  });
+
+  return {
+    prisma: mockPrisma,
     __mocks: {
       mockTransaction,
       mockProductoFindUnique,

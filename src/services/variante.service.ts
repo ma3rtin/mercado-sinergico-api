@@ -134,44 +134,51 @@ export class VarianteService {
     });
     const opcionesMap = new Map(opciones.map((o) => [o.id, o]));
 
-    const promesasVariantes = combinaciones.map((combinacion) => {
-      const opcionesNombres = Object.values(combinacion).map(
-        (opcionId) => opcionesMap.get(opcionId)?.nombre || ''
-      );
+    const variantesCreadas = await this.prisma.$transaction(
+      async (tx) => {
+        return Promise.all(
+          combinaciones.map((combinacion) => {
+            const opcionesNombres = Object.values(combinacion).map(
+              (opcionId) => opcionesMap.get(opcionId)?.nombre || ''
+            );
 
-      const sku = `${producto.nombre
-        .substring(0, 10)
-        .toUpperCase()
-        .replace(/\s+/g, '-')}-${productoId}-${opcionesNombres
-          .map((nombre) => nombre.substring(0, 4).toUpperCase().replace(/\s+/g, ''))
-          .join('-')}`;
+            const sku = `${producto.nombre
+              .substring(0, 10)
+              .toUpperCase()
+              .replace(/\s+/g, '-')}-${productoId}-${opcionesNombres
+                .map((nombre) => nombre.substring(0, 4).toUpperCase().replace(/\s+/g, ''))
+                .join('-')}`;
 
-      return this.prisma.productoVariante.create({
-        data: {
-          productoId,
-          sku,
-          stockFisico: stockInicial,
-          precioExtra: 0,
-          activo: true,
-          opciones: {
-            create: Object.entries(combinacion).map(([caracId, opcionId]) => ({
-              caracteristicaId: parseInt(caracId),
-              opcionId: opcionId as number,
-            })),
-          },
-        },
-        include: {
-          opciones: {
-            include: {
-              caracteristica: true,
-              opcion: true,
-            },
-          },
-        },
-      });
-    });
-
-    const variantesCreadas = await this.prisma.$transaction(promesasVariantes);
+            return tx.productoVariante.create({
+              data: {
+                productoId,
+                sku,
+                stockFisico: stockInicial,
+                precioExtra: 0,
+                activo: true,
+                opciones: {
+                  create: Object.entries(combinacion).map(([caracId, opcionId]) => ({
+                    caracteristicaId: parseInt(caracId),
+                    opcionId: opcionId as number,
+                  })),
+                },
+              },
+              include: {
+                opciones: {
+                  include: {
+                    caracteristica: true,
+                    opcion: true,
+                  },
+                },
+              },
+            });
+          })
+        );
+      },
+      {
+        timeout: 30000,
+      }
+    );
 
     return {
       message: `${variantesCreadas.length} variantes generadas correctamente`,
@@ -202,12 +209,19 @@ export class VarianteService {
     }
 
     await this.prisma.$transaction(
-      variantes.map((v) =>
-        this.prisma.productoVariante.update({
-          where: { id: v.id },
-          data: { stockFisico: v.stockFisico },
-        })
-      )
+      async (tx) => {
+        await Promise.all(
+          variantes.map((v) =>
+            tx.productoVariante.update({
+              where: { id: v.id },
+              data: { stockFisico: v.stockFisico },
+            })
+          )
+        );
+      },
+      {
+        timeout: 20000,
+      }
     );
 
     return {
@@ -234,28 +248,35 @@ export class VarianteService {
     }
 
     await this.prisma.$transaction(
-      variantes.map((v) => {
-        const dataToUpdate: {
-          sku?: string;
-          stockFisico?: number | null;
-          precioExtra?: number;
-          activo?: boolean;
-        } = {};
-        if (v.sku !== undefined) dataToUpdate.sku = v.sku;
-        if (v.stockFisico !== undefined) {
-          if (v.stockFisico !== null && v.stockFisico < 0) {
-            throw new CustomError('El stock físico no puede ser negativo.', 400);
-          }
-          dataToUpdate.stockFisico = v.stockFisico;
-        }
-        if (v.precioExtra !== undefined) dataToUpdate.precioExtra = v.precioExtra;
-        if (v.activo !== undefined) dataToUpdate.activo = v.activo;
+      async (tx) => {
+        await Promise.all(
+          variantes.map((v) => {
+            const dataToUpdate: {
+              sku?: string;
+              stockFisico?: number | null;
+              precioExtra?: number;
+              activo?: boolean;
+            } = {};
+            if (v.sku !== undefined) dataToUpdate.sku = v.sku;
+            if (v.stockFisico !== undefined) {
+              if (v.stockFisico !== null && v.stockFisico < 0) {
+                throw new CustomError('El stock físico no puede ser negativo.', 400);
+              }
+              dataToUpdate.stockFisico = v.stockFisico;
+            }
+            if (v.precioExtra !== undefined) dataToUpdate.precioExtra = v.precioExtra;
+            if (v.activo !== undefined) dataToUpdate.activo = v.activo;
 
-        return this.prisma.productoVariante.update({
-          where: { id: v.id },
-          data: dataToUpdate,
-        });
-      })
+            return tx.productoVariante.update({
+              where: { id: v.id },
+              data: dataToUpdate,
+            });
+          })
+        );
+      },
+      {
+        timeout: 20000,
+      }
     );
 
     return {
