@@ -198,7 +198,7 @@ export class VarianteService {
       (item) => !existentesSkus.has(item.data.sku)
     );
 
-    let nuevasVariantesCreadas: any[] = [];
+    let nuevasVariantesCreadas: typeof existentes = [];
 
     if (nuevasVariantesFiltradas.length > 0) {
       const skusParaCrear = nuevasVariantesFiltradas.map((item) => item.data.sku);
@@ -404,7 +404,7 @@ export class VarianteService {
           },
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
         throw new CustomError('Variante no encontrada', 404);
       }
