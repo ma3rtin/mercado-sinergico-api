@@ -414,8 +414,14 @@ export class PaqueteBaseService {
           nombre: `${paqueteOriginal.nombre} (Copia)`,
           descripcion: paqueteOriginal.descripcion,
           imagen_url: paqueteOriginal.imagen_url,
-          categoria_id: paqueteOriginal.categoria_id,
-          marcaId: paqueteOriginal.marcaId,
+          categoria: {
+            connect: { id_categoria: paqueteOriginal.categoria_id },
+          },
+          ...(paqueteOriginal.marcaId && {
+            marca: {
+              connect: { id_marca: paqueteOriginal.marcaId },
+            },
+          }),
           tipo: paqueteOriginal.tipo,
         },
       });
