@@ -493,4 +493,90 @@ describe("PaqueteBaseService", () => {
       await expect(service.archivar(99, true)).rejects.toThrow("Paquete base no encontrado");
     });
   });
+
+  describe("duplicar", () => {
+    it("debería duplicar un paquete base con marcaId asignada", async () => {
+      const {
+        mockPaqueteBaseFindUnique,
+        mockPaqueteBaseCreate,
+        mockPaqueteBaseProductoCreateMany,
+      } = require("../../../src/prisma/client").__mocks;
+
+      const paqueteOriginalMock = {
+        id_paquete_base: 1,
+        nombre: "Original",
+        descripcion: "Desc",
+        imagen_url: "url",
+        categoria_id: 2,
+        marcaId: 3,
+        tipo: "SINERGICO",
+        productos: [{ productoId: 10 }, { productoId: 20 }],
+      };
+
+      mockPaqueteBaseFindUnique.mockResolvedValueOnce(paqueteOriginalMock);
+
+      const result = await service.duplicar(1);
+
+      expect(result).toHaveProperty("id_paquete_base", 1);
+      expect(mockPaqueteBaseCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            nombre: "Original (Copia)",
+            categoria: { connect: { id_categoria: 2 } },
+            marca: { connect: { id_marca: 3 } },
+          }),
+        })
+      );
+      expect(mockPaqueteBaseProductoCreateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: [
+            { productoId: 10, paqueteBaseId: 1 },
+            { productoId: 20, paqueteBaseId: 1 },
+          ],
+        })
+      );
+    });
+
+    it("debería duplicar un paquete base sin marcaId asignada (marcaId es null)", async () => {
+      const {
+        mockPaqueteBaseFindUnique,
+        mockPaqueteBaseCreate,
+      } = require("../../../src/prisma/client").__mocks;
+
+      const paqueteOriginalMock = {
+        id_paquete_base: 1,
+        nombre: "Original",
+        descripcion: "Desc",
+        imagen_url: "url",
+        categoria_id: 2,
+        marcaId: null,
+        tipo: "SINERGICO",
+        productos: [],
+      };
+
+      mockPaqueteBaseFindUnique.mockResolvedValueOnce(paqueteOriginalMock);
+
+      const result = await service.duplicar(1);
+
+      expect(result).toHaveProperty("id_paquete_base", 1);
+      expect(mockPaqueteBaseCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            nombre: "Original (Copia)",
+            categoria: { connect: { id_categoria: 2 } },
+          }),
+        })
+      );
+      const calls = mockPaqueteBaseCreate.mock.calls;
+      const lastCallData = calls[calls.length - 1][0].data;
+      expect(lastCallData.marca).toBeUndefined();
+    });
+
+    it("debería lanzar un error si el paquete original no existe al duplicar", async () => {
+      const { mockPaqueteBaseFindUnique } = require("../../../src/prisma/client").__mocks;
+      mockPaqueteBaseFindUnique.mockResolvedValueOnce(null);
+
+      await expect(service.duplicar(999)).rejects.toThrow("Paquete con id=999 no encontrado");
+    });
+  });
 });
