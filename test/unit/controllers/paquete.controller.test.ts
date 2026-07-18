@@ -1,6 +1,6 @@
-import { PaqueteController } from "../../src/controllers/paqueteBase.controller"; 
-import { PaqueteBaseService } from "../../src/services/paqueteBase.service"; 
-import { ImagenService } from "../../src/services/imagen.service";
+import { PaqueteController } from "../../../src/controllers/paqueteBase.controller"; 
+import { PaqueteBaseService } from "../../../src/services/paqueteBase.service"; 
+import { ImagenService } from "../../../src/services/imagen.service";
 
 describe("PaqueteController", () => {
   let service: PaqueteBaseService;

@@ -1,7 +1,7 @@
-import { PlantillaService } from "../../src/services/plantilla.service";
-import { PlantillaDTO } from "../../src/dtos/plantilla/plantilla.dto";
+import { PlantillaService } from "../../../src/services/plantilla.service";
+import { PlantillaDTO } from "../../../src/dtos/plantilla/plantilla.dto";
 
-jest.mock("../../src/prisma/client", () => {
+jest.mock("../../../src/prisma/client", () => {
   const mockTransaction = jest.fn();
   const mockPlantillaUpdate = jest.fn();
   const mockPlantillaFindUnique = jest.fn();
@@ -64,7 +64,7 @@ describe("PlantillaService - actualizarPlantilla", () => {
     service = new PlantillaService();
     jest.clearAllMocks();
 
-    mocks = require("../../src/prisma/client").__mocks;
+    mocks = require("../../../src/prisma/client").__mocks;
 
     mocks.mockPlantillaUpdate.mockResolvedValue({});
     mocks.mockPlantillaFindUnique.mockResolvedValue({});

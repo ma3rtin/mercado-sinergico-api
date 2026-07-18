@@ -58,6 +58,7 @@ router.put(
 );
 
 router.delete('/:id', ...soloAdmin, productoController.deleteProducto.bind(productoController));
+router.patch('/:id/archivar', ...soloAdmin, productoController.archivarProducto.bind(productoController));
 router.post('/:id/duplicate', ...soloAdmin, productoController.duplicateProducto.bind(productoController));
 
 router.post('/:id/generar-variantes', ...soloAdmin, validarDto(GenerarVariantesDTO), varianteController.generarVariantes.bind(varianteController));
