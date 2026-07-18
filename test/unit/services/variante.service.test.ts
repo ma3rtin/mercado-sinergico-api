@@ -5,28 +5,43 @@ jest.mock("../../../src/prisma/client", () => {
   const mockTransaction = jest.fn();
   const mockProductoFindUnique = jest.fn();
   const mockOpcionFindMany = jest.fn();
-  const mockProductoVarianteCreate = jest.fn();
+  const mockProductoVarianteCreateMany = jest.fn();
+  const mockProductoVarianteFindMany = jest.fn();
+  const mockProductoVarianteOpcionCreateMany = jest.fn();
+
+  const mockPrisma = {
+    $transaction: mockTransaction,
+    producto: {
+      findUnique: mockProductoFindUnique,
+    },
+    opcion: {
+      findMany: mockOpcionFindMany,
+    },
+    productoVariante: {
+      createMany: mockProductoVarianteCreateMany,
+      findMany: mockProductoVarianteFindMany,
+    },
+    productoVarianteOpcion: {
+      createMany: mockProductoVarianteOpcionCreateMany,
+    },
+  };
+
+  mockTransaction.mockImplementation(async (arg) => {
+    if (typeof arg === "function") {
+      return arg(mockPrisma);
+    }
+    return Promise.all(arg);
+  });
 
   return {
-    prisma: {
-      $transaction: mockTransaction.mockImplementation(async (promises) => {
-        return Promise.all(promises);
-      }),
-      producto: {
-        findUnique: mockProductoFindUnique,
-      },
-      opcion: {
-        findMany: mockOpcionFindMany,
-      },
-      productoVariante: {
-        create: mockProductoVarianteCreate,
-      },
-    },
+    prisma: mockPrisma,
     __mocks: {
       mockTransaction,
       mockProductoFindUnique,
       mockOpcionFindMany,
-      mockProductoVarianteCreate,
+      mockProductoVarianteCreateMany,
+      mockProductoVarianteFindMany,
+      mockProductoVarianteOpcionCreateMany,
     },
   };
 });
@@ -72,12 +87,37 @@ describe("VarianteService - generarVariantes", () => {
       { id: 102, nombre: "M" },
     ]);
 
-    mocks.mockProductoVarianteCreate.mockImplementation(({ data }: any) => {
-      return Promise.resolve({
-        id: Math.floor(Math.random() * 1000),
-        ...data,
-      });
+    mocks.mockProductoVarianteCreateMany.mockResolvedValue({ count: 2 });
+
+    let findManyCallCount = 0;
+    mocks.mockProductoVarianteFindMany.mockImplementation(({ where, include }: any) => {
+      findManyCallCount++;
+      const baseVariants = [
+        { id: 1001, productoId, sku: "PRODUCTOSUPERTE-42-S", stockFisico: null, precioExtra: 0, activo: true },
+        { id: 1002, productoId, sku: "PRODUCTOSUPERTE-42-M", stockFisico: null, precioExtra: 0, activo: true },
+      ];
+      if (findManyCallCount === 1) {
+        // First call: check existing. Return empty array to simulate all variants are new.
+        return Promise.resolve([]);
+      }
+      if (include) {
+        return Promise.resolve(
+          baseVariants.map(v => ({
+            ...v,
+            opciones: [
+              {
+                caracteristica: { nombre: "Talle" },
+                opcion: { nombre: v.sku.endsWith("-S") ? "S" : "M" },
+                caracteristicaId: 10,
+                opcionId: v.sku.endsWith("-S") ? 101 : 102,
+              }
+            ]
+          }))
+        );
+      }
+      return Promise.resolve(baseVariants);
     });
+    mocks.mockProductoVarianteOpcionCreateMany.mockResolvedValue({ count: 2 });
 
     const resultado = await service.generarVariantes({
       productoId,
@@ -85,10 +125,10 @@ describe("VarianteService - generarVariantes", () => {
     });
 
     expect(resultado.variantes).toHaveLength(2);
-    // El SKU generado debe contener el productoId (42) y el nombre de la opcion
-    expect(resultado.variantes[0].sku).toBe("PRODUCTO-S-42-S");
-    expect(resultado.variantes[1].sku).toBe("PRODUCTO-S-42-M");
+    expect(resultado.variantes[0].sku).toBe("PRODUCTOSUPERTE-42-S");
+    expect(resultado.variantes[1].sku).toBe("PRODUCTOSUPERTE-42-M");
 
-    expect(mocks.mockProductoVarianteCreate).toHaveBeenCalledTimes(2);
+    expect(mocks.mockProductoVarianteCreateMany).toHaveBeenCalledTimes(1);
+    expect(mocks.mockProductoVarianteOpcionCreateMany).toHaveBeenCalledTimes(1);
   });
 });
