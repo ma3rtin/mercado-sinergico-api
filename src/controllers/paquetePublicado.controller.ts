@@ -9,8 +9,9 @@ export class PaquetePublicadoController {
   getAll = asyncHandler(async (req: Request, res: Response) => {
     const skip = Number(req.query.skip) || 0;
     const take = Number(req.query.take) || 20;
+    const includeArchived = req.query.includeArchived === 'true';
 
-    const paquetes = await this.service.getAll(skip, take);
+    const paquetes = await this.service.getAll(skip, take, includeArchived);
     if (!paquetes) throw new CustomError('Paquetes no encontrados', 404);
     res.status(200).json(paquetes);
   });
@@ -195,6 +196,20 @@ export class PaquetePublicadoController {
     if (!id || isNaN(idNum)) throw new CustomError('Id de publicación no proporcionado o inválido', 400);
 
     const result = await this.service.notificarCompradores(idNum);
+    res.status(200).json(result);
+  });
+
+  archivar = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const idNum = Number(id);
+    if (!id || isNaN(idNum)) throw new CustomError('Id de publicación no proporcionado o inválido', 400);
+
+    const { archivado } = req.body;
+    if (typeof archivado !== 'boolean') {
+      throw new CustomError('El campo "archivado" debe ser un booleano', 400);
+    }
+
+    const result = await this.service.archivar(idNum, archivado);
     res.status(200).json(result);
   });
 }

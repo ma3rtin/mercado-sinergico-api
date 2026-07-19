@@ -1,7 +1,7 @@
-import { EmailService } from '../../src/services/email.service';
-import { notificarProcesoPedido } from '../../src/templates/pedidos/pedido-procesado.template';
-import { notificarEnvioPedido } from '../../src/templates/pedidos/pedido-enviado.template';
-import { envs } from '../../src/config/envs';
+import { EmailService } from '../../../src/services/email.service';
+import { notificarProcesoPedido } from '../../../src/templates/pedidos/pedido-procesado.template';
+import { notificarEnvioPedido } from '../../../src/templates/pedidos/pedido-enviado.template';
+import { envs } from '../../../src/config/envs';
 
 const emailService = new EmailService();
 

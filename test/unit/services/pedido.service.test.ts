@@ -1,8 +1,8 @@
-import { PedidoService } from "../../src/services/pedido.service";
-import { ESTADO_PAQUETE } from "../../src/constants/estado-paquete";
-import { ESTADO_PEDIDO } from "../../src/constants/estado-pedido";
+import { PedidoService } from "../../../src/services/pedido.service";
+import { ESTADO_PAQUETE } from "../../../src/constants/estado-paquete";
+import { ESTADO_PEDIDO } from "../../../src/constants/estado-pedido";
 
-jest.mock("../../src/prisma/client", () => {
+jest.mock("../../../src/prisma/client", () => {
   const mockPaquetePublicadoFindUnique = jest.fn();
   const mockPedidoFindFirst = jest.fn();
   const mockPedidoCreate = jest.fn();
@@ -50,7 +50,7 @@ describe("PedidoService", () => {
   beforeEach(() => {
     service = new PedidoService();
     jest.clearAllMocks();
-    mocks = require("../../src/prisma/client").__mocks;
+    mocks = require("../../../src/prisma/client").__mocks;
   });
 
   it("usa el producto solicitado del dto aunque el paquete tenga multiples productos", async () => {

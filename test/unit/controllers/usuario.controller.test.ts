@@ -1,8 +1,8 @@
-import { UsuarioController } from "../../src/controllers/usuario.controller";
-import { ImagenService } from "../../src/services/imagen.service";
-import { UsuarioService } from "../../src/services/usuario.service";
+import { UsuarioController } from "../../../src/controllers/usuario.controller";
+import { ImagenService } from "../../../src/services/imagen.service";
+import { UsuarioService } from "../../../src/services/usuario.service";
 
-jest.mock("../../src/utils/asyncHandler", () => ({
+jest.mock("../../../src/utils/asyncHandler", () => ({
   asyncHandler: (fn: any) => async (req: any, res: any, next: any) => {
     try {
       await fn(req, res, next);

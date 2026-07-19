@@ -7,12 +7,15 @@ interface ProductoItemData {
   imagen_url: string | null;
   plantillaId: number | null;
   marca?: {
+    id_marca: number;
     nombre: string;
   } | null;
   categoria?: {
+    id_categoria: number;
     nombre: string;
   } | null;
   variantes?: unknown[] | null;
+  archivado?: boolean;
 }
 
 export class ProductoItemListaDTO {
@@ -22,12 +25,19 @@ export class ProductoItemListaDTO {
     tipo: string;
     stock: number | null;
     imagen: string | null;
-    marca: string;
-    categoria: string;
+    marca: {
+      id_marca: number;
+      nombre: string;
+    };
+    categoria: {
+      id_categoria: number;
+      nombre: string;
+    };
     tieneVariantes: boolean;
     cantidadVariantes: number;
     plantillaId: number | null;
-  
+    archivado: boolean;
+
     constructor(producto: ProductoItemData) {
       this.id = producto.id_producto;
       this.nombre = producto.nombre;
@@ -35,10 +45,17 @@ export class ProductoItemListaDTO {
       this.tipo = producto.tipo || 'SINERGICO';
       this.stock = producto.stock;
       this.imagen = producto.imagen_url;
-      this.marca = producto.marca?.nombre || '';
-      this.categoria = producto.categoria?.nombre || '';
+      this.marca = {
+        id_marca: producto.marca?.id_marca ?? 0,
+        nombre: producto.marca?.nombre || '',
+      };
+      this.categoria = {
+        id_categoria: producto.categoria?.id_categoria ?? 0,
+        nombre: producto.categoria?.nombre || '',
+      };
       this.tieneVariantes = producto.plantillaId !== null;
       this.cantidadVariantes = producto.variantes?.length || 0;
       this.plantillaId = producto.plantillaId;
+      this.archivado = producto.archivado ?? false;
     }
   }

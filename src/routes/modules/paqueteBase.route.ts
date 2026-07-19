@@ -24,5 +24,6 @@ paqueteBaseRouter.get('/:id/productos', controller.getProductosByPaquete.bind(co
 paqueteBaseRouter.post('/', ...soloAdmin, procesarSubidaImagen('imagen'), validarDto(PaqueteBaseDTO), controller.create.bind(controller));
 paqueteBaseRouter.put('/:id', ...soloAdmin, validarDto(PaqueteBaseDTO), controller.update.bind(controller));
 paqueteBaseRouter.delete('/:id', ...soloAdmin, controller.delete.bind(controller));
+paqueteBaseRouter.patch('/:id/archivar', ...soloAdmin, controller.archivar.bind(controller));
 paqueteBaseRouter.post('/:id/productos', ...soloAdmin, validarDto(SincronizarProductosDTO), controller.sincronizarProductos.bind(controller));
 paqueteBaseRouter.post('/:id/duplicar', ...soloAdmin, controller.duplicar.bind(controller));

@@ -6,8 +6,14 @@ import { Prisma } from '@prisma/client';
 export class PaqueteBaseService {
   private prisma = prisma;
 
-  public async getAll() {
+  public async getAll(includeArchived = false) {
+    const where: Prisma.PaqueteBaseWhereInput = {};
+    if (!includeArchived) {
+      where.archivado = false;
+    }
+
     return this.prisma.paqueteBase.findMany({
+      where,
       include: {
         productos: {
           include: { producto: true },
@@ -43,18 +49,27 @@ export class PaqueteBaseService {
         throw new CustomError('La categoría no existe', 400);
       }
 
-      // Validar existencia de productos
+      // Validar existencia de productos y que no estén archivados
       if (data.productos?.length) {
         const productosExistentes = await tx.producto.findMany({
           where: {
             id_producto: { in: data.productos },
           },
-          select: { id_producto: true },
+          select: { id_producto: true, nombre: true, archivado: true },
         });
 
         if (productosExistentes.length !== data.productos.length) {
           throw new CustomError(
             'Uno o más productos seleccionados no existen.',
+            400
+          );
+        }
+
+        const productosArchivados = productosExistentes.filter((p) => p.archivado);
+        if (productosArchivados.length > 0) {
+          const nombres = productosArchivados.map((p) => p.nombre).join(', ');
+          throw new CustomError(
+            `No se pueden agregar productos archivados a un paquete base: ${nombres}`,
             400
           );
         }
@@ -221,13 +236,20 @@ export class PaqueteBaseService {
   }
 
   public async delete(id: number) {
-    try {
-      return await this.prisma.paqueteBase.delete({
-        where: { id_paquete_base: id },
-      });
-    } catch {
-      throw new CustomError(`Paquete con id=${id} no encontrado`, 404);
+    return this.archivar(id, true);
+  }
+
+  public async archivar(id: number, archivado: boolean) {
+    const paquete = await this.prisma.paqueteBase.findUnique({
+      where: { id_paquete_base: id },
+    });
+    if (!paquete) {
+      throw new CustomError('Paquete base no encontrado', 404);
     }
+    return this.prisma.paqueteBase.update({
+      where: { id_paquete_base: id },
+      data: { archivado },
+    });
   }
 
   // Endpoi
@@ -256,18 +278,27 @@ export class PaqueteBaseService {
       throw new CustomError('Paquete no encontrado', 404);
     }
 
-    // Validar existencia de productos
+    // Validar existencia de productos y que no estén archivados
     if (productosId.length > 0) {
       const productosExistentes = await this.prisma.producto.findMany({
         where: {
           id_producto: { in: productosId },
         },
-        select: { id_producto: true },
+        select: { id_producto: true, nombre: true, archivado: true },
       });
 
       if (productosExistentes.length !== productosId.length) {
         throw new CustomError(
           'Uno o más productos seleccionados no existen.',
+          400
+        );
+      }
+
+      const productosArchivados = productosExistentes.filter((p) => p.archivado);
+      if (productosArchivados.length > 0) {
+        const nombres = productosArchivados.map((p) => p.nombre).join(', ');
+        throw new CustomError(
+          `No se pueden agregar productos archivados a un paquete base: ${nombres}`,
           400
         );
       }
@@ -383,8 +414,14 @@ export class PaqueteBaseService {
           nombre: `${paqueteOriginal.nombre} (Copia)`,
           descripcion: paqueteOriginal.descripcion,
           imagen_url: paqueteOriginal.imagen_url,
-          categoria_id: paqueteOriginal.categoria_id,
-          marcaId: paqueteOriginal.marcaId,
+          categoria: {
+            connect: { id_categoria: paqueteOriginal.categoria_id },
+          },
+          ...(paqueteOriginal.marcaId && {
+            marca: {
+              connect: { id_marca: paqueteOriginal.marcaId },
+            },
+          }),
           tipo: paqueteOriginal.tipo,
         },
       });

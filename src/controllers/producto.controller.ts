@@ -3,6 +3,7 @@ import { ProductoService } from '../services/producto.service.js';
 import { ProductoDTO } from '../dtos/producto/producto.dto.js';
 import { ImagenService } from '../services/imagen.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { CustomError } from '../errors/custom.error.js';
 
 export class ProductoController {
   constructor(
@@ -14,8 +15,9 @@ export class ProductoController {
     const name = req.query.name as string | undefined;
     const skip = parseInt(req.query.skip as string) || 0;
     const take = parseInt(req.query.take as string) || 20;
+    const includeArchived = req.query.includeArchived === 'true';
 
-    const productos = await this.productoService.getAll(name, skip, take);
+    const productos = await this.productoService.getAll(name, skip, take, includeArchived);
 
     res.status(200).json(productos);
   });
@@ -123,14 +125,28 @@ export class ProductoController {
       const search = String(req.query.search || '').trim();
       const offset = Number(req.query.offset || 0);
       const limit = Number(req.query.limit || 10);
+      const includeArchived = req.query.includeArchived === 'true';
 
       const productos = await this.productoService.getAll(
         search.length > 0 ? search : undefined,
         offset,
-        limit
+        limit,
+        includeArchived
       );
 
       res.json(productos);
     }
   );
+
+  public archivarProducto = asyncHandler(async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id, 10);
+    const { archivado } = req.body;
+
+    if (typeof archivado !== 'boolean') {
+      throw new CustomError('El campo "archivado" debe ser un booleano', 400);
+    }
+
+    const updated = await this.productoService.archivar(id, archivado);
+    res.status(200).json(updated);
+  });
 }
