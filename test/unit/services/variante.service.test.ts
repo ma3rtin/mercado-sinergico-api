@@ -20,6 +20,20 @@ jest.mock("../../../src/prisma/client", () => {
         count: mockProductoVarianteCount,
       },
     },
+    productoVarianteOpcion: {
+      createMany: mockProductoVarianteOpcionCreateMany,
+    },
+  };
+
+  mockTransaction.mockImplementation(async (arg) => {
+    if (typeof arg === "function") {
+      return arg(mockPrisma);
+    }
+    return Promise.all(arg);
+  });
+
+  return {
+    prisma: mockPrisma,
     __mocks: {
       mockTransaction,
       mockProductoFindUnique,

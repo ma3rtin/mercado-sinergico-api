@@ -74,20 +74,29 @@ export class VarianteService {
   public async generarVariantes(data: GenerarVariantesDTO) {
     const { productoId, opcionesDisponibles } = data;
 
-    const producto = await this.prisma.producto.findUnique({
-      where: { id_producto: productoId },
-      include: {
-        plantilla: {
-          include: {
-            caracteristicas: {
-              include: {
-                opciones: true,
+    const todasLasOpcionesIds = [
+      ...new Set(Object.values(opcionesDisponibles).flat()),
+    ];
+
+    const [producto, opciones] = await Promise.all([
+      this.prisma.producto.findUnique({
+        where: { id_producto: productoId },
+        include: {
+          plantilla: {
+            include: {
+              caracteristicas: {
+                include: {
+                  opciones: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
+      this.prisma.opcion.findMany({
+        where: { id: { in: todasLasOpcionesIds } },
+      }),
+    ]);
 
     if (!producto) {
       throw new CustomError('Producto no encontrado', 404);
@@ -151,29 +160,96 @@ export class VarianteService {
           stockFisico: stockInicial,
           precioExtra: 0,
           activo: true,
-          opciones: {
-            create: Object.entries(combinacion).map(([caracId, opcionId]) => ({
-              caracteristicaId: parseInt(caracId),
-              opcionId: opcionId as number,
-            })),
-          },
         },
-        include: {
-          opciones: {
-            include: {
-              caracteristica: true,
-              opcion: true,
-            },
-          },
-        },
-      });
+      };
     });
 
-    const variantesCreadas = await this.prisma.$transaction(promesasVariantes);
+    // Query existing variants to avoid unique constraint violations
+    const existentes = await this.prisma.productoVariante.findMany({
+      where: { sku: { in: Array.from(skusGenerados) } },
+      include: {
+        opciones: {
+          include: {
+            caracteristica: true,
+            opcion: true,
+          },
+        },
+      },
+    });
+
+    const existentesSkus = new Set(existentes.map((e) => e.sku));
+
+    // Filter to get only the new ones
+    const nuevasVariantesFiltradas = variantesConCombinacion.filter(
+      (item) => !existentesSkus.has(item.data.sku)
+    );
+
+    let nuevasVariantesCreadas: typeof existentes = [];
+
+    if (nuevasVariantesFiltradas.length > 0) {
+      const skusParaCrear = nuevasVariantesFiltradas.map((item) => item.data.sku);
+
+      nuevasVariantesCreadas = await this.prisma.$transaction(
+        async (tx) => {
+          // 1. Bulk insert ProductoVariante (only new ones)
+          await tx.productoVariante.createMany({
+            data: nuevasVariantesFiltradas.map((item) => item.data),
+          });
+
+          // 2. Fetch created variants to obtain auto-generated IDs
+          const creados = await tx.productoVariante.findMany({
+            where: { sku: { in: skusParaCrear } },
+          });
+
+          // 3. Prepare options mappings
+          const opcionesRelacionParaCrear: {
+            varianteId: number;
+            caracteristicaId: number;
+            opcionId: number;
+          }[] = [];
+
+          for (const item of nuevasVariantesFiltradas) {
+            const createdVariant = creados.find((v) => v.sku === item.data.sku);
+            if (!createdVariant) continue;
+
+            for (const [caracId, opcionId] of Object.entries(item.combinacion)) {
+              opcionesRelacionParaCrear.push({
+                varianteId: createdVariant.id,
+                caracteristicaId: parseInt(caracId),
+                opcionId: opcionId as number,
+              });
+            }
+          }
+
+          // 4. Bulk insert option mappings
+          await tx.productoVarianteOpcion.createMany({
+            data: opcionesRelacionParaCrear,
+          });
+
+          // 5. Query and return all created variants with their relations
+          return tx.productoVariante.findMany({
+            where: { sku: { in: skusParaCrear } },
+            include: {
+              opciones: {
+                include: {
+                  caracteristica: true,
+                  opcion: true,
+                },
+              },
+            },
+          });
+        },
+        {
+          timeout: 30000,
+        }
+      );
+    }
+
+    const todasLasVariantes = [...existentes, ...nuevasVariantesCreadas];
 
     return {
-      message: `${variantesCreadas.length} variantes generadas correctamente`,
-      variantes: variantesCreadas,
+      message: `${nuevasVariantesCreadas.length} nuevas variantes generadas correctamente. ${existentes.length} variantes ya existían.`,
+      variantes: todasLasVariantes,
     };
   }
 
@@ -200,12 +276,19 @@ export class VarianteService {
     }
 
     await this.prisma.$transaction(
-      variantes.map((v) =>
-        this.prisma.productoVariante.update({
-          where: { id: v.id },
-          data: { stockFisico: v.stockFisico },
-        })
-      )
+      async (tx) => {
+        await Promise.all(
+          variantes.map((v) =>
+            tx.productoVariante.update({
+              where: { id: v.id },
+              data: { stockFisico: v.stockFisico },
+            })
+          )
+        );
+      },
+      {
+        timeout: 20000,
+      }
     );
 
     return {
@@ -232,28 +315,35 @@ export class VarianteService {
     }
 
     await this.prisma.$transaction(
-      variantes.map((v) => {
-        const dataToUpdate: {
-          sku?: string;
-          stockFisico?: number | null;
-          precioExtra?: number;
-          activo?: boolean;
-        } = {};
-        if (v.sku !== undefined) dataToUpdate.sku = v.sku;
-        if (v.stockFisico !== undefined) {
-          if (v.stockFisico !== null && v.stockFisico < 0) {
-            throw new CustomError('El stock físico no puede ser negativo.', 400);
-          }
-          dataToUpdate.stockFisico = v.stockFisico;
-        }
-        if (v.precioExtra !== undefined) dataToUpdate.precioExtra = v.precioExtra;
-        if (v.activo !== undefined) dataToUpdate.activo = v.activo;
+      async (tx) => {
+        await Promise.all(
+          variantes.map((v) => {
+            const dataToUpdate: {
+              sku?: string;
+              stockFisico?: number | null;
+              precioExtra?: number;
+              activo?: boolean;
+            } = {};
+            if (v.sku !== undefined) dataToUpdate.sku = v.sku;
+            if (v.stockFisico !== undefined) {
+              if (v.stockFisico !== null && v.stockFisico < 0) {
+                throw new CustomError('El stock físico no puede ser negativo.', 400);
+              }
+              dataToUpdate.stockFisico = v.stockFisico;
+            }
+            if (v.precioExtra !== undefined) dataToUpdate.precioExtra = v.precioExtra;
+            if (v.activo !== undefined) dataToUpdate.activo = v.activo;
 
-        return this.prisma.productoVariante.update({
-          where: { id: v.id },
-          data: dataToUpdate,
-        });
-      })
+            return tx.productoVariante.update({
+              where: { id: v.id },
+              data: dataToUpdate,
+            });
+          })
+        );
+      },
+      {
+        timeout: 20000,
+      }
     );
 
     return {
@@ -266,14 +356,6 @@ export class VarianteService {
     data: ActualizarVarianteDTO,
     imagenBuffer?: Buffer
   ) {
-    const variante = await this.prisma.productoVariante.findUnique({
-      where: { id: varianteId },
-    });
-
-    if (!variante) {
-      throw new CustomError('Variante no encontrada', 404);
-    }
-
     // Validar que el stock físico no sea negativo
     if (data.stockFisico !== null && (data.stockFisico ?? 0) < 0) {
       throw new CustomError('El stock físico no puede ser negativo.', 400);
@@ -295,18 +377,25 @@ export class VarianteService {
     if (data.activo !== undefined) dataToUpdate.activo = data.activo;
     if (imagen_url !== undefined) dataToUpdate.imagen_url = imagen_url;
 
-    return this.prisma.productoVariante.update({
-      where: { id: varianteId },
-      data: dataToUpdate,
-      include: {
-        opciones: {
-          include: {
-            caracteristica: true,
-            opcion: true,
+    try {
+      return await this.prisma.productoVariante.update({
+        where: { id: varianteId },
+        data: dataToUpdate,
+        include: {
+          opciones: {
+            include: {
+              caracteristica: true,
+              opcion: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch (error: unknown) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new CustomError('Variante no encontrada', 404);
+      }
+      throw error;
+    }
   }
 
   public async eliminarVariante(varianteId: number) {

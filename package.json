@@ -9,7 +9,7 @@
     "generate": "prisma generate",
     "migrate": "prisma migrate dev",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/app.js",
+    "start": "npx prisma migrate deploy && node dist/app.js",
     "lint": "eslint src/**/*.ts --fix",
     "lint:fix": "eslint src/**/*.ts --fix",
     "postinstall": "prisma generate",
