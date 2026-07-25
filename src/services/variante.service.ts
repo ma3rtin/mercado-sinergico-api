@@ -97,6 +97,16 @@ export class VarianteService {
       throw new CustomError('El producto no tiene plantilla asignada', 400);
     }
 
+    const variantesExistentes = await this.prisma.productoVariante.count({
+      where: { productoId },
+    });
+    if (variantesExistentes > 0) {
+      throw new CustomError(
+        'Este producto ya tiene variantes generadas. Elimínalas primero si querés regenerarlas.',
+        409
+      );
+    }
+
     const caracteristicasIds = Object.keys(opcionesDisponibles).map(Number);
     const caracteristicasValidas = producto.plantilla.caracteristicas.map(
       (c) => c.id
@@ -126,25 +136,13 @@ export class VarianteService {
       stockInicial = null;
     }
 
-    const todasLasOpcionesIds = [
-      ...new Set(Object.values(opcionesDisponibles).flat()),
-    ];
-    const opciones = await this.prisma.opcion.findMany({
-      where: { id: { in: todasLasOpcionesIds } },
-    });
-    const opcionesMap = new Map(opciones.map((o) => [o.id, o]));
-
     const promesasVariantes = combinaciones.map((combinacion) => {
-      const opcionesNombres = Object.values(combinacion).map(
-        (opcionId) => opcionesMap.get(opcionId)?.nombre || ''
-      );
-
-      const sku = `${producto.nombre
+      const nombreLimpio = producto.nombre
         .substring(0, 10)
         .toUpperCase()
-        .replace(/\s+/g, '-')}-${productoId}-${opcionesNombres
-          .map((nombre) => nombre.substring(0, 4).toUpperCase().replace(/\s+/g, ''))
-          .join('-')}`;
+        .replace(/\s+/g, '-');
+      const idsOpciones = Object.values(combinacion).join('-');
+      const sku = `${nombreLimpio}-${productoId}-${idsOpciones}`;
 
       return this.prisma.productoVariante.create({
         data: {
