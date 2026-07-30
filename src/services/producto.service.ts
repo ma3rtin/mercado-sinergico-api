@@ -372,9 +372,7 @@ export class ProductoService {
       });
     });
 
-    console.time(`[TIMING] $transaction variantes (${combinaciones.length} variantes)`);
     await this.prisma.$transaction(promesasVariantes);
-    console.timeEnd(`[TIMING] $transaction variantes (${combinaciones.length} variantes)`);
   }
 
   private generarCombinaciones(

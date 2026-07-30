@@ -24,10 +24,6 @@ export function validarDto<T extends object>(dtoClass: new () => T) {
 
     const errors = await validate(dto);
     if (errors.length > 0) {
-      console.log('[DEBUG] validarDto RECHAZANDO:', errors.map(e => ({
-        property: e.property,
-        constraints: e.constraints,
-      })));
       return res.status(400).json({
         message: 'Datos inválidos',
         errors: errors.map((e) => ({
