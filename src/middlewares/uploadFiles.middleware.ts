@@ -1,5 +1,6 @@
 import multer, { FileFilterCallback } from 'multer';
 import { Request } from 'express';
+import { CustomError } from '../errors/custom.error.js';
 
 const storage = multer.memoryStorage();
 
@@ -12,7 +13,7 @@ const fileFilter = (
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Tipo de archivo no permitido. Solo JPEG, PNG y GIF.'));
+    cb(new CustomError('Tipo de archivo no permitido. Solo JPEG, PNG y GIF.', 415));
   }
 };
 

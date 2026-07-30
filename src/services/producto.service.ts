@@ -344,28 +344,18 @@ export class ProductoService {
 
     const combinaciones = this.generarCombinaciones(opcionesDisponibles);
 
-    for (const combinacion of combinaciones) {
-      const opcionesNombres = await Promise.all(
-        Object.values(combinacion).map((opcionId) =>
-          this.prisma.opcion.findUnique({ where: { id: opcionId } })
-        )
-      );
+    const nombreLimpio = producto.nombre
+      .substring(0, 10)
+      .toUpperCase()
+      .replace(/\s+/g, '-');
 
-      const sku = `${producto.nombre
-        .substring(0, 10)
-        .toUpperCase()
-        .replace(/\s+/g, '-')}-${productoId}-${opcionesNombres
-          .map((o) => o?.nombre.substring(0, 4).toUpperCase().replace(/\s+/g, ''))
-          .join('-')}`;
+    const promesasVariantes = combinaciones.map((combinacion) => {
+      const idsOpciones = Object.values(combinacion).join('-');
+      const sku = `${nombreLimpio}-${productoId}-${idsOpciones}`;
 
-      let stockInicial: number | null;
-      if (tipo === TipoPaquete.ENERGICO) {
-        stockInicial = 0;
-      } else {
-        stockInicial = null;
-      }
+      const stockInicial = tipo === TipoPaquete.ENERGICO ? 0 : null;
 
-      await this.prisma.productoVariante.create({
+      return this.prisma.productoVariante.create({
         data: {
           productoId,
           sku,
@@ -380,7 +370,9 @@ export class ProductoService {
           },
         },
       });
-    }
+    });
+
+    await this.prisma.$transaction(promesasVariantes);
   }
 
   private generarCombinaciones(

@@ -56,22 +56,26 @@ export class ProductoController {
           : body.opcionesDisponibles,
     };
 
-    if (campos?.icono?.[0]) {
-      producto.imagen_url = await this.imagenService.uploadToCloudinary(
-        campos.icono[0].buffer
-      );
-    } else {
+    if (!campos?.icono?.[0]) {
       return res
         .status(400)
         .json({ message: 'La imagen principal es obligatoria' });
     }
 
+    const todosLosArchivos = [
+      campos.icono[0],
+      ...(campos?.imagenes || []),
+    ];
+
+    const urls = await Promise.all(
+      todosLosArchivos.map((file) =>
+        this.imagenService.uploadToCloudinary(file.buffer)
+      )
+    );
+
+    producto.imagen_url = urls[0];
     if (campos?.imagenes?.length) {
-      producto.imagenes = [];
-      for (const file of campos.imagenes) {
-        const url = await this.imagenService.uploadToCloudinary(file.buffer);
-        producto.imagenes.push(url);
-      }
+      producto.imagenes = urls.slice(1);
     }
 
     const newProducto = await this.productoService.create(producto);
