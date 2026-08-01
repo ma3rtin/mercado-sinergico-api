@@ -3,18 +3,18 @@ import fs from 'fs';
 import path from 'path';
 
 // Determinar la rama base de comparación
-let baseBranch = 'origin/dev';
+let baseBranch = 'origin/main';
 if (process.env.GITHUB_BASE_REF) {
   baseBranch = `origin/${process.env.GITHUB_BASE_REF}`;
 } else {
-  // Localmente, intentar ver si existe 'dev' o 'main' en el repo local
+  // Localmente, intentar ver si existe 'main' o 'dev' en el repo local
   try {
-    execSync('git show-ref --verify --quiet refs/heads/dev', { stdio: 'ignore' });
-    baseBranch = 'dev';
+    execSync('git show-ref --verify --quiet refs/heads/main', { stdio: 'ignore' });
+    baseBranch = 'main';
   } catch (e) {
     try {
-      execSync('git show-ref --verify --quiet refs/heads/main', { stdio: 'ignore' });
-      baseBranch = 'main';
+      execSync('git show-ref --verify --quiet refs/heads/dev', { stdio: 'ignore' });
+      baseBranch = 'dev';
     } catch (err) {
       baseBranch = 'HEAD~1'; // Último recurso local
     }
