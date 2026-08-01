@@ -13,11 +13,63 @@ export class ProductoController {
 
   public getProductos = asyncHandler(async (req: Request, res: Response) => {
     const name = req.query.name as string | undefined;
-    const skip = parseInt(req.query.skip as string) || 0;
-    const take = parseInt(req.query.take as string) || 20;
     const includeArchived = req.query.includeArchived === 'true';
 
-    const productos = await this.productoService.getAll(name, skip, take, includeArchived);
+    const pageVal = req.query.page;
+    const limitVal = req.query.limit;
+
+    let page = pageVal ? parseInt(pageVal as string, 10) : undefined;
+    let limit = limitVal ? parseInt(limitVal as string, 10) : undefined;
+
+    // Validaciones
+    if (pageVal !== undefined && (isNaN(page!) || page! < 1)) {
+      return res.status(400).json({ message: 'El parámetro "page" debe ser un número entero mayor o igual a 1' });
+    }
+    if (limitVal !== undefined && (isNaN(limit!) || limit! < 1 || limit! > 100)) {
+      return res.status(400).json({ message: 'El parámetro "limit" debe ser un número entero entre 1 y 100' });
+    }
+
+    // Filtros opcionales
+    const categorias = req.query.categorias
+      ? (req.query.categorias as string).split(',').map(Number).filter((n) => !isNaN(n))
+      : undefined;
+    const marcas = req.query.marcas
+      ? (req.query.marcas as string).split(',').map(Number).filter((n) => !isNaN(n))
+      : undefined;
+    const zonas = req.query.zonas
+      ? (req.query.zonas as string).split(',').map(Number).filter((n) => !isNaN(n))
+      : undefined;
+    const precioMin = req.query.precioMin ? parseFloat(req.query.precioMin as string) : undefined;
+    const precioMax = req.query.precioMax ? parseFloat(req.query.precioMax as string) : undefined;
+
+    const skip = page && limit ? (page - 1) * limit : undefined;
+    const take = limit;
+
+    const productos = await this.productoService.getAll(
+      name,
+      skip,
+      take,
+      includeArchived,
+      categorias,
+      marcas,
+      precioMin,
+      precioMax,
+      zonas
+    );
+
+    if (page !== undefined && limit !== undefined) {
+      const total = await this.productoService.countAll(
+        name,
+        includeArchived,
+        categorias,
+        marcas,
+        precioMin,
+        precioMax,
+        zonas
+      );
+      res.setHeader('X-Total-Count', total);
+      res.setHeader('Access-Control-Expose-Headers', 'X-Total-Count');
+    }
 
     res.status(200).json(productos);
   });

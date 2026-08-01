@@ -86,10 +86,83 @@ export class PaquetePublicadoService {
 
   // ─── Queries ─────────────────────────────────────────────────────────────────
 
-  async getAll(skip?: number, take?: number, includeArchived = false) {
+  async getAll(
+    skip?: number,
+    take?: number,
+    includeArchived = false,
+    categorias?: number[],
+    marcas?: number[],
+    zonas?: number[],
+    tiposPaquete?: string[],
+    estados?: string[]
+  ) {
     const where: Prisma.PaquetePublicadoWhereInput = {};
     if (!includeArchived) {
       where.archivado = false;
+      where.estadoId = 1; // ESTADO_PAQUETE.ACTIVO
+      where.fecha_fin = { gte: new Date() };
+    }
+
+    const paqueteBaseConditions: Prisma.PaqueteBaseWhereInput = {};
+    let hasPaqueteBaseConditions = false;
+
+    if (categorias && categorias.length > 0) {
+      paqueteBaseConditions.categoria_id = { in: categorias };
+      hasPaqueteBaseConditions = true;
+    }
+    if (marcas && marcas.length > 0) {
+      paqueteBaseConditions.marcaId = { in: marcas };
+      hasPaqueteBaseConditions = true;
+    }
+
+    if (hasPaqueteBaseConditions) {
+      where.paqueteBase = paqueteBaseConditions;
+    }
+    if (zonas && zonas.length > 0) {
+      where.zonaId = { in: zonas };
+    }
+    if (tiposPaquete && tiposPaquete.length > 0) {
+      where.tipo = { in: tiposPaquete as any };
+    }
+
+    if (estados && estados.length > 0) {
+      const andConditions: Prisma.PaquetePublicadoWhereInput[] = [];
+
+      estados.forEach((est) => {
+        if (est === 'por-cerrar') {
+          const hoy = new Date();
+          const dentroDe5Dias = new Date(hoy);
+          dentroDe5Dias.setDate(hoy.getDate() + 5);
+          andConditions.push({
+            fecha_fin: {
+              gte: hoy,
+              lte: dentroDe5Dias
+            }
+          });
+        }
+        if (est === 'recien-abiertos') {
+          const hoy = new Date();
+          const hace7Dias = new Date(hoy);
+          hace7Dias.setDate(hoy.getDate() - 7);
+          andConditions.push({
+            fecha_inicio: {
+              gte: hace7Dias,
+              lte: hoy
+            }
+          });
+        }
+        if (est === 'populares') {
+          andConditions.push({
+            cant_usuarios_registrados: {
+              gte: 10
+            }
+          });
+        }
+      });
+
+      if (andConditions.length > 0) {
+        where.AND = andConditions;
+      }
     }
 
     const paquetes = await this.prisma.paquetePublicado.findMany({
@@ -116,6 +189,86 @@ export class PaquetePublicadoService {
       },
     });
     return paquetes.map((p) => this._mapComputedFields(p as PaqueteComputable));
+  }
+
+  async countAll(
+    includeArchived = false,
+    categorias?: number[],
+    marcas?: number[],
+    zonas?: number[],
+    tiposPaquete?: string[],
+    estados?: string[]
+  ): Promise<number> {
+    const where: Prisma.PaquetePublicadoWhereInput = {};
+    if (!includeArchived) {
+      where.archivado = false;
+      where.estadoId = 1;
+      where.fecha_fin = { gte: new Date() };
+    }
+
+    const paqueteBaseConditions: Prisma.PaqueteBaseWhereInput = {};
+    let hasPaqueteBaseConditions = false;
+
+    if (categorias && categorias.length > 0) {
+      paqueteBaseConditions.categoria_id = { in: categorias };
+      hasPaqueteBaseConditions = true;
+    }
+    if (marcas && marcas.length > 0) {
+      paqueteBaseConditions.marcaId = { in: marcas };
+      hasPaqueteBaseConditions = true;
+    }
+
+    if (hasPaqueteBaseConditions) {
+      where.paqueteBase = paqueteBaseConditions;
+    }
+    if (zonas && zonas.length > 0) {
+      where.zonaId = { in: zonas };
+    }
+    if (tiposPaquete && tiposPaquete.length > 0) {
+      where.tipo = { in: tiposPaquete as any };
+    }
+
+    if (estados && estados.length > 0) {
+      const andConditions: Prisma.PaquetePublicadoWhereInput[] = [];
+
+      estados.forEach((est) => {
+        if (est === 'por-cerrar') {
+          const hoy = new Date();
+          const dentroDe5Dias = new Date(hoy);
+          dentroDe5Dias.setDate(hoy.getDate() + 5);
+          andConditions.push({
+            fecha_fin: {
+              gte: hoy,
+              lte: dentroDe5Dias
+            }
+          });
+        }
+        if (est === 'recien-abiertos') {
+          const hoy = new Date();
+          const hace7Dias = new Date(hoy);
+          hace7Dias.setDate(hoy.getDate() - 7);
+          andConditions.push({
+            fecha_inicio: {
+              gte: hace7Dias,
+              lte: hoy
+            }
+          });
+        }
+        if (est === 'populares') {
+          andConditions.push({
+            cant_usuarios_registrados: {
+              gte: 10
+            }
+          });
+        }
+      });
+
+      if (andConditions.length > 0) {
+        where.AND = andConditions;
+      }
+    }
+
+    return this.prisma.paquetePublicado.count({ where });
   }
 
   async getById(id: number) {
