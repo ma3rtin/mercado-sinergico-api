@@ -4,26 +4,32 @@ import { TipoPaquete } from "@prisma/client";
 jest.mock("../../../src/prisma/client", () => {
   const mockTransaction = jest.fn();
   const mockProductoFindUnique = jest.fn();
-  const mockProductoVarianteCreate = jest.fn();
+  const mockProductoVarianteCreateMany = jest.fn();
+  const mockProductoVarianteFindMany = jest.fn();
+  const mockProductoVarianteOpcionCreateMany = jest.fn();
   const mockProductoVarianteCount = jest.fn();
 
   return {
     prisma: {
-      $transaction: mockTransaction.mockImplementation(async (promises) => {
-        return Promise.all(promises);
-      }),
+      $transaction: mockTransaction,
       producto: {
         findUnique: mockProductoFindUnique,
       },
       productoVariante: {
-        create: mockProductoVarianteCreate,
+        createMany: mockProductoVarianteCreateMany,
+        findMany: mockProductoVarianteFindMany,
         count: mockProductoVarianteCount,
+      },
+      productoVarianteOpcion: {
+        createMany: mockProductoVarianteOpcionCreateMany,
       },
     },
     __mocks: {
       mockTransaction,
       mockProductoFindUnique,
-      mockProductoVarianteCreate,
+      mockProductoVarianteCreateMany,
+      mockProductoVarianteFindMany,
+      mockProductoVarianteOpcionCreateMany,
       mockProductoVarianteCount,
     },
   };
@@ -55,19 +61,44 @@ function makeProducto(productoId: number, overrides: Partial<any> = {}) {
 describe("VarianteService - generarVariantes", () => {
   let service: VarianteService;
   let mocks: any;
+  let lastVariantesData: any[] = [];
 
   beforeEach(() => {
     service = new VarianteService();
     jest.clearAllMocks();
     mocks = require("../../../src/prisma/client").__mocks;
+    lastVariantesData = [];
 
     mocks.mockProductoVarianteCount.mockResolvedValue(0);
-    mocks.mockProductoVarianteCreate.mockImplementation(({ data }: any) => {
-      return Promise.resolve({
-        id: Math.floor(Math.random() * 1000),
-        ...data,
-      });
+    mocks.mockTransaction.mockImplementation(async (callback: any) => {
+      const tx = {
+        productoVariante: {
+          createMany: mocks.mockProductoVarianteCreateMany,
+          findMany: mocks.mockProductoVarianteFindMany,
+        },
+        productoVarianteOpcion: {
+          createMany: mocks.mockProductoVarianteOpcionCreateMany,
+        },
+      };
+      return callback(tx);
     });
+    mocks.mockProductoVarianteCreateMany.mockImplementation(
+      async ({ data }: any) => {
+        lastVariantesData = data;
+        return { count: data.length };
+      }
+    );
+    mocks.mockProductoVarianteFindMany.mockImplementation(
+      async ({ where }: any) => {
+        const ids: number[] = where.id?.in ?? [];
+        const skus: string[] = where.sku?.in ?? [];
+        return lastVariantesData
+          .map((v: any, i: number) => ({ id: i + 1, ...v }))
+          .filter((v: any) =>
+            skus.length ? skus.includes(v.sku) : ids.includes(v.id)
+          );
+      }
+    );
   });
 
   it("debería generar variantes con SKU conteniendo el productoId", async () => {
@@ -84,7 +115,12 @@ describe("VarianteService - generarVariantes", () => {
     expect(resultado.variantes).toHaveLength(2);
     expect(resultado.variantes[0].sku).toContain("-42-");
     expect(resultado.variantes[1].sku).toContain("-42-");
-    expect(mocks.mockProductoVarianteCreate).toHaveBeenCalledTimes(2);
+    expect(mocks.mockProductoVarianteCreateMany).toHaveBeenCalledTimes(1);
+    expect(mocks.mockProductoVarianteCreateMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({ sku: expect.stringContaining("-42-") }),
+      ]),
+    });
   });
 
   describe("guard de idempotencia", () => {

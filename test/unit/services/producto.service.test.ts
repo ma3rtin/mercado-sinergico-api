@@ -144,8 +144,12 @@ describe("ProductoService", () => {
         categoria_id: 1,
       };
 
-      const { mockProductoCreate } = require("../../../src/prisma/client").__mocks;
+      const {
+        mockProductoCreate,
+        mockProductoFindUnique,
+      } = require("../../../src/prisma/client").__mocks;
       mockProductoCreate.mockResolvedValue({ id_producto: 1, ...dto });
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, ...dto });
 
       const result = await service.create(dto);
       expect(result).toHaveProperty("id_producto");
