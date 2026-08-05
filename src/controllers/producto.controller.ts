@@ -62,23 +62,22 @@ export class ProductoController {
         .json({ message: 'La imagen principal es obligatoria' });
     }
 
-    const todosLosArchivos = [
-      campos.icono[0],
-      ...(campos?.imagenes || []),
-    ];
+    const [urlPrincipal, urlsAdicionales] = await Promise.all([
+      this.imagenService.uploadToCloudinary(campos.icono[0].buffer),
+      Promise.all(
+        (campos?.imagenes || []).map((file) =>
+          this.imagenService.uploadToCloudinary(file.buffer)
+        )
+      ),
+    ]);
 
-    const urls = await Promise.all(
-      todosLosArchivos.map((file) =>
-        this.imagenService.uploadToCloudinary(file.buffer)
-      )
-    );
-
-    producto.imagen_url = urls[0];
+    producto.imagen_url = urlPrincipal;
     if (campos?.imagenes?.length) {
-      producto.imagenes = urls.slice(1);
+      producto.imagenes = urlsAdicionales;
     }
 
     const newProducto = await this.productoService.create(producto);
+
     res.status(201).json(newProducto);
   });
 

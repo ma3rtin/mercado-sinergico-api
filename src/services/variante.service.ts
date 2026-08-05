@@ -134,37 +134,102 @@ export class VarianteService {
       stockInicial = null;
     }
 
-    const promesasVariantes = combinaciones.map((combinacion) => {
-      const nombreLimpio = producto.nombre
-        .substring(0, 10)
-        .toUpperCase()
-        .replace(/\s+/g, '-');
-      const idsOpciones = Object.values(combinacion).join('-');
-      const sku = `${nombreLimpio}-${productoId}-${idsOpciones}`;
+    if (combinaciones.length === 0) {
+      return {
+        message: '0 variantes generadas correctamente',
+        variantes: [],
+      };
+    }
 
-      return this.prisma.productoVariante.create({
-        data: {
-          productoId,
-          sku,
-          stockFisico: stockInicial,
-          precioExtra: 0,
-          activo: true,
-          opciones: {
-            create: Object.entries(combinacion).map(([caracId, opcionId]) => ({
-              caracteristicaId: parseInt(caracId),
-              opcionId: opcionId as number,
-            })),
-          },
-        },
-        include: {
-          opciones: {
-            include: { caracteristica: true, opcion: true },
-          },
-        },
-      });
-    });
+    const nombreLimpio = producto.nombre
+      .substring(0, 10)
+      .toUpperCase()
+      .replace(/\s+/g, '-');
 
-    const variantesCreadas = await this.prisma.$transaction(promesasVariantes);
+    const variantesCreadas = await this.prisma.$transaction(
+      async (tx) => {
+        const variantesData = combinaciones.map((combinacion) => {
+          const idsOpciones = Object.values(combinacion).join('-');
+          const sku = `${nombreLimpio}-${productoId}-${idsOpciones}`;
+
+          return {
+            productoId,
+            sku,
+            stockFisico: stockInicial,
+            precioExtra: 0,
+            activo: true,
+          };
+        });
+
+        const skusGenerados = variantesData.map((v) => v.sku);
+
+        try {
+          await tx.productoVariante.createMany({ data: variantesData });
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+          ) {
+            throw new CustomError(
+              'Ya existe una variante con ese SKU. Verificá que el producto no tenga variantes previas.',
+              409,
+              error
+            );
+          }
+          throw error;
+        }
+
+        const variantes = await tx.productoVariante.findMany({
+          where: {
+            productoId,
+            sku: { in: skusGenerados },
+          },
+          orderBy: { id: 'asc' },
+        });
+
+        const varianteIdPorSku = new Map(
+          variantes.map((v) => [v.sku, v.id])
+        );
+
+        const opcionesData = combinaciones.flatMap((combinacion) => {
+          const idsOpciones = Object.values(combinacion).join('-');
+          const sku = `${nombreLimpio}-${productoId}-${idsOpciones}`;
+          const varianteId = varianteIdPorSku.get(sku);
+
+          if (varianteId === undefined) {
+            throw new CustomError(
+              'Error al recuperar las variantes creadas',
+              500
+            );
+          }
+
+          return Object.entries(combinacion).map(([caracId, opcionId]) => ({
+            varianteId,
+            caracteristicaId: parseInt(caracId),
+            opcionId: opcionId as number,
+          }));
+        });
+
+        await tx.productoVarianteOpcion.createMany({ data: opcionesData });
+
+        const variantesFinales = await tx.productoVariante.findMany({
+          where: {
+            id: { in: variantes.map((v) => v.id) },
+          },
+          orderBy: { id: 'asc' },
+          include: {
+            opciones: {
+              include: { caracteristica: true, opcion: true },
+            },
+          },
+        });
+
+        return variantesFinales;
+      },
+      {
+        timeout: 20000,
+      }
+    );
 
     return {
       message: `${variantesCreadas.length} variantes generadas correctamente`,

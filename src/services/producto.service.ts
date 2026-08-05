@@ -110,32 +110,55 @@ export class ProductoService {
       throw new CustomError('Categoria no encontrada', 404);
     }
 
-    const nuevoProducto = await this.prisma.producto.create({
-      data: {
-        ...rest,
-        tipo: tipo || TipoPaquete.SINERGICO,
-        categoria: { connect: { id_categoria: categoria_id } },
-        marca: { connect: { id_marca: marca_id } },
-        plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
-        imagenes: {
-          create: imagenes?.map((url) => ({ url })) || [],
-        },
-      },
-      include: {
-        imagenes: true,
-        categoria: true,
-        marca: true,
-        plantilla: {
+    const nuevoProducto = await this.prisma.$transaction(
+      async (tx) => {
+        const productoCreado = await tx.producto.create({
+          data: {
+            ...rest,
+            tipo: tipo || TipoPaquete.SINERGICO,
+            categoria: { connect: { id_categoria: categoria_id } },
+            marca: { connect: { id_marca: marca_id } },
+            plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
+          },
+        });
+
+        if (imagenes && imagenes.length > 0) {
+          await tx.productoImagen.createMany({
+            data: imagenes.map((url) => ({
+              url,
+              productoId: productoCreado.id_producto,
+            })),
+          });
+        }
+
+        const productoFinal = await tx.producto.findUnique({
+          where: { id_producto: productoCreado.id_producto },
           include: {
-            caracteristicas: {
+            imagenes: true,
+            categoria: true,
+            marca: true,
+            plantilla: {
               include: {
-                opciones: true,
+                caracteristicas: {
+                  include: {
+                    opciones: true,
+                  },
+                },
               },
             },
           },
-        },
+        });
+
+        if (!productoFinal) {
+          throw new CustomError('Error al recuperar el producto recién creado', 500);
+        }
+
+        return productoFinal;
       },
-    });
+      {
+        timeout: 20000,
+      }
+    );
 
     if (plantillaId && opcionesDisponibles) {
       await this.generarVariantesAutomaticas(
