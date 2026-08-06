@@ -7,12 +7,68 @@ export class PaquetePublicadoController {
   constructor(private service: PaquetePublicadoService) { }
 
   getAll = asyncHandler(async (req: Request, res: Response) => {
-    const skip = Number(req.query.skip) || 0;
-    const take = Number(req.query.take) || 20;
     const includeArchived = req.query.includeArchived === 'true';
 
-    const paquetes = await this.service.getAll(skip, take, includeArchived);
+    const pageVal = req.query.page;
+    const limitVal = req.query.limit;
+
+    let page = pageVal ? parseInt(pageVal as string, 10) : undefined;
+    let limit = limitVal ? parseInt(limitVal as string, 10) : undefined;
+
+    // Validaciones
+    if (pageVal !== undefined && (isNaN(page!) || page! < 1)) {
+      return res.status(400).json({ message: 'El parámetro "page" debe ser un número entero mayor o igual a 1' });
+    }
+    if (limitVal !== undefined && (isNaN(limit!) || limit! < 1 || limit! > 100)) {
+      return res.status(400).json({ message: 'El parámetro "limit" debe ser un número entero entre 1 y 100' });
+    }
+
+    // Filtros opcionales
+    const categorias = req.query.categorias
+      ? (req.query.categorias as string).split(',').map(Number).filter((n) => !isNaN(n))
+      : undefined;
+    const marcas = req.query.marcas
+      ? (req.query.marcas as string).split(',').map(Number).filter((n) => !isNaN(n))
+      : undefined;
+    const zonas = req.query.zonas
+      ? (req.query.zonas as string).split(',').map(Number).filter((n) => !isNaN(n))
+      : undefined;
+    const tiposPaquete = req.query.tiposPaquete
+      ? (req.query.tiposPaquete as string).split(',')
+      : undefined;
+    const estados = req.query.estados
+      ? (req.query.estados as string).split(',')
+      : undefined;
+
+    const skip = page && limit ? (page - 1) * limit : undefined;
+    const take = limit;
+
+    const paquetes = await this.service.getAll(
+      skip,
+      take,
+      includeArchived,
+      categorias,
+      marcas,
+      zonas,
+      tiposPaquete,
+      estados
+    );
+
     if (!paquetes) throw new CustomError('Paquetes no encontrados', 404);
+
+    if (page !== undefined && limit !== undefined) {
+      const total = await this.service.countAll(
+        includeArchived,
+        categorias,
+        marcas,
+        zonas,
+        tiposPaquete,
+        estados
+      );
+      res.setHeader('X-Total-Count', total);
+      res.setHeader('Access-Control-Expose-Headers', 'X-Total-Count');
+    }
+
     res.status(200).json(paquetes);
   });
 

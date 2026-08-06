@@ -6,6 +6,7 @@ jest.mock("../../../src/prisma/client", () => {
   const mockPaquetePublicadoFindUnique = jest.fn();
   const mockPaquetePublicadoUpdate = jest.fn();
   const mockPaquetePublicadoCreate = jest.fn();
+  const mockPaquetePublicadoCount = jest.fn();
   const mockLocalidadFindUnique = jest.fn();
   const mockUsuarioFindUnique = jest.fn();
   const mockPaqueteBaseFindUnique = jest.fn();
@@ -21,6 +22,7 @@ jest.mock("../../../src/prisma/client", () => {
             findUnique: mockPaquetePublicadoFindUnique,
             update: mockPaquetePublicadoUpdate,
             create: mockPaquetePublicadoCreate,
+            count: mockPaquetePublicadoCount,
           },
           localidad: { findUnique: mockLocalidadFindUnique },
           usuario: { findUnique: mockUsuarioFindUnique },
@@ -34,6 +36,7 @@ jest.mock("../../../src/prisma/client", () => {
         findUnique: mockPaquetePublicadoFindUnique,
         update: mockPaquetePublicadoUpdate,
         create: mockPaquetePublicadoCreate,
+        count: mockPaquetePublicadoCount,
       },
       localidad: { findUnique: mockLocalidadFindUnique },
       usuario: { findUnique: mockUsuarioFindUnique },
@@ -47,6 +50,7 @@ jest.mock("../../../src/prisma/client", () => {
       mockPaquetePublicadoFindUnique,
       mockPaquetePublicadoUpdate,
       mockPaquetePublicadoCreate,
+      mockPaquetePublicadoCount,
       mockLocalidadFindUnique,
       mockUsuarioFindUnique,
       mockPaqueteBaseFindUnique,
@@ -68,6 +72,7 @@ describe("PaquetePublicadoService", () => {
       mockPaquetePublicadoFindUnique,
       mockPaquetePublicadoUpdate,
       mockPaquetePublicadoCreate,
+      mockPaquetePublicadoCount,
       mockLocalidadFindUnique,
       mockUsuarioFindUnique,
       mockPaqueteBaseFindUnique,
@@ -79,6 +84,7 @@ describe("PaquetePublicadoService", () => {
     mockPaquetePublicadoFindUnique.mockResolvedValue(null);
     mockPaquetePublicadoUpdate.mockResolvedValue({});
     mockPaquetePublicadoCreate.mockResolvedValue({});
+    mockPaquetePublicadoCount.mockResolvedValue(0);
     mockLocalidadFindUnique.mockResolvedValue(null);
     mockUsuarioFindUnique.mockResolvedValue(null);
     mockPaqueteBaseFindUnique.mockResolvedValue({ id_paquete_base: 1, nombre: "Base", archivado: false, productos: [] });
@@ -111,6 +117,54 @@ describe("PaquetePublicadoService", () => {
         expect.objectContaining({
           where: expect.not.objectContaining({
             archivado: false,
+          }),
+        })
+      );
+    });
+
+    it("debería pasar skip y take a prisma para la paginación de paquetes", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(10, 5);
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 10,
+          take: 5,
+        })
+      );
+    });
+
+    it("debería aplicar filtros de categorías, marcas, zonas, tipos de paquetes y estados en paquetes", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(0, 10, false, [1, 2], [3], [4], ["SINERGICO"], ["por-cerrar"]);
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            paqueteBase: expect.objectContaining({
+              categoria_id: { in: [1, 2] },
+              marcaId: { in: [3] },
+            }),
+            zonaId: { in: [4] },
+            tipo: { in: ["SINERGICO"] },
+          }),
+        })
+      );
+    });
+  });
+
+  describe("countAll", () => {
+    it("debería llamar a prisma.paquetePublicado.count con los filtros de paquetes correspondientes", async () => {
+      const { mockPaquetePublicadoCount } = require("../../../src/prisma/client").__mocks;
+      await service.countAll(false, [1, 2], [3], [4], ["SINERGICO"], ["por-cerrar"]);
+      expect(mockPaquetePublicadoCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            archivado: false,
+            paqueteBase: expect.objectContaining({
+              categoria_id: { in: [1, 2] },
+              marcaId: { in: [3] },
+            }),
+            zonaId: { in: [4] },
+            tipo: { in: ["SINERGICO"] },
           }),
         })
       );
