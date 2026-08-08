@@ -2,7 +2,7 @@ import { PaquetePublicadoDTO } from '../dtos/paquete/paquetePublicado.dto.js';
 import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdate.dto.js';
 import { CustomError } from '../errors/custom.error.js';
 import { prisma } from '../prisma/client.js';
-import { Prisma } from '@prisma/client';
+import { Prisma, TipoPaquete } from '@prisma/client';
 import { EmailService } from './email.service.js';
 import { PedidoPagoService } from './pedidoPago.service.js';
 import { mercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
@@ -122,7 +122,7 @@ export class PaquetePublicadoService {
       where.zonaId = { in: zonas };
     }
     if (tiposPaquete && tiposPaquete.length > 0) {
-      where.tipo = { in: tiposPaquete as any };
+      where.tipo = { in: tiposPaquete as TipoPaquete[] };
     }
 
     if (estados && estados.length > 0) {
