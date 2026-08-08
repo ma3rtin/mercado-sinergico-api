@@ -8,13 +8,54 @@ import { ProductoDetalleRespuestaDTO } from '../dtos/producto/productoDetalleRes
 export class ProductoService {
   private prisma = prisma;
 
-  public async getAll(name?: string, skip = 0, take = 10, includeArchived = false) {
+  public async getAll(
+    name?: string,
+    skip?: number,
+    take?: number,
+    includeArchived = false,
+    categorias?: number[],
+    marcas?: number[],
+    precioMin?: number,
+    precioMax?: number,
+    zonas?: number[]
+  ) {
     const where: Prisma.ProductoWhereInput = {};
     if (name) {
       where.nombre = { contains: name };
     }
     if (!includeArchived) {
       where.archivado = false;
+    }
+    if (categorias && categorias.length > 0) {
+      where.categoria_id = { in: categorias };
+    }
+    if (marcas && marcas.length > 0) {
+      where.marca_id = { in: marcas };
+    }
+    if (precioMin !== undefined || precioMax !== undefined) {
+      where.precio = {};
+      if (precioMin !== undefined) {
+        where.precio.gte = precioMin;
+      }
+      if (precioMax !== undefined) {
+        where.precio.lte = precioMax;
+      }
+    }
+    if (!includeArchived) {
+      where.paquetes = {
+        some: {
+          paqueteBase: {
+            publicados: {
+              some: {
+                estadoId: 1, // ESTADO_PAQUETE.ACTIVO
+                archivado: false,
+                fecha_fin: { gte: new Date() },
+                ...(zonas && zonas.length > 0 && { zonaId: { in: zonas } })
+              }
+            }
+          }
+        }
+      };
     }
 
     const productos = await this.prisma.producto.findMany({
@@ -26,12 +67,63 @@ export class ProductoService {
         plantilla: true,
         variantes: true,
       },
-      skip,
-      take,
+      ...(skip !== undefined && { skip }),
+      ...(take !== undefined && { take }),
       orderBy: { id_producto: 'asc' },
     });
 
     return productos.map((p) => new ProductoItemListaDTO(p));
+  }
+
+  public async countAll(
+    name?: string,
+    includeArchived = false,
+    categorias?: number[],
+    marcas?: number[],
+    precioMin?: number,
+    precioMax?: number,
+    zonas?: number[]
+  ): Promise<number> {
+    const where: Prisma.ProductoWhereInput = {};
+    if (name) {
+      where.nombre = { contains: name };
+    }
+    if (!includeArchived) {
+      where.archivado = false;
+    }
+    if (categorias && categorias.length > 0) {
+      where.categoria_id = { in: categorias };
+    }
+    if (marcas && marcas.length > 0) {
+      where.marca_id = { in: marcas };
+    }
+    if (precioMin !== undefined || precioMax !== undefined) {
+      where.precio = {};
+      if (precioMin !== undefined) {
+        where.precio.gte = precioMin;
+      }
+      if (precioMax !== undefined) {
+        where.precio.lte = precioMax;
+      }
+    }
+    if (!includeArchived) {
+      where.paquetes = {
+        some: {
+          paqueteBase: {
+            publicados: {
+              some: {
+                estadoId: 1, // ESTADO_PAQUETE.ACTIVO
+                archivado: false,
+                fecha_fin: { gte: new Date() },
+                ...(zonas && zonas.length > 0 && { zonaId: { in: zonas } })
+              }
+            }
+          }
+        }
+      };
+    }
+
+    return this.prisma.producto.count({ where });
   }
 
   public async getById(id: number) {

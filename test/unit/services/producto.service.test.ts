@@ -8,6 +8,7 @@ jest.mock("../../../src/prisma/client", () => {
   const mockProductoCreate = jest.fn();
   const mockProductoUpdate = jest.fn();
   const mockProductoDelete = jest.fn();
+  const mockProductoCount = jest.fn();
   const mockCategoriaFindUnique = jest.fn();
   const mockMarcaFindUnique = jest.fn();
   const mockPlantillaFindUnique = jest.fn();
@@ -25,6 +26,7 @@ jest.mock("../../../src/prisma/client", () => {
             create: mockProductoCreate,
             update: mockProductoUpdate,
             delete: mockProductoDelete,
+            count: mockProductoCount,
           },
           categoria: { findUnique: mockCategoriaFindUnique },
           marca: { findUnique: mockMarcaFindUnique },
@@ -41,6 +43,7 @@ jest.mock("../../../src/prisma/client", () => {
         create: mockProductoCreate,
         update: mockProductoUpdate,
         delete: mockProductoDelete,
+        count: mockProductoCount,
       },
       categoria: { findUnique: mockCategoriaFindUnique },
       marca: { findUnique: mockMarcaFindUnique },
@@ -56,6 +59,7 @@ jest.mock("../../../src/prisma/client", () => {
       mockProductoCreate,
       mockProductoUpdate,
       mockProductoDelete,
+      mockProductoCount,
       mockCategoriaFindUnique,
       mockMarcaFindUnique,
       mockPlantillaFindUnique,
@@ -79,6 +83,7 @@ describe("ProductoService", () => {
       mockProductoCreate,
       mockProductoUpdate,
       mockProductoDelete,
+      mockProductoCount,
       mockCategoriaFindUnique,
       mockMarcaFindUnique,
       mockPlantillaFindUnique,
@@ -94,6 +99,7 @@ describe("ProductoService", () => {
     mockProductoCreate.mockResolvedValue({});
     mockProductoUpdate.mockResolvedValue({});
     mockProductoDelete.mockResolvedValue({});
+    mockProductoCount.mockResolvedValue(0);
     mockPaqueteBaseProductoDeleteMany.mockResolvedValue({ count: 0 });
     mockProductoImagenDeleteMany.mockResolvedValue({ count: 0 });
     mockPlantillaFindUnique.mockResolvedValue(null);
@@ -124,6 +130,48 @@ describe("ProductoService", () => {
         expect.objectContaining({
           where: expect.not.objectContaining({
             archivado: false,
+          }),
+        })
+      );
+    });
+
+    it("debería pasar skip y take a prisma para la paginación", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, 10, 5);
+      expect(mockProductoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 10,
+          take: 5,
+        })
+      );
+    });
+
+    it("debería aplicar filtros de categorías, marcas, precios y tipo de producto", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, 0, 10, false, [1, 2], [3], 100, 500);
+      expect(mockProductoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            categoria_id: { in: [1, 2] },
+            marca_id: { in: [3] },
+            precio: { gte: 100, lte: 500 },
+          }),
+        })
+      );
+    });
+  });
+
+  describe("countAll", () => {
+    it("debería llamar a prisma.producto.count con los filtros indicados", async () => {
+      const { mockProductoCount } = require("../../../src/prisma/client").__mocks;
+      await service.countAll(undefined, false, [1, 2], [3], 100, 500);
+      expect(mockProductoCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            archivado: false,
+            categoria_id: { in: [1, 2] },
+            marca_id: { in: [3] },
+            precio: { gte: 100, lte: 500 },
           }),
         })
       );
