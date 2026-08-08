@@ -34,6 +34,7 @@ export class ProductoController {
   });
 
   public createProducto = asyncHandler(async (req: Request, res: Response) => {
+    const start = Date.now();
     const body = req.body;
     const campos = req.files as { [fieldname: string]: Express.Multer.File[] };
 
@@ -70,6 +71,11 @@ export class ProductoController {
         )
       ),
     ]);
+    console.log(
+      `[createProducto] Imágenes subidas en ${Date.now() - start}ms (${
+        (campos?.imagenes || []).length + 1
+      } imágenes)`
+    );
 
     producto.imagen_url = urlPrincipal;
     if (campos?.imagenes?.length) {
@@ -78,6 +84,7 @@ export class ProductoController {
 
     const newProducto = await this.productoService.create(producto);
 
+    console.log(`[createProducto] Total: ${Date.now() - start}ms`);
     res.status(201).json(newProducto);
   });
 

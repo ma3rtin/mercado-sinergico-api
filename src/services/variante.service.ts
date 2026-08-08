@@ -72,7 +72,11 @@ export class VarianteService {
   }
 
   public async generarVariantes(data: GenerarVariantesDTO) {
+    const start = Date.now();
     const { productoId, opcionesDisponibles } = data;
+    console.log(
+      `[generarVariantes] Iniciando: productoId=${productoId}, opcionesDisponibles=${JSON.stringify(opcionesDisponibles)}`
+    );
 
     const producto = await this.prisma.producto.findUnique({
       where: { id_producto: productoId },
@@ -229,6 +233,10 @@ export class VarianteService {
       {
         timeout: 20000,
       }
+    );
+
+    console.log(
+      `[generarVariantes] Total: ${Date.now() - start}ms (${variantesCreadas.length} variantes)`
     );
 
     return {
