@@ -225,7 +225,7 @@ export class PaquetePublicadoService {
       where.zonaId = { in: zonas };
     }
     if (tiposPaquete && tiposPaquete.length > 0) {
-      where.tipo = { in: tiposPaquete as any };
+      where.tipo = { in: tiposPaquete as TipoPaquete[] };
     }
 
     if (estados && estados.length > 0) {
