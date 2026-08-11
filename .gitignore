@@ -30,3 +30,6 @@ node_modules/
 dist/
 .env
 *.log
+
+# PR Description local
+PR-DESCRIPTION.md
