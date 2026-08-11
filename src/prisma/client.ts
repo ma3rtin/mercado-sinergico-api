@@ -13,12 +13,12 @@ if (!prismaInstance) {
       const database = url.pathname ? url.pathname.replace(/^\//, '') : undefined;
       
       const sslMode = url.searchParams.get('ssl-mode') || url.searchParams.get('ssl');
-      let sslConfig: any = undefined;
+      let sslConfig: { rejectUnauthorized: boolean } | undefined = undefined;
       if (sslMode && sslMode.toLowerCase() !== 'disabled' && sslMode.toLowerCase() !== 'false') {
         sslConfig = { rejectUnauthorized: false };
       }
 
-      const configObj: any = {
+      const configObj = {
         host: url.hostname,
         port: url.port ? Number(url.port) : 3306,
         user: url.username,
