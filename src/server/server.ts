@@ -25,6 +25,7 @@ export class Server {
   }
 
   public start(): void {
+    this.app.set('trust proxy', true);
     this.app.use(
       helmet({
         crossOriginResourcePolicy: { policy: 'cross-origin' },

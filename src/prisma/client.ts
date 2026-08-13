@@ -1,22 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-
-function buildHelpMessage(err: unknown) {
-	const lines = [
-		'Prisma Client failed to initialize.',
-		'This usually means Prisma v7 expects either a driver adapter or an "accelerateUrl" when using the new client engine.',
-		'',
-		'Two ways to resolve this:',
-		'  1) Install and pass a driver adapter that matches your datasource provider (recommended for Direct TCP).',
-		'     Example: `npm install @prisma/adapter-mariadb`',
-		'  2) Use Prisma Accelerate (remote execution): set `ACCELERATE_URL` and ensure it\'s valid.',
-		'',
-		`Original error: ${String((err as Error)?.message ?? err)}`,
-	];
-
-	return lines.join('\n');
-}
+import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
@@ -67,29 +51,22 @@ if (!prismaInstance) {
 						minDelayValidation: 2000,
 					};
 
-						const factoryOptions = { database };
-						const factoryInstance = new (AdapterCtor as any)(configObj, factoryOptions);
-						prismaInstance = new PrismaClient({ adapter: factoryInstance } as any);
-					} catch (ex) {
-						console.warn('Failed to instantiate PrismaMariaDb adapter factory with config object:', (ex as Error)?.message ?? ex);
-					}
-				}
-			} catch (e) {
-				console.warn('Could not load @prisma/adapter-mariadb dynamically, falling back to default PrismaClient init:', (e as Error)?.message ?? e);
-			}
-		}
+      const factoryOptions = { database };
+      const adapterInstance = new PrismaMariaDb(configObj, factoryOptions);
+      
+      prismaInstance = new PrismaClient({ adapter: adapterInstance });
+    } catch (ex) {
+      console.error('Error instantiating PrismaMariaDb adapter:', ex);
+      prismaInstance = new PrismaClient({});
+    }
+  } else {
+    prismaInstance = new PrismaClient({});
+  }
 
-		if (!prismaInstance) {
-			prismaInstance = new PrismaClient(clientOpts as any);
-		}
-
-		if (process.env.NODE_ENV !== 'production') {
-			globalForPrisma.prisma = prismaInstance;
-		}
-	} catch (err) {
-		console.error(buildHelpMessage(err));
-		throw err;
-	}
+  if (process.env.NODE_ENV !== 'production') {
+    globalForPrisma.prisma = prismaInstance;
+  }
 }
 
 export const prisma = prismaInstance as PrismaClient;
+
