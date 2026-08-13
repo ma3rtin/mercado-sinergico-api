@@ -99,8 +99,10 @@ export class PaquetePublicadoService {
     const where: Prisma.PaquetePublicadoWhereInput = {};
     if (!includeArchived) {
       where.archivado = false;
-      where.estadoId = 1; // ESTADO_PAQUETE.ACTIVO
-      where.fecha_fin = { gte: new Date() };
+      if (zonas && zonas.length > 0) {
+        where.estadoId = 1; // ESTADO_PAQUETE.ACTIVO
+        where.fecha_fin = { gte: new Date() };
+      }
     }
 
     const paqueteBaseConditions: Prisma.PaqueteBaseWhereInput = {};

@@ -41,7 +41,7 @@ export class ProductoService {
         where.precio.lte = precioMax;
       }
     }
-    if (!includeArchived) {
+    if (!includeArchived && zonas && zonas.length > 0) {
       where.paquetes = {
         some: {
           paqueteBase: {
@@ -50,7 +50,7 @@ export class ProductoService {
                 estadoId: 1, // ESTADO_PAQUETE.ACTIVO
                 archivado: false,
                 fecha_fin: { gte: new Date() },
-                ...(zonas && zonas.length > 0 && { zonaId: { in: zonas } })
+                zonaId: { in: zonas }
               }
             }
           }
@@ -106,7 +106,7 @@ export class ProductoService {
         where.precio.lte = precioMax;
       }
     }
-    if (!includeArchived) {
+    if (!includeArchived && zonas && zonas.length > 0) {
       where.paquetes = {
         some: {
           paqueteBase: {
@@ -115,7 +115,7 @@ export class ProductoService {
                 estadoId: 1, // ESTADO_PAQUETE.ACTIVO
                 archivado: false,
                 fecha_fin: { gte: new Date() },
-                ...(zonas && zonas.length > 0 && { zonaId: { in: zonas } })
+                zonaId: { in: zonas }
               }
             }
           }
