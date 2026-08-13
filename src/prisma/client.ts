@@ -70,3 +70,4 @@ if (!prismaInstance) {
 
 export const prisma = prismaInstance as PrismaClient;
 
+
