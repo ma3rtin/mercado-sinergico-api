@@ -1,5 +1,6 @@
 import { ProductoService } from "../../../src/services/producto.service";
 import { ProductoDTO } from "../../../src/dtos/producto/producto.dto";
+import { Prisma } from "@prisma/client";
 
 jest.mock("../../../src/prisma/client", () => {
   const mockTransaction = jest.fn();
@@ -15,6 +16,9 @@ jest.mock("../../../src/prisma/client", () => {
   const mockPaqueteBaseProductoDeleteMany = jest.fn();
   const mockProductoImagenDeleteMany = jest.fn();
   const mockProductoVarianteDeleteMany = jest.fn();
+  const mockProductoVarianteCreateMany = jest.fn();
+  const mockProductoVarianteFindMany = jest.fn();
+  const mockProductoVarianteOpcionCreateMany = jest.fn();
 
   return {
     prisma: {
@@ -33,7 +37,12 @@ jest.mock("../../../src/prisma/client", () => {
           plantilla: { findUnique: mockPlantillaFindUnique },
           paqueteBaseProducto: { deleteMany: mockPaqueteBaseProductoDeleteMany },
           productoImagen: { deleteMany: mockProductoImagenDeleteMany },
-          productoVariante: { deleteMany: mockProductoVarianteDeleteMany },
+          productoVariante: {
+            createMany: mockProductoVarianteCreateMany,
+            findMany: mockProductoVarianteFindMany,
+            deleteMany: mockProductoVarianteDeleteMany,
+          },
+          productoVarianteOpcion: { createMany: mockProductoVarianteOpcionCreateMany },
         };
         return callback(tx);
       }),
@@ -50,7 +59,12 @@ jest.mock("../../../src/prisma/client", () => {
       plantilla: { findUnique: mockPlantillaFindUnique },
       paqueteBaseProducto: { deleteMany: mockPaqueteBaseProductoDeleteMany },
       productoImagen: { deleteMany: mockProductoImagenDeleteMany },
-      productoVariante: { deleteMany: mockProductoVarianteDeleteMany },
+      productoVariante: {
+        createMany: mockProductoVarianteCreateMany,
+        findMany: mockProductoVarianteFindMany,
+        deleteMany: mockProductoVarianteDeleteMany,
+      },
+      productoVarianteOpcion: { createMany: mockProductoVarianteOpcionCreateMany },
     },
     __mocks: {
       mockTransaction,
@@ -66,6 +80,9 @@ jest.mock("../../../src/prisma/client", () => {
       mockPaqueteBaseProductoDeleteMany,
       mockProductoImagenDeleteMany,
       mockProductoVarianteDeleteMany,
+      mockProductoVarianteCreateMany,
+      mockProductoVarianteFindMany,
+      mockProductoVarianteOpcionCreateMany,
     },
   };
 });
@@ -89,6 +106,9 @@ describe("ProductoService", () => {
       mockPlantillaFindUnique,
       mockPaqueteBaseProductoDeleteMany,
       mockProductoImagenDeleteMany,
+      mockProductoVarianteCreateMany,
+      mockProductoVarianteFindMany,
+      mockProductoVarianteOpcionCreateMany,
     } = require("../../../src/prisma/client").__mocks;
 
     // mocks por defecto
@@ -103,6 +123,9 @@ describe("ProductoService", () => {
     mockPaqueteBaseProductoDeleteMany.mockResolvedValue({ count: 0 });
     mockProductoImagenDeleteMany.mockResolvedValue({ count: 0 });
     mockPlantillaFindUnique.mockResolvedValue(null);
+    mockProductoVarianteCreateMany.mockResolvedValue({ count: 0 });
+    mockProductoVarianteFindMany.mockResolvedValue([]);
+    mockProductoVarianteOpcionCreateMany.mockResolvedValue({ count: 0 });
   });
 
   describe("getAll", () => {
@@ -192,12 +215,153 @@ describe("ProductoService", () => {
         categoria_id: 1,
       };
 
-      const { mockProductoCreate } = require("../../../src/prisma/client").__mocks;
+      const {
+        mockProductoCreate,
+        mockProductoFindUnique,
+      } = require("../../../src/prisma/client").__mocks;
       mockProductoCreate.mockResolvedValue({ id_producto: 1, ...dto });
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, ...dto });
 
       const result = await service.create(dto);
       expect(result).toHaveProperty("id_producto");
       expect(result.nombre).toBe("Producto Test");
+    });
+
+    it("debería generar las variantes con createMany (batch) en vez de un create por combinación", async () => {
+      const dto: ProductoDTO = {
+        nombre: "Producto Test",
+        descripcion: "Desc",
+        precio: 100,
+        marca_id: 1,
+        peso: 1,
+        altura: 10,
+        ancho: 10,
+        profundidad: 10,
+        categoria_id: 1,
+        plantillaId: 1,
+        opcionesDisponibles: { "11": [1, 2], "12": [3, 4] },
+      };
+
+      const productoConPlantilla = {
+        id_producto: 56,
+        nombre: "Producto Test",
+        tipo: "SINERGICO",
+        plantilla: {
+          id: 1,
+          caracteristicas: [
+            { id: 11, nombre: "Talle", opciones: [{ id: 1 }, { id: 2 }] },
+            { id: 12, nombre: "Color", opciones: [{ id: 3 }, { id: 4 }] },
+          ],
+        },
+      };
+
+      const {
+        mockProductoCreate,
+        mockProductoFindUnique,
+        mockProductoVarianteCreateMany,
+        mockProductoVarianteFindMany,
+        mockProductoVarianteOpcionCreateMany,
+      } = require("../../../src/prisma/client").__mocks;
+
+      mockProductoCreate.mockResolvedValue({ id_producto: 56, ...dto });
+      mockProductoFindUnique.mockResolvedValue(productoConPlantilla);
+      mockProductoVarianteCreateMany.mockResolvedValue({ count: 4 });
+      mockProductoVarianteFindMany.mockResolvedValue([
+        { id: 1, sku: "PRODUCTO-T-56-1-3" },
+        { id: 2, sku: "PRODUCTO-T-56-1-4" },
+        { id: 3, sku: "PRODUCTO-T-56-2-3" },
+        { id: 4, sku: "PRODUCTO-T-56-2-4" },
+      ]);
+      mockProductoVarianteOpcionCreateMany.mockResolvedValue({ count: 8 });
+
+      await service.create(dto);
+
+      expect(mockProductoVarianteCreateMany).toHaveBeenCalledTimes(1);
+      expect(mockProductoVarianteCreateMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            productoId: 56,
+            sku: "PRODUCTO-T-56-1-3",
+            stockFisico: null,
+            precioExtra: 0,
+            activo: true,
+          }),
+        ]),
+      });
+
+      expect(mockProductoVarianteFindMany).toHaveBeenCalledTimes(1);
+      expect(mockProductoVarianteFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            productoId: 56,
+            sku: { in: expect.arrayContaining([
+              "PRODUCTO-T-56-1-3",
+              "PRODUCTO-T-56-1-4",
+              "PRODUCTO-T-56-2-3",
+              "PRODUCTO-T-56-2-4",
+            ]) },
+          }),
+        })
+      );
+
+      expect(mockProductoVarianteOpcionCreateMany).toHaveBeenCalledTimes(1);
+      const opcionesData =
+        mockProductoVarianteOpcionCreateMany.mock.calls[0][0].data;
+      expect(opcionesData).toHaveLength(8);
+      expect(opcionesData).toEqual(
+        expect.arrayContaining([
+          { varianteId: 1, caracteristicaId: 11, opcionId: 1 },
+          { varianteId: 1, caracteristicaId: 12, opcionId: 3 },
+          { varianteId: 4, caracteristicaId: 11, opcionId: 2 },
+          { varianteId: 4, caracteristicaId: 12, opcionId: 4 },
+        ])
+      );
+    });
+
+    it("debería traducir el conflicto de SKU (P2002) a un CustomError 409", async () => {
+      const dto: ProductoDTO = {
+        nombre: "Producto Test",
+        descripcion: "Desc",
+        precio: 100,
+        marca_id: 1,
+        peso: 1,
+        altura: 10,
+        ancho: 10,
+        profundidad: 10,
+        categoria_id: 1,
+        plantillaId: 1,
+        opcionesDisponibles: { "11": [1, 2], "12": [3, 4] },
+      };
+
+      const {
+        mockProductoCreate,
+        mockProductoFindUnique,
+        mockProductoVarianteCreateMany,
+      } = require("../../../src/prisma/client").__mocks;
+
+      mockProductoCreate.mockResolvedValue({ id_producto: 56, ...dto });
+      mockProductoFindUnique.mockResolvedValue({
+        id_producto: 56,
+        nombre: "Producto Test",
+        plantilla: {
+          id: 1,
+          caracteristicas: [
+            { id: 11, nombre: "Talle", opciones: [{ id: 1 }, { id: 2 }] },
+            { id: 12, nombre: "Color", opciones: [{ id: 3 }, { id: 4 }] },
+          ],
+        },
+      });
+      mockProductoVarianteCreateMany.mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError(
+          "Unique constraint failed on the fields: (`sku`)",
+          { code: "P2002", clientVersion: "7.0.0" }
+        )
+      );
+
+      await expect(service.create(dto)).rejects.toMatchObject({
+        status: 409,
+        message: expect.stringContaining("SKU"),
+      });
     });
   });
 
