@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import { PaquetePublicadoDTO } from '../dtos/paquete/paquetePublicado.dto.js';
 import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdate.dto.js';
 import { CustomError } from '../errors/custom.error.js';
@@ -1029,5 +1030,292 @@ export class PaquetePublicadoService {
       include: this._includeCompleto,
     });
     return this._mapComputedFields(updated as PaqueteComputable);
+  }
+
+  async exportarFabrica(id: number): Promise<Buffer> {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: {
+        paqueteBase: {
+          include: {
+            productos: {
+              include: {
+                producto: {
+                  include: {
+                    marca: true,
+                    variantes: {
+                      include: {
+                        opciones: {
+                          include: {
+                            caracteristica: true,
+                            opcion: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        zona: true,
+        pedidos: {
+          include: {
+            detalles: {
+              include: {
+                producto: {
+                  include: {
+                    marca: true,
+                  },
+                },
+                variante: {
+                  include: {
+                    opciones: {
+                      include: {
+                        caracteristica: true,
+                        opcion: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!paquete) {
+      throw new CustomError('Paquete no encontrado', 404);
+    }
+
+    const pedidosAprobados = (paquete.pedidos || []).filter(
+      (ped) => ped.estadoId !== 1 && ped.estadoId !== 3
+    );
+
+    const consolidado = new Map<
+      string,
+      {
+        sku: string;
+        producto: string;
+        variante: string;
+        marca: string;
+        amount?: any;
+        cantidadTotal: number;
+      }
+    >();
+
+    pedidosAprobados.forEach((pedido: any) => {
+      pedido.detalles?.forEach((pp: any) => {
+        let varianteStr = '-';
+        let skuVal = pp.variante?.sku || String(pp.productoId);
+
+        if (pp.variante?.opciones?.length > 0) {
+          varianteStr = pp.variante.opciones
+            .map((o: any) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
+            .join(', ');
+        }
+
+        const key = `${pp.productoId}-${varianteStr}`;
+        const current = consolidado.get(key) || {
+          sku: skuVal,
+          producto: pp.producto?.nombre || 'N/A',
+          variante: varianteStr,
+          marca: pp.producto?.marca?.nombre || 'N/A',
+          cantidadTotal: 0,
+        };
+
+        current.cantidadTotal += pp.cantidad;
+        consolidado.set(key, current);
+      });
+    });
+
+    const dataRows: any[][] = [];
+    consolidado.forEach((info) => {
+      dataRows.push([
+        info.sku,
+        info.producto,
+        info.variante,
+        info.marca,
+        info.cantidadTotal,
+      ]);
+    });
+
+    const now = new Date().toLocaleString('es-AR');
+    const rows = [
+      ['# REPORTES MERCADO SINERGICO #'],
+      ['Tipo', 'REPORTE PARA PROVEEDOR'],
+      ['Paquete', `${paquete.paqueteBase?.nombre || 'N/A'} (ID: ${paquete.id_paquete_publicado})`],
+      ['Zona', paquete.zona?.nombre || 'N/A'],
+      ['Fecha Generacion', now],
+      ['Pedidos Aprobados', pedidosAprobados.length],
+      [],
+      ['SKU', 'Producto', 'Variante/Modelo', 'Marca', 'Cantidad Total'],
+      ...dataRows,
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    worksheet['!cols'] = [
+      { wch: 20 }, // SKU
+      { wch: 30 }, // Producto
+      { wch: 30 }, // Variante
+      { wch: 20 }, // Marca
+      { wch: 15 }, // Cantidad Total
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Consolidado');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    return buffer as Buffer;
+  }
+
+  async exportarLogistica(id: number): Promise<Buffer> {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: {
+        paqueteBase: true,
+        zona: true,
+        pedidos: {
+          include: {
+            estado: true,
+            usuario: {
+              include: {
+                direccion: {
+                  include: {
+                    localidad: true,
+                  },
+                },
+              },
+            },
+            detalles: {
+              include: {
+                producto: {
+                  include: {
+                    marca: true,
+                  },
+                },
+                variante: {
+                  include: {
+                    opciones: {
+                      include: {
+                        caracteristica: true,
+                        opcion: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!paquete) {
+      throw new CustomError('Paquete no encontrado', 404);
+    }
+
+    // Filtrar pedidos aprobados (todos los que no son Pendientes (1) ni Reembolsados (3))
+    const pedidosAprobados = (paquete.pedidos || []).filter(
+      (ped) => ped.estadoId !== 1 && ped.estadoId !== 3
+    );
+
+    const dataRows: any[][] = [];
+
+    pedidosAprobados.forEach((ped: any) => {
+      const idPed = ped.id_pedido ?? 'N/A';
+      const nombre = ped.usuario?.nombre || 'N/A';
+      const telefono = ped.usuario?.telefono || 'N/A';
+      const email = ped.usuario?.email || 'N/A';
+
+      const dir = ped.usuario?.direccion;
+      const direccion = dir
+        ? `${dir.calle} ${dir.numero}${dir.piso ? ', Piso ' + dir.piso : ''}${
+            dir.departamento ? ', Depto ' + dir.departamento : ''
+          }${dir.localidad?.nombre ? ', ' + dir.localidad.nombre : ''}`
+        : 'N/A';
+
+      let estadoLabel = 'Desconocido';
+      switch (ped.estadoId) {
+        case 2: estadoLabel = 'Pagado'; break;
+        case 4: estadoLabel = 'En preparación'; break;
+        case 5: estadoLabel = 'En camino'; break;
+        case 6: estadoLabel = 'Recibido'; break;
+        default: estadoLabel = ped.estado?.nombre || 'N/A';
+      }
+
+      // Una fila por cada producto del pedido (datos divididos)
+      (ped.detalles || []).forEach((det: any) => {
+        let varianteStr = '-';
+        if (det.variante?.opciones?.length > 0) {
+          varianteStr = det.variante.opciones
+            .map((o: any) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
+            .join(', ');
+        } else if (det.variante?.sku) {
+          varianteStr = det.variante.sku;
+        }
+
+        const productoNombre = det.producto?.nombre || 'N/A';
+        const marcaNombre = det.producto?.marca?.nombre || 'N/A';
+        const cantidad = det.cantidad ?? 0;
+
+        dataRows.push([
+          idPed,
+          nombre,
+          telefono,
+          email,
+          direccion,
+          productoNombre,
+          varianteStr,
+          marcaNombre,
+          cantidad,
+          estadoLabel,
+        ]);
+      });
+    });
+
+    const now = new Date().toLocaleString('es-AR');
+    const rows = [
+      ['# REPORTES MERCADO SINERGICO #'],
+      ['Tipo', 'HOJA DE RUTA / LOGISTICA'],
+      ['Paquete', `${paquete.paqueteBase?.nombre || 'N/A'} (ID: ${paquete.id_paquete_publicado})`],
+      ['Zona', paquete.zona?.nombre || 'N/A'],
+      ['Fecha Generacion', now],
+      ['Pedidos Aprobados', pedidosAprobados.length],
+      [],
+      [
+        'ID Pedido',
+        'Comprador',
+        'Teléfono',
+        'Email',
+        'Dirección de Entrega',
+        'Producto',
+        'Variante',
+        'Marca',
+        'Cantidad',
+        'Estado',
+      ],
+      ...dataRows,
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    worksheet['!cols'] = [
+      { wch: 10 }, // ID Pedido
+      { wch: 22 }, // Comprador
+      { wch: 15 }, // Teléfono
+      { wch: 28 }, // Email
+      { wch: 35 }, // Dirección
+      { wch: 28 }, // Producto
+      { wch: 28 }, // Variante
+      { wch: 18 }, // Marca
+      { wch: 10 }, // Cantidad
+      { wch: 15 }, // Estado
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Logistica');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    return buffer as Buffer;
   }
 }
