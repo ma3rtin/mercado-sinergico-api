@@ -506,9 +506,12 @@ export class PaquetePublicadoService {
       }
     }
 
+    const nombrePublicacion = dto.nombre?.trim() || paqueteBase.nombre;
+    await this.validarNombreUnico(nombrePublicacion);
+
     return this.prisma.paquetePublicado.create({
       data: {
-        nombre: paqueteBase.nombre,
+        nombre: nombrePublicacion,
         cant_productos: dto.cant_productos,
         fecha_inicio: new Date(dto.fecha_inicio),
         fecha_fin: new Date(dto.fecha_fin),
@@ -528,6 +531,9 @@ export class PaquetePublicadoService {
       const existente = await tx.paquetePublicado.findUnique({ where: { id_paquete_publicado: id } });
       if (!existente) throw new CustomError('No encontrado', 404);
 
+      const nombrePublicacion = dto.nombre?.trim() || existente.nombre;
+      await this.validarNombreUnico(nombrePublicacion, id);
+
       if (dto.paqueteBaseId) {
         const pb = await tx.paqueteBase.findUnique({
           where: { id_paquete_base: Number(dto.paqueteBaseId) },
@@ -541,7 +547,7 @@ export class PaquetePublicadoService {
       // Actualizar paqueteBase: descripcion y/o imagen
       const baseUpdate: Record<string, unknown> = {};
       if (dto.descripcion) baseUpdate.descripcion = dto.descripcion;
-      if (dto.nombre) baseUpdate.nombre = dto.nombre;
+      if (dto.nombre) baseUpdate.nombre = nombrePublicacion;
 
       if (dto.imagen_base64) {
         try {
@@ -562,7 +568,7 @@ export class PaquetePublicadoService {
         await tx.paqueteBase.update({
           where: { id_paquete_base: existente.paqueteBaseId },
           data: {
-            ...(dto.nombre && { nombre: dto.nombre }),
+            ...(dto.nombre && { nombre: nombrePublicacion }),
             ...(dto.descripcion && { descripcion: dto.descripcion }),
           },
         });
@@ -580,7 +586,7 @@ export class PaquetePublicadoService {
       return tx.paquetePublicado.update({
         where: { id_paquete_publicado: id },
         data: {
-          ...(dto.nombre && { nombre: dto.nombre }),
+          ...(dto.nombre && { nombre: nombrePublicacion }),
           ...(dto.fecha_inicio && { fecha_inicio: new Date(dto.fecha_inicio) }),
           ...(dto.fecha_fin && { fecha_fin: new Date(dto.fecha_fin) }),
           ...(dto.cant_productos && { cant_productos: Number(dto.cant_productos) }),
@@ -593,6 +599,31 @@ export class PaquetePublicadoService {
         },
       });
     });
+  }
+
+  /**
+   * Valida que no exista otra publicación (no archivada) con el mismo nombre,
+   * ignorando la propia publicación en edición cuando corresponde.
+   */
+  private async validarNombreUnico(nombre: string, excluirId?: number) {
+    const nombreLimpio = nombre?.trim();
+    if (!nombreLimpio) return;
+
+    const existente = await this.prisma.paquetePublicado.findFirst({
+      where: {
+        nombre: { equals: nombreLimpio },
+        archivado: false,
+        ...(excluirId ? { id_paquete_publicado: { not: excluirId } } : {}),
+      },
+      select: { id_paquete_publicado: true },
+    });
+
+    if (existente) {
+      throw new CustomError(
+        `Ya existe una publicación con el nombre "${nombreLimpio}". Elegí otro nombre.`,
+        409
+      );
+    }
   }
 
   async delete(id: number) {
@@ -728,7 +759,7 @@ export class PaquetePublicadoService {
 
       return await tx.paquetePublicado.create({
         data: {
-          nombre: paqueteOriginal.paqueteBase.nombre,
+          nombre: generarNombreCopia(paqueteOriginal.nombre || paqueteOriginal.paqueteBase.nombre),
           paqueteBaseId: baseDuplicado.id_paquete_base,
           zonaId: paqueteOriginal.zonaId,
           cant_productos: paqueteOriginal.cant_productos,
@@ -840,9 +871,9 @@ export class PaquetePublicadoService {
     if (correosCompradores.length > 0) {
       this.emailService.enviarEmail({
         para: correosCompradores,
-        asunto: `¡Tu pedido está confirmado! - ${paquete.paqueteBase.nombre}`,
+        asunto: `¡Tu pedido está confirmado! - ${paquete.nombre || paquete.paqueteBase.nombre}`,
         template: 'comprador-pedido-confirmado',
-        context: { nombrePaquete: paquete.paqueteBase.nombre },
+        context: { nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre },
       });
     }
 
@@ -923,9 +954,9 @@ export class PaquetePublicadoService {
     if (correosCompradores.length > 0) {
       this.emailService.enviarEmail({
         para: correosCompradores,
-        asunto: `Tu pedido llega hoy - ${paquete.paqueteBase.nombre}`,
+        asunto: `Tu pedido llega hoy - ${paquete.nombre || paquete.paqueteBase.nombre}`,
         template: 'comprador-pedido-en-camino',
-        context: { nombrePaquete: paquete.paqueteBase.nombre },
+        context: { nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre },
       });
     }
 
@@ -963,9 +994,9 @@ export class PaquetePublicadoService {
     if (correosCompradores.length > 0 && paquete?.paqueteBase?.nombre) {
       this.emailService.enviarEmail({
         para: correosCompradores,
-        asunto: `Paquete cancelado y reembolsado - ${paquete.paqueteBase.nombre}`,
+        asunto: `Paquete cancelado y reembolsado - ${paquete.nombre || paquete.paqueteBase.nombre}`,
         template: 'comprador-paquete-cancelado',
-        context: { nombrePaquete: paquete.paqueteBase.nombre },
+        context: { nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre },
       });
     }
 
