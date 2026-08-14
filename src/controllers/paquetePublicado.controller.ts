@@ -268,4 +268,28 @@ export class PaquetePublicadoController {
     const result = await this.service.archivar(idNum, archivado);
     res.status(200).json(result);
   });
+
+  exportarFabrica = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const idNum = Number(id);
+    if (!id || isNaN(idNum)) throw new CustomError('Id de publicación no proporcionado o inválido', 400);
+
+    const buffer = await this.service.exportarFabrica(idNum);
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=plantilla_fabrica_${idNum}.xlsx`);
+    res.status(200).send(buffer);
+  });
+
+  exportarLogistica = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const idNum = Number(id);
+    if (!id || isNaN(idNum)) throw new CustomError('Id de publicación no proporcionado o inválido', 400);
+
+    const buffer = await this.service.exportarLogistica(idNum);
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=plantilla_logistica_${idNum}.xlsx`);
+    res.status(200).send(buffer);
+  });
 }
