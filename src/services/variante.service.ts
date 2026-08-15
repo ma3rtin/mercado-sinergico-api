@@ -99,6 +99,10 @@ export class VarianteService {
       throw new CustomError('El producto no tiene plantilla asignada', 400);
     }
 
+    // Guard de idempotencia: si el producto ya tiene variantes, se rechaza la
+    // regeneración. Cuando el cambio de plantilla se autoriza (ProductoService.update
+    // sin pedidos asociados), las variantes viejas se eliminan en la misma transacción
+    // del update, por lo que acá el count ya es 0 y la generación procede normal.
     const variantesExistentes = await this.prisma.productoVariante.count({
       where: { productoId },
     });

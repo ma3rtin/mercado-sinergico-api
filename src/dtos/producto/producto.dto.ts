@@ -73,7 +73,10 @@ export class ProductoDTO {
   stock?: number;
 
 @Transform(({ value }) => {
-  if (value === '' || value === 'null' || value === null || value === undefined) return null;
+  // '' | 'null' | null → el usuario pidió quitar la plantilla
+  if (value === '' || value === 'null' || value === null) return null;
+  // undefined → el campo no se envió, no tocar
+  if (value === undefined) return undefined;
   const num = Number(value);
   return isNaN(num) ? null : num;
 })

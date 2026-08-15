@@ -169,6 +169,25 @@ export class ProductoService {
     });
   }
 
+  /**
+   * Indica si alguna ProductoVariante del producto está referenciada por un
+   * PedidoDetalle (es decir, si el producto tiene historial de ventas ligado a
+   * sus variantes actuales).
+   */
+  public async productoTieneVariantesConPedidos(
+    productoId: number
+  ): Promise<boolean> {
+    const pedidosConVariante = await this.prisma.pedidoDetalle.count({
+      where: {
+        variante: {
+          productoId,
+        },
+      },
+    });
+
+    return pedidosConVariante > 0;
+  }
+
   public async create(producto: ProductoDTO): Promise<Producto> {
     const {
       categoria_id,
@@ -293,23 +312,70 @@ export class ProductoService {
       };
     }
 
-    return this.prisma.producto.update({
+    const productoActual = await this.prisma.producto.findUnique({
       where: { id_producto: id },
-      data,
-      include: {
-        imagenes: true,
-        variantes: {
+      select: { plantillaId: true },
+    });
+
+    if (!productoActual) {
+      throw new CustomError('Producto no encontrado', 404);
+    }
+
+    // Cambio de plantilla = el payload trae plantillaId (null para quitarla) y
+    // difiere del valor actual en base. plantillaId === undefined → no se tocó,
+    // no se compara ni se regenera nada.
+    const huboCambioPlantilla =
+      plantillaId !== undefined &&
+      (plantillaId ?? null) !== (productoActual.plantillaId ?? null);
+
+    return this.prisma.$transaction(
+      async (tx) => {
+        if (huboCambioPlantilla) {
+          const variantesExistentes = await tx.productoVariante.count({
+            where: { productoId: id },
+          });
+
+          if (variantesExistentes > 0) {
+            const tienePedidos =
+              await this.productoTieneVariantesConPedidos(id);
+
+            if (tienePedidos) {
+              throw new CustomError(
+                'No se puede cambiar la plantilla: el producto tiene pedidos asociados a sus variantes actuales.',
+                409
+              );
+            }
+
+            // Eliminar las variantes viejas (sus opciones se borran en cascada)
+            // para permitir regenerarlas con la nueva plantilla.
+            await tx.productoVariante.deleteMany({
+              where: { productoId: id },
+            });
+          }
+        }
+
+        return tx.producto.update({
+          where: { id_producto: id },
+          data,
           include: {
-            opciones: {
+            imagenes: true,
+            variantes: {
               include: {
-                caracteristica: true,
-                opcion: true,
+                opciones: {
+                  include: {
+                    caracteristica: true,
+                    opcion: true,
+                  },
+                },
               },
             },
           },
-        },
+        });
       },
-    });
+      {
+        timeout: 20000,
+      }
+    );
   }
 
   public async delete(id: number) {

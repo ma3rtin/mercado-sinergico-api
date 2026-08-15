@@ -19,6 +19,8 @@ jest.mock("../../../src/prisma/client", () => {
   const mockProductoVarianteCreateMany = jest.fn();
   const mockProductoVarianteFindMany = jest.fn();
   const mockProductoVarianteOpcionCreateMany = jest.fn();
+  const mockProductoVarianteCount = jest.fn();
+  const mockPedidoDetalleCount = jest.fn();
 
   return {
     prisma: {
@@ -41,6 +43,7 @@ jest.mock("../../../src/prisma/client", () => {
             createMany: mockProductoVarianteCreateMany,
             findMany: mockProductoVarianteFindMany,
             deleteMany: mockProductoVarianteDeleteMany,
+            count: mockProductoVarianteCount,
           },
           productoVarianteOpcion: { createMany: mockProductoVarianteOpcionCreateMany },
         };
@@ -63,8 +66,10 @@ jest.mock("../../../src/prisma/client", () => {
         createMany: mockProductoVarianteCreateMany,
         findMany: mockProductoVarianteFindMany,
         deleteMany: mockProductoVarianteDeleteMany,
+        count: mockProductoVarianteCount,
       },
       productoVarianteOpcion: { createMany: mockProductoVarianteOpcionCreateMany },
+      pedidoDetalle: { count: mockPedidoDetalleCount },
     },
     __mocks: {
       mockTransaction,
@@ -83,6 +88,8 @@ jest.mock("../../../src/prisma/client", () => {
       mockProductoVarianteCreateMany,
       mockProductoVarianteFindMany,
       mockProductoVarianteOpcionCreateMany,
+      mockProductoVarianteCount,
+      mockPedidoDetalleCount,
     },
   };
 });
@@ -109,6 +116,8 @@ describe("ProductoService", () => {
       mockProductoVarianteCreateMany,
       mockProductoVarianteFindMany,
       mockProductoVarianteOpcionCreateMany,
+      mockProductoVarianteCount,
+      mockPedidoDetalleCount,
     } = require("../../../src/prisma/client").__mocks;
 
     // mocks por defecto
@@ -126,6 +135,8 @@ describe("ProductoService", () => {
     mockProductoVarianteCreateMany.mockResolvedValue({ count: 0 });
     mockProductoVarianteFindMany.mockResolvedValue([]);
     mockProductoVarianteOpcionCreateMany.mockResolvedValue({ count: 0 });
+    mockProductoVarianteCount.mockResolvedValue(0);
+    mockPedidoDetalleCount.mockResolvedValue(0);
   });
 
   describe("getAll", () => {
@@ -366,13 +377,153 @@ describe("ProductoService", () => {
   });
 
   describe("update", () => {
-    it("debería actualizar un producto", async () => {
-      const dto: ProductoDTO = { nombre: "Updated", descripcion: "Desc", precio: 100, marca_id: 1, peso: 1, altura: 1, ancho: 1, profundidad: 1, categoria_id: 1 };
-      const { mockProductoUpdate } = require("../../../src/prisma/client").__mocks;
-      mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dto });
+    const dtoBase: ProductoDTO = {
+      nombre: "Updated",
+      descripcion: "Desc",
+      precio: 100,
+      marca_id: 1,
+      peso: 1,
+      altura: 1,
+      ancho: 1,
+      profundidad: 1,
+      categoria_id: 1,
+    };
 
-      const result = await service.update(1, dto);
+    it("debería actualizar un producto sin plantillaId (campo no enviado)", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoUpdate,
+        mockProductoVarianteDeleteMany,
+      } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: null });
+      mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dtoBase });
+
+      const result = await service.update(1, dtoBase);
+
       expect(result.nombre).toBe("Updated");
+      expect(mockProductoVarianteDeleteMany).not.toHaveBeenCalled();
+    });
+
+    it("debería borrar las variantes existentes al cambiar de plantilla si no tienen pedidos", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoVarianteCount,
+        mockPedidoDetalleCount,
+        mockProductoVarianteDeleteMany,
+        mockProductoUpdate,
+      } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: 1 });
+      mockProductoVarianteCount.mockResolvedValue(2);
+      mockPedidoDetalleCount.mockResolvedValue(0);
+      mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dtoBase });
+
+      await service.update(1, { ...dtoBase, plantillaId: 2 });
+
+      expect(mockProductoVarianteDeleteMany).toHaveBeenCalledWith({
+        where: { productoId: 1 },
+      });
+      expect(mockProductoUpdate).toHaveBeenCalled();
+    });
+
+    it("debería rechazar con 409 el cambio de plantilla si las variantes tienen pedidos", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoVarianteCount,
+        mockPedidoDetalleCount,
+        mockProductoVarianteDeleteMany,
+        mockProductoUpdate,
+      } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: 1 });
+      mockProductoVarianteCount.mockResolvedValue(2);
+      mockPedidoDetalleCount.mockResolvedValue(1);
+
+      await expect(
+        service.update(1, { ...dtoBase, plantillaId: 2 })
+      ).rejects.toMatchObject({
+        status: 409,
+        message: expect.stringContaining("pedidos asociados"),
+      });
+
+      expect(mockProductoVarianteDeleteMany).not.toHaveBeenCalled();
+      expect(mockProductoUpdate).not.toHaveBeenCalled();
+    });
+
+    it("debería permitir cambiar de plantilla sin borrar nada si no hay variantes generadas", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoVarianteCount,
+        mockProductoVarianteDeleteMany,
+        mockProductoUpdate,
+      } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: 8 });
+      mockProductoVarianteCount.mockResolvedValue(0);
+      mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dtoBase });
+
+      await service.update(1, { ...dtoBase, plantillaId: 5 });
+
+      expect(mockProductoVarianteDeleteMany).not.toHaveBeenCalled();
+      expect(mockProductoUpdate).toHaveBeenCalled();
+    });
+
+    it("debería mantener la misma plantilla sin disparar borrado (plantillaId igual al actual)", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoVarianteDeleteMany,
+        mockProductoUpdate,
+      } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: 8 });
+      mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dtoBase });
+
+      await service.update(1, { ...dtoBase, plantillaId: 8 });
+
+      expect(mockProductoVarianteDeleteMany).not.toHaveBeenCalled();
+      expect(mockProductoUpdate).toHaveBeenCalled();
+    });
+
+    it("debería tratar null (quitar plantilla) como cambio y validar pedidos", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoVarianteCount,
+        mockPedidoDetalleCount,
+        mockProductoVarianteDeleteMany,
+        mockProductoUpdate,
+      } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: 1 });
+      mockProductoVarianteCount.mockResolvedValue(1);
+      mockPedidoDetalleCount.mockResolvedValue(0);
+      mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dtoBase });
+
+      await service.update(1, { ...dtoBase, plantillaId: null });
+
+      expect(mockProductoVarianteDeleteMany).toHaveBeenCalledWith({
+        where: { productoId: 1 },
+      });
+      expect(mockProductoUpdate).toHaveBeenCalled();
+    });
+  });
+
+  describe("productoTieneVariantesConPedidos", () => {
+    it("debería devolver true si hay pedidos asociados a alguna variante del producto", async () => {
+      const { mockPedidoDetalleCount } =
+        require("../../../src/prisma/client").__mocks;
+      mockPedidoDetalleCount.mockResolvedValue(3);
+
+      const resultado = await service.productoTieneVariantesConPedidos(26);
+
+      expect(resultado).toBe(true);
+      expect(mockPedidoDetalleCount).toHaveBeenCalledWith({
+        where: { variante: { productoId: 26 } },
+      });
+    });
+
+    it("debería devolver false si ninguna variante tiene pedidos asociados", async () => {
+      const { mockPedidoDetalleCount } =
+        require("../../../src/prisma/client").__mocks;
+      mockPedidoDetalleCount.mockResolvedValue(0);
+
+      const resultado = await service.productoTieneVariantesConPedidos(26);
+
+      expect(resultado).toBe(false);
     });
   });
 
