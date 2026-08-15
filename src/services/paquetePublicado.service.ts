@@ -1132,19 +1132,19 @@ export class PaquetePublicadoService {
         producto: string;
         variante: string;
         marca: string;
-        amount?: any;
         cantidadTotal: number;
       }
     >();
 
-    pedidosAprobados.forEach((pedido: any) => {
-      pedido.detalles?.forEach((pp: any) => {
+    pedidosAprobados.forEach((pedido) => {
+      pedido.detalles?.forEach((pp) => {
         let varianteStr = '-';
         let skuVal = pp.variante?.sku || String(pp.productoId);
 
-        if (pp.variante?.opciones?.length > 0) {
-          varianteStr = pp.variante.opciones
-            .map((o: any) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
+        const opciones = pp.variante?.opciones;
+        if (opciones && opciones.length > 0) {
+          varianteStr = opciones
+            .map((o) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
             .join(', ');
         }
 
@@ -1162,7 +1162,7 @@ export class PaquetePublicadoService {
       });
     });
 
-    const dataRows: any[][] = [];
+    const dataRows: (string | number)[][] = [];
     consolidado.forEach((info) => {
       dataRows.push([
         info.sku,
@@ -1252,9 +1252,9 @@ export class PaquetePublicadoService {
       (ped) => ped.estadoId !== 1 && ped.estadoId !== 3
     );
 
-    const dataRows: any[][] = [];
+    const dataRows: (string | number)[][] = [];
 
-    pedidosAprobados.forEach((ped: any) => {
+    pedidosAprobados.forEach((ped) => {
       const idPed = ped.id_pedido ?? 'N/A';
       const nombre = ped.usuario?.nombre || 'N/A';
       const telefono = ped.usuario?.telefono || 'N/A';
@@ -1277,11 +1277,12 @@ export class PaquetePublicadoService {
       }
 
       // Una fila por cada producto del pedido (datos divididos)
-      (ped.detalles || []).forEach((det: any) => {
+      (ped.detalles || []).forEach((det) => {
         let varianteStr = '-';
-        if (det.variante?.opciones?.length > 0) {
-          varianteStr = det.variante.opciones
-            .map((o: any) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
+        const opciones = det.variante?.opciones;
+        if (opciones && opciones.length > 0) {
+          varianteStr = opciones
+            .map((o) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
             .join(', ');
         } else if (det.variante?.sku) {
           varianteStr = det.variante.sku;
