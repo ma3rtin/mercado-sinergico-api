@@ -4,6 +4,9 @@ import { prisma } from '../prisma/client.js';
 import { CustomError } from '../errors/custom.error.js';
 import { ProductoItemListaDTO } from '../dtos/producto/productoItemLista.dto.js';
 import { ProductoDetalleRespuestaDTO } from '../dtos/producto/productoDetalleRespuesta.dto.js';
+import { generarVariantesEnTransaccion } from './variante-generacion.helper.js';
+
+type PrismaOrTx = Prisma.TransactionClient | typeof prisma;
 
 export class ProductoService {
   private prisma = prisma;
@@ -175,9 +178,10 @@ export class ProductoService {
    * sus variantes actuales).
    */
   public async productoTieneVariantesConPedidos(
-    productoId: number
+    productoId: number,
+    client: PrismaOrTx = this.prisma
   ): Promise<boolean> {
-    const pedidosConVariante = await this.prisma.pedidoDetalle.count({
+    const pedidosConVariante = await client.pedidoDetalle.count({
       where: {
         variante: {
           productoId,
@@ -221,7 +225,11 @@ export class ProductoService {
       throw new CustomError('Categoria no encontrada', 404);
     }
 
-    const nuevoProducto = await this.prisma.$transaction(
+    if (plantillaId && !opcionesDisponibles) {
+      throw new CustomError('Se requieren las opciones de la plantilla para generar las variantes', 400);
+    }
+
+    return this.prisma.$transaction(
       async (tx) => {
         const productoCreado = await tx.producto.create({
           data: {
@@ -242,6 +250,21 @@ export class ProductoService {
           });
         }
 
+        if (plantillaId && opcionesDisponibles) {
+          const productoConPlantilla = await tx.producto.findUnique({
+            where: { id_producto: productoCreado.id_producto },
+            include: {
+              plantilla: { include: { caracteristicas: { include: { opciones: true } } } },
+            },
+          });
+
+          if (!productoConPlantilla?.plantilla) {
+            throw new CustomError('El producto no tiene plantilla asignada', 400);
+          }
+
+          await generarVariantesEnTransaccion(tx, productoConPlantilla, opcionesDisponibles);
+        }
+
         const productoFinal = await tx.producto.findUnique({
           where: { id_producto: productoCreado.id_producto },
           include: {
@@ -257,6 +280,11 @@ export class ProductoService {
                 },
               },
             },
+            variantes: {
+              include: {
+                opciones: { include: { caracteristica: true, opcion: true } },
+              },
+            },
           },
         });
 
@@ -270,20 +298,10 @@ export class ProductoService {
         timeout: 20000,
       }
     );
-
-    if (plantillaId && opcionesDisponibles) {
-      await this.generarVariantesAutomaticas(
-        nuevoProducto.id_producto,
-        opcionesDisponibles,
-        tipo
-      );
-    }
-
-    return nuevoProducto;
   }
 
   public async update(id: number, producto: ProductoDTO) {
-    const { categoria_id, marca_id, imagenes, plantillaId, tipo, ...rest } =
+    const { categoria_id, marca_id, imagenes, plantillaId, tipo, opcionesDisponibles, ...rest } =
       producto;
 
     if (plantillaId && rest.stock !== undefined && rest.stock !== null) {
@@ -328,6 +346,10 @@ export class ProductoService {
       plantillaId !== undefined &&
       (plantillaId ?? null) !== (productoActual.plantillaId ?? null);
 
+    if (huboCambioPlantilla && plantillaId && !opcionesDisponibles) {
+      throw new CustomError('Se requieren las opciones de la plantilla para generar las variantes', 400);
+    }
+
     return this.prisma.$transaction(
       async (tx) => {
         if (huboCambioPlantilla) {
@@ -336,8 +358,7 @@ export class ProductoService {
           });
 
           if (variantesExistentes > 0) {
-            const tienePedidos =
-              await this.productoTieneVariantesConPedidos(id);
+            const tienePedidos = await this.productoTieneVariantesConPedidos(id, tx);
 
             if (tienePedidos) {
               throw new CustomError(
@@ -354,9 +375,29 @@ export class ProductoService {
           }
         }
 
-        return tx.producto.update({
+        await tx.producto.update({ where: { id_producto: id }, data });
+
+        if (opcionesDisponibles) {
+          const productoConPlantilla = await tx.producto.findUnique({
+            where: { id_producto: id },
+            include: {
+              plantilla: { include: { caracteristicas: { include: { opciones: true } } } },
+            },
+          });
+
+          if (productoConPlantilla?.plantilla) {
+            const variantesActuales = await tx.productoVariante.count({
+              where: { productoId: id },
+            });
+
+            if (variantesActuales === 0) {
+              await generarVariantesEnTransaccion(tx, productoConPlantilla, opcionesDisponibles);
+            }
+          }
+        }
+
+        const productoActualizado = await tx.producto.findUnique({
           where: { id_producto: id },
-          data,
           include: {
             imagenes: true,
             variantes: {
@@ -371,6 +412,12 @@ export class ProductoService {
             },
           },
         });
+
+        if (!productoActualizado) {
+          throw new CustomError('Error al recuperar el producto actualizado', 500);
+        }
+
+        return productoActualizado;
       },
       {
         timeout: 20000,
@@ -481,162 +528,5 @@ export class ProductoService {
         },
       });
     });
-  }
-
-
-
-  private async generarVariantesAutomaticas(
-    productoId: number,
-    opcionesDisponibles: Record<string, number[]>,
-    tipo?: TipoPaquete
-  ) {
-    const producto = await this.prisma.producto.findUnique({
-      where: { id_producto: productoId },
-      include: {
-        plantilla: {
-          include: {
-            caracteristicas: {
-              include: {
-                opciones: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!producto || !producto.plantilla) {
-      throw new CustomError('El producto no tiene plantilla asignada', 400);
-    }
-
-    const caracteristicasIds = Object.keys(opcionesDisponibles).map(Number);
-    const caracteristicasValidas = producto.plantilla.caracteristicas.map(
-      (c) => c.id
-    );
-
-    for (const caracId of caracteristicasIds) {
-      if (!caracteristicasValidas.includes(caracId)) {
-        throw new CustomError(
-          `La característica ${caracId} no pertenece a la plantilla del producto`,
-          400
-        );
-      }
-    }
-
-    const combinaciones = this.generarCombinaciones(opcionesDisponibles);
-
-    if (combinaciones.length === 0) {
-      return;
-    }
-
-    const nombreLimpio = producto.nombre
-      .substring(0, 10)
-      .toUpperCase()
-      .replace(/\s+/g, '-');
-
-    const stockInicial = tipo === TipoPaquete.ENERGICO ? 0 : null;
-
-    const variantesData = combinaciones.map((combinacion) => {
-      const idsOpciones = Object.values(combinacion).join('-');
-      const sku = `${nombreLimpio}-${productoId}-${idsOpciones}`;
-
-      return {
-        productoId,
-        sku,
-        stockFisico: stockInicial,
-        precioExtra: 0,
-        activo: true,
-      };
-    });
-
-    const skusGenerados = variantesData.map((v) => v.sku);
-
-    await this.prisma.$transaction(
-      async (tx) => {
-        try {
-          await tx.productoVariante.createMany({ data: variantesData });
-        } catch (error) {
-          if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === 'P2002'
-          ) {
-            throw new CustomError(
-              'Ya existe una variante con ese SKU. Verificá que el producto no tenga variantes previas.',
-              409,
-              error
-            );
-          }
-          throw error;
-        }
-
-        const variantes = await tx.productoVariante.findMany({
-          where: {
-            productoId,
-            sku: { in: skusGenerados },
-          },
-          orderBy: { id: 'asc' },
-        });
-
-        const varianteIdPorSku = new Map(
-          variantes.map((v) => [v.sku, v.id])
-        );
-
-        const opcionesData = combinaciones.flatMap((combinacion) => {
-          const idsOpciones = Object.values(combinacion).join('-');
-          const sku = `${nombreLimpio}-${productoId}-${idsOpciones}`;
-          const varianteId = varianteIdPorSku.get(sku);
-
-          if (varianteId === undefined) {
-            throw new CustomError(
-              'Error al recuperar las variantes creadas',
-              500
-            );
-          }
-
-          return Object.entries(combinacion).map(([caracId, opcionId]) => ({
-            varianteId,
-            caracteristicaId: parseInt(caracId),
-            opcionId: opcionId as number,
-          }));
-        });
-
-        await tx.productoVarianteOpcion.createMany({ data: opcionesData });
-      },
-      {
-        timeout: 20000,
-      }
-    );
-  }
-
-  private generarCombinaciones(
-    opcionesDisponibles: Record<string, number[]>
-  ): Record<string, number>[] {
-    const caracteristicas = Object.keys(opcionesDisponibles);
-    const valores = Object.values(opcionesDisponibles);
-
-    if (caracteristicas.length === 0) return [];
-
-    const resultado: Record<string, number>[] = [];
-
-    const generarRecursivo = (
-      index: number,
-      combinacionActual: Record<string, number>
-    ) => {
-      if (index === caracteristicas.length) {
-        resultado.push({ ...combinacionActual });
-        return;
-      }
-
-      const caracId = caracteristicas[index];
-      const opciones = valores[index];
-
-      for (const opcionId of opciones) {
-        combinacionActual[caracId] = opcionId;
-        generarRecursivo(index + 1, combinacionActual);
-      }
-    };
-
-    generarRecursivo(0, {});
-    return resultado;
   }
 }
