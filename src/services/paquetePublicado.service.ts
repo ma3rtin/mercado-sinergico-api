@@ -19,8 +19,6 @@ import {
 } from '../types/computable.types.js';
 
 
-type PrismaOrTx = Prisma.TransactionClient | typeof prisma;
-
 export class PaquetePublicadoService {
   private prisma = prisma;
   private emailService = new EmailService();
@@ -509,29 +507,20 @@ export class PaquetePublicadoService {
       }
     }
 
-    const nombrePublicacion = dto.nombre?.trim() || paqueteBase.nombre;
-
-    // Validar unicidad y crear en la misma transacción: si no, dos
-    // publicaciones con el mismo nombre creándose casi simultáneamente
-    // podrían pasar ambas la validación antes de que cualquiera exista todavía.
-    return this.prisma.$transaction(async (tx) => {
-      await this.validarNombreUnico(nombrePublicacion, undefined, tx);
-
-      return tx.paquetePublicado.create({
-        data: {
-          nombre: nombrePublicacion,
-          cant_productos: dto.cant_productos,
-          fecha_inicio: new Date(dto.fecha_inicio),
-          fecha_fin: new Date(dto.fecha_fin),
-          descuento: dto.descuento,
-          // Heredar el tipo del paquete base (ENERGICO / SINERGICO)
-          tipo: paqueteBase.tipo,
-          ...(imagen_url && { imagen_url }),
-          zona: { connect: { id_zona: Number(dto.zonaId) } },
-          paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
-          estado: { connect: { id_estado: ESTADO_PAQUETE.ACTIVO } },
-        },
-      });
+    return this.prisma.paquetePublicado.create({
+      data: {
+        nombre: paqueteBase.nombre,
+        cant_productos: dto.cant_productos,
+        fecha_inicio: new Date(dto.fecha_inicio),
+        fecha_fin: new Date(dto.fecha_fin),
+        descuento: dto.descuento,
+        // Heredar el tipo del paquete base (ENERGICO / SINERGICO)
+        tipo: paqueteBase.tipo,
+        ...(imagen_url && { imagen_url }),
+        zona: { connect: { id_zona: Number(dto.zonaId) } },
+        paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
+        estado: { connect: { id_estado: ESTADO_PAQUETE.ACTIVO } },
+      },
     });
   }
 
@@ -539,9 +528,6 @@ export class PaquetePublicadoService {
     return this.prisma.$transaction(async (tx) => {
       const existente = await tx.paquetePublicado.findUnique({ where: { id_paquete_publicado: id } });
       if (!existente) throw new CustomError('No encontrado', 404);
-
-      const nombrePublicacion = dto.nombre?.trim() || existente.nombre;
-      await this.validarNombreUnico(nombrePublicacion, id, tx);
 
       if (dto.paqueteBaseId) {
         const pb = await tx.paqueteBase.findUnique({
@@ -556,7 +542,7 @@ export class PaquetePublicadoService {
       // Actualizar paqueteBase: descripcion y/o imagen
       const baseUpdate: Record<string, unknown> = {};
       if (dto.descripcion) baseUpdate.descripcion = dto.descripcion;
-      if (dto.nombre) baseUpdate.nombre = nombrePublicacion;
+      if (dto.nombre) baseUpdate.nombre = dto.nombre;
 
       if (dto.imagen_base64) {
         try {
@@ -577,7 +563,7 @@ export class PaquetePublicadoService {
         await tx.paqueteBase.update({
           where: { id_paquete_base: existente.paqueteBaseId },
           data: {
-            ...(dto.nombre && { nombre: nombrePublicacion }),
+            ...(dto.nombre && { nombre: dto.nombre }),
             ...(dto.descripcion && { descripcion: dto.descripcion }),
           },
         });
@@ -595,7 +581,7 @@ export class PaquetePublicadoService {
       return tx.paquetePublicado.update({
         where: { id_paquete_publicado: id },
         data: {
-          ...(dto.nombre && { nombre: nombrePublicacion }),
+          ...(dto.nombre && { nombre: dto.nombre }),
           ...(dto.fecha_inicio && { fecha_inicio: new Date(dto.fecha_inicio) }),
           ...(dto.fecha_fin && { fecha_fin: new Date(dto.fecha_fin) }),
           ...(dto.cant_productos && { cant_productos: Number(dto.cant_productos) }),
@@ -608,35 +594,6 @@ export class PaquetePublicadoService {
         },
       });
     });
-  }
-
-  /**
-   * Valida que no exista otra publicación (no archivada) con el mismo nombre,
-   * ignorando la propia publicación en edición cuando corresponde.
-   */
-  private async validarNombreUnico(
-    nombre: string,
-    excluirId?: number,
-    client: PrismaOrTx = this.prisma
-  ) {
-    const nombreLimpio = nombre?.trim();
-    if (!nombreLimpio) return;
-
-    const existente = await client.paquetePublicado.findFirst({
-      where: {
-        nombre: { equals: nombreLimpio },
-        archivado: false,
-        ...(excluirId ? { id_paquete_publicado: { not: excluirId } } : {}),
-      },
-      select: { id_paquete_publicado: true },
-    });
-
-    if (existente) {
-      throw new CustomError(
-        `Ya existe una publicación con el nombre "${nombreLimpio}". Elegí otro nombre.`,
-        409
-      );
-    }
   }
 
   async delete(id: number) {
@@ -772,7 +729,7 @@ export class PaquetePublicadoService {
 
       return await tx.paquetePublicado.create({
         data: {
-          nombre: generarNombreCopia(paqueteOriginal.nombre || paqueteOriginal.paqueteBase.nombre),
+          nombre: paqueteOriginal.paqueteBase.nombre,
           paqueteBaseId: baseDuplicado.id_paquete_base,
           zonaId: paqueteOriginal.zonaId,
           cant_productos: paqueteOriginal.cant_productos,
@@ -884,9 +841,9 @@ export class PaquetePublicadoService {
     if (correosCompradores.length > 0) {
       this.emailService.enviarEmail({
         para: correosCompradores,
-        asunto: `¡Tu pedido está confirmado! - ${paquete.nombre || paquete.paqueteBase.nombre}`,
+        asunto: `¡Tu pedido está confirmado! - ${paquete.paqueteBase.nombre}`,
         template: 'comprador-pedido-confirmado',
-        context: { nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre },
+        context: { nombrePaquete: paquete.paqueteBase.nombre },
       });
     }
 
@@ -967,9 +924,9 @@ export class PaquetePublicadoService {
     if (correosCompradores.length > 0) {
       this.emailService.enviarEmail({
         para: correosCompradores,
-        asunto: `Tu pedido llega hoy - ${paquete.nombre || paquete.paqueteBase.nombre}`,
+        asunto: `Tu pedido llega hoy - ${paquete.paqueteBase.nombre}`,
         template: 'comprador-pedido-en-camino',
-        context: { nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre },
+        context: { nombrePaquete: paquete.paqueteBase.nombre },
       });
     }
 
@@ -1007,9 +964,9 @@ export class PaquetePublicadoService {
     if (correosCompradores.length > 0 && paquete?.paqueteBase?.nombre) {
       this.emailService.enviarEmail({
         para: correosCompradores,
-        asunto: `Paquete cancelado y reembolsado - ${paquete.nombre || paquete.paqueteBase.nombre}`,
+        asunto: `Paquete cancelado y reembolsado - ${paquete.paqueteBase.nombre}`,
         template: 'comprador-paquete-cancelado',
-        context: { nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre },
+        context: { nombrePaquete: paquete.paqueteBase.nombre },
       });
     }
 
@@ -1144,19 +1101,19 @@ export class PaquetePublicadoService {
         producto: string;
         variante: string;
         marca: string;
+        amount?: any;
         cantidadTotal: number;
       }
     >();
 
-    pedidosAprobados.forEach((pedido) => {
-      pedido.detalles?.forEach((pp) => {
+    pedidosAprobados.forEach((pedido: any) => {
+      pedido.detalles?.forEach((pp: any) => {
         let varianteStr = '-';
         let skuVal = pp.variante?.sku || String(pp.productoId);
 
-        const opciones = pp.variante?.opciones;
-        if (opciones && opciones.length > 0) {
-          varianteStr = opciones
-            .map((o) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
+        if (pp.variante?.opciones?.length > 0) {
+          varianteStr = pp.variante.opciones
+            .map((o: any) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
             .join(', ');
         }
 
@@ -1174,7 +1131,7 @@ export class PaquetePublicadoService {
       });
     });
 
-    const dataRows: (string | number)[][] = [];
+    const dataRows: any[][] = [];
     consolidado.forEach((info) => {
       dataRows.push([
         info.sku,
@@ -1264,9 +1221,9 @@ export class PaquetePublicadoService {
       (ped) => ped.estadoId !== 1 && ped.estadoId !== 3
     );
 
-    const dataRows: (string | number)[][] = [];
+    const dataRows: any[][] = [];
 
-    pedidosAprobados.forEach((ped) => {
+    pedidosAprobados.forEach((ped: any) => {
       const idPed = ped.id_pedido ?? 'N/A';
       const nombre = ped.usuario?.nombre || 'N/A';
       const telefono = ped.usuario?.telefono || 'N/A';
@@ -1289,12 +1246,11 @@ export class PaquetePublicadoService {
       }
 
       // Una fila por cada producto del pedido (datos divididos)
-      (ped.detalles || []).forEach((det) => {
+      (ped.detalles || []).forEach((det: any) => {
         let varianteStr = '-';
-        const opciones = det.variante?.opciones;
-        if (opciones && opciones.length > 0) {
-          varianteStr = opciones
-            .map((o) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
+        if (det.variante?.opciones?.length > 0) {
+          varianteStr = det.variante.opciones
+            .map((o: any) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
             .join(', ');
         } else if (det.variante?.sku) {
           varianteStr = det.variante.sku;
