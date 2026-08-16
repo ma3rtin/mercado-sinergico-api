@@ -8,9 +8,9 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     if (err.status === 500) {
       console.error('[ErrorHandler] CustomError con status 500 detectado:', err);
     }
-    return res.status(err.status).json({ error: err.message });
+    return res.status(err.status).json({ message: err.message });
   }
 
   console.error('[ErrorHandler] Unexpected error:', err);
-  return res.status(500).json({ error: 'Internal Server Error' });
+  return res.status(500).json({ message: 'Internal Server Error' });
 }

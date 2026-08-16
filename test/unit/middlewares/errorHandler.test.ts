@@ -22,7 +22,7 @@ describe("errorHandler middleware", () => {
     errorHandler(error, req, res, next);
 
     expect(statusMock).toHaveBeenCalledWith(422);
-    expect(jsonMock).toHaveBeenCalledWith({ error: "Mensaje personalizado" });
+    expect(jsonMock).toHaveBeenCalledWith({ message: "Mensaje personalizado" });
   });
 
   it("debería responder 500 con 'Internal Server Error' para errores genéricos", () => {
@@ -31,6 +31,6 @@ describe("errorHandler middleware", () => {
     errorHandler(error, req, res, next);
 
     expect(statusMock).toHaveBeenCalledWith(500);
-    expect(jsonMock).toHaveBeenCalledWith({ error: "Internal Server Error" });
+    expect(jsonMock).toHaveBeenCalledWith({ message: "Internal Server Error" });
   });
 });
