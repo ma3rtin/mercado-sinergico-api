@@ -19,6 +19,8 @@ import {
 } from '../types/computable.types.js';
 
 
+type PrismaOrTx = Prisma.TransactionClient | typeof prisma;
+
 export class PaquetePublicadoService {
   private prisma = prisma;
   private emailService = new EmailService();
@@ -508,22 +510,28 @@ export class PaquetePublicadoService {
     }
 
     const nombrePublicacion = dto.nombre?.trim() || paqueteBase.nombre;
-    await this.validarNombreUnico(nombrePublicacion);
 
-    return this.prisma.paquetePublicado.create({
-      data: {
-        nombre: nombrePublicacion,
-        cant_productos: dto.cant_productos,
-        fecha_inicio: new Date(dto.fecha_inicio),
-        fecha_fin: new Date(dto.fecha_fin),
-        descuento: dto.descuento,
-        // Heredar el tipo del paquete base (ENERGICO / SINERGICO)
-        tipo: paqueteBase.tipo,
-        ...(imagen_url && { imagen_url }),
-        zona: { connect: { id_zona: Number(dto.zonaId) } },
-        paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
-        estado: { connect: { id_estado: ESTADO_PAQUETE.ACTIVO } },
-      },
+    // Validar unicidad y crear en la misma transacción: si no, dos
+    // publicaciones con el mismo nombre creándose casi simultáneamente
+    // podrían pasar ambas la validación antes de que cualquiera exista todavía.
+    return this.prisma.$transaction(async (tx) => {
+      await this.validarNombreUnico(nombrePublicacion, undefined, tx);
+
+      return tx.paquetePublicado.create({
+        data: {
+          nombre: nombrePublicacion,
+          cant_productos: dto.cant_productos,
+          fecha_inicio: new Date(dto.fecha_inicio),
+          fecha_fin: new Date(dto.fecha_fin),
+          descuento: dto.descuento,
+          // Heredar el tipo del paquete base (ENERGICO / SINERGICO)
+          tipo: paqueteBase.tipo,
+          ...(imagen_url && { imagen_url }),
+          zona: { connect: { id_zona: Number(dto.zonaId) } },
+          paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
+          estado: { connect: { id_estado: ESTADO_PAQUETE.ACTIVO } },
+        },
+      });
     });
   }
 
@@ -533,7 +541,7 @@ export class PaquetePublicadoService {
       if (!existente) throw new CustomError('No encontrado', 404);
 
       const nombrePublicacion = dto.nombre?.trim() || existente.nombre;
-      await this.validarNombreUnico(nombrePublicacion, id);
+      await this.validarNombreUnico(nombrePublicacion, id, tx);
 
       if (dto.paqueteBaseId) {
         const pb = await tx.paqueteBase.findUnique({
@@ -606,11 +614,15 @@ export class PaquetePublicadoService {
    * Valida que no exista otra publicación (no archivada) con el mismo nombre,
    * ignorando la propia publicación en edición cuando corresponde.
    */
-  private async validarNombreUnico(nombre: string, excluirId?: number) {
+  private async validarNombreUnico(
+    nombre: string,
+    excluirId?: number,
+    client: PrismaOrTx = this.prisma
+  ) {
     const nombreLimpio = nombre?.trim();
     if (!nombreLimpio) return;
 
-    const existente = await this.prisma.paquetePublicado.findFirst({
+    const existente = await client.paquetePublicado.findFirst({
       where: {
         nombre: { equals: nombreLimpio },
         archivado: false,
