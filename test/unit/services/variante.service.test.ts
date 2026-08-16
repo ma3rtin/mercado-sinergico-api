@@ -6,11 +6,21 @@ jest.mock("../../../src/prisma/client", () => {
   const mockProductoFindUnique = jest.fn();
   const mockProductoVarianteCreate = jest.fn();
   const mockProductoVarianteCount = jest.fn();
+  const mockProductoVarianteFindMany = jest.fn();
+  const mockProductoVarianteUpdate = jest.fn();
 
   return {
     prisma: {
-      $transaction: mockTransaction.mockImplementation(async (promises) => {
-        return Promise.all(promises);
+      $transaction: mockTransaction.mockImplementation(async (promisesOrCb) => {
+        if (typeof promisesOrCb === "function") {
+          const tx = {
+            productoVariante: {
+              update: mockProductoVarianteUpdate,
+            },
+          };
+          return promisesOrCb(tx);
+        }
+        return Promise.all(promisesOrCb);
       }),
       producto: {
         findUnique: mockProductoFindUnique,
@@ -18,6 +28,8 @@ jest.mock("../../../src/prisma/client", () => {
       productoVariante: {
         create: mockProductoVarianteCreate,
         count: mockProductoVarianteCount,
+        findMany: mockProductoVarianteFindMany,
+        update: mockProductoVarianteUpdate,
       },
     },
     __mocks: {
@@ -25,6 +37,8 @@ jest.mock("../../../src/prisma/client", () => {
       mockProductoFindUnique,
       mockProductoVarianteCreate,
       mockProductoVarianteCount,
+      mockProductoVarianteFindMany,
+      mockProductoVarianteUpdate,
     },
   };
 });
@@ -237,6 +251,38 @@ describe("VarianteService - generarVariantes", () => {
 
       expect(resultado.variantes[0].sku).toMatch(/^NOTEBOOK-/);
     });
+
+    it("debería generar SKU sin doble guión cuando el nombre corta en un espacio", async () => {
+      const productoId = 71;
+      mocks.mockProductoFindUnique.mockResolvedValue({
+        ...makeProducto(productoId),
+        nombre: "Casco con aire",
+        plantilla: {
+          id: 5,
+          nombre: "Plantilla Casco",
+          caracteristicas: [
+            {
+              id: 50,
+              nombre: "Color",
+              opciones: [
+                { id: 501, nombre: "Negro" },
+                { id: 502, nombre: "Blanco" },
+              ],
+            },
+          ],
+        },
+      });
+
+      const resultado = await service.generarVariantes({
+        productoId,
+        opcionesDisponibles: { "50": [501, 502] },
+      });
+
+      for (const variante of resultado.variantes) {
+        expect(variante.sku).not.toContain("--");
+        expect(variante.sku).toMatch(/^CASCO-CON-\d+-\d+$/);
+      }
+    });
   });
 
   describe("producto sin plantilla", () => {
@@ -259,5 +305,92 @@ describe("VarianteService - generarVariantes", () => {
         message: "El producto no tiene plantilla asignada",
       });
     });
+  });
+});
+
+describe("actualizarVariante - colisión de SKU", () => {
+  let service: VarianteService;
+  let mocks: any;
+
+  beforeEach(() => {
+    service = new VarianteService();
+    jest.clearAllMocks();
+    mocks = require("../../../src/prisma/client").__mocks;
+  });
+
+  it("debería lanzar CustomError 409 cuando el SKU ya existe (P2002)", async () => {
+    mocks.mockProductoVarianteUpdate.mockRejectedValue({ code: "P2002" });
+
+    await expect(
+      service.actualizarVariante(1, { sku: "SKU-DUPLICADO" })
+    ).rejects.toMatchObject({
+      status: 409,
+      message: "Ya existe una variante con ese SKU. Elegí un SKU distinto.",
+    });
+  });
+
+  it("debería actualizar la variante sin colisión de SKU", async () => {
+    mocks.mockProductoVarianteUpdate.mockResolvedValue({ id: 1, sku: "SKU-NUEVO" });
+
+    const resultado = await service.actualizarVariante(1, { sku: "SKU-NUEVO" });
+    expect(resultado.sku).toBe("SKU-NUEVO");
+  });
+
+  it("debería relanzar errores que no son P2002", async () => {
+    mocks.mockProductoVarianteUpdate.mockRejectedValue(new Error("boom"));
+
+    await expect(
+      service.actualizarVariante(1, { sku: "X" })
+    ).rejects.toThrow("boom");
+  });
+});
+
+describe("actualizarVarianteBulk - colisión de SKU", () => {
+  let service: VarianteService;
+  let mocks: any;
+
+  beforeEach(() => {
+    service = new VarianteService();
+    jest.clearAllMocks();
+    mocks = require("../../../src/prisma/client").__mocks;
+  });
+
+  it("debería lanzar CustomError 409 cuando un SKU ya existe (P2002)", async () => {
+    mocks.mockProductoVarianteFindMany.mockResolvedValue([
+      { id: 1, productoId: 5 },
+      { id: 2, productoId: 5 },
+    ]);
+    mocks.mockProductoVarianteUpdate.mockRejectedValue({ code: "P2002" });
+
+    await expect(
+      service.actualizarVarianteBulk(5, {
+        variantes: [
+          { id: 1, sku: "NUEVO-1" },
+          { id: 2, sku: "NUEVO-2" },
+        ],
+      })
+    ).rejects.toMatchObject({
+      status: 409,
+      message: "Ya existe una variante con ese SKU. Elegí un SKU distinto.",
+    });
+  });
+
+  it("debería actualizar las variantes correctamente sin colisión", async () => {
+    mocks.mockProductoVarianteFindMany.mockResolvedValue([
+      { id: 1, productoId: 5 },
+      { id: 2, productoId: 5 },
+    ]);
+    mocks.mockProductoVarianteUpdate.mockResolvedValue({});
+
+    const resultado = await service.actualizarVarianteBulk(5, {
+      variantes: [
+        { id: 1, activo: true },
+        { id: 2, activo: false },
+      ],
+    });
+
+    expect(resultado.message).toContain("2");
+    expect(mocks.mockTransaction).toHaveBeenCalled();
+    expect(mocks.mockProductoVarianteUpdate).toHaveBeenCalledTimes(2);
   });
 });

@@ -138,7 +138,8 @@ export class VarianteService {
       const nombreLimpio = producto.nombre
         .substring(0, 10)
         .toUpperCase()
-        .replace(/\s+/g, '-');
+        .replace(/\s+/g, '-')
+        .replace(/-+$/g, '');
       const idsOpciones = Object.values(combinacion).join('-');
       const sku = `${nombreLimpio}-${productoId}-${idsOpciones}`;
 
@@ -233,37 +234,48 @@ export class VarianteService {
       throw new CustomError('Algunas variantes no pertenecen al producto', 400);
     }
 
-    await this.prisma.$transaction(
-      async (tx) => {
-        await Promise.all(
-          variantes.map((v) => {
-            const dataToUpdate: {
-              sku?: string;
-              stockFisico?: number | null;
-              precioExtra?: number;
-              activo?: boolean;
-            } = {};
-            if (v.sku !== undefined) dataToUpdate.sku = v.sku;
-            if (v.stockFisico !== undefined) {
-              if (v.stockFisico !== null && v.stockFisico < 0) {
-                throw new CustomError('El stock físico no puede ser negativo.', 400);
+    try {
+      await this.prisma.$transaction(
+        async (tx) => {
+          await Promise.all(
+            variantes.map((v) => {
+              const dataToUpdate: {
+                sku?: string;
+                stockFisico?: number | null;
+                precioExtra?: number;
+                activo?: boolean;
+              } = {};
+              if (v.sku !== undefined) dataToUpdate.sku = v.sku;
+              if (v.stockFisico !== undefined) {
+                if (v.stockFisico !== null && v.stockFisico < 0) {
+                  throw new CustomError('El stock físico no puede ser negativo.', 400);
+                }
+                dataToUpdate.stockFisico = v.stockFisico;
               }
-              dataToUpdate.stockFisico = v.stockFisico;
-            }
-            if (v.precioExtra !== undefined) dataToUpdate.precioExtra = v.precioExtra;
-            if (v.activo !== undefined) dataToUpdate.activo = v.activo;
+              if (v.precioExtra !== undefined) dataToUpdate.precioExtra = v.precioExtra;
+              if (v.activo !== undefined) dataToUpdate.activo = v.activo;
 
-            return tx.productoVariante.update({
-              where: { id: v.id },
-              data: dataToUpdate,
-            });
-          })
+              return tx.productoVariante.update({
+                where: { id: v.id },
+                data: dataToUpdate,
+              });
+            })
+          );
+        },
+        {
+          timeout: 20000,
+        }
+      );
+    } catch (error: unknown) {
+      const err = error as { code?: string };
+      if (err.code === 'P2002') {
+        throw new CustomError(
+          'Ya existe una variante con ese SKU. Elegí un SKU distinto.',
+          409
         );
-      },
-      {
-        timeout: 20000,
       }
-    );
+      throw error;
+    }
 
     return {
       message: `Se actualizaron exitosamente ${variantes.length} variantes.`,
@@ -312,6 +324,13 @@ export class VarianteService {
     } catch (error: unknown) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
         throw new CustomError('Variante no encontrada', 404);
+      }
+      const err = error as { code?: string };
+      if (err.code === 'P2002') {
+        throw new CustomError(
+          'Ya existe una variante con ese SKU. Elegí un SKU distinto.',
+          409
+        );
       }
       throw error;
     }

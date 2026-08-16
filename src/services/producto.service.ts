@@ -231,75 +231,86 @@ export class ProductoService {
       throw new CustomError('Producto no encontrado', 404);
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const nuevoProducto = await tx.producto.create({
-        data: {
-          nombre: `${producto.nombre} (Copia)`,
-          descripcion: producto.descripcion,
-          precio: producto.precio,
-          peso: producto.peso,
-          altura: producto.altura,
-          ancho: producto.ancho,
-          profundidad: producto.profundidad,
-          stock: producto.stock,
-          tipo: producto.tipo,
-          imagen_url: producto.imagen_url,
-          plantillaId: producto.plantillaId,
-          categoria_id: producto.categoria_id,
-          marca_id: producto.marca_id,
-        },
-      });
-
-      if (producto.imagenes.length > 0) {
-        await tx.productoImagen.createMany({
-          data: producto.imagenes.map((img) => ({
-            url: img.url,
-            productoId: nuevoProducto.id_producto,
-          })),
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const nuevoProducto = await tx.producto.create({
+          data: {
+            nombre: `${producto.nombre} (Copia)`,
+            descripcion: producto.descripcion,
+            precio: producto.precio,
+            peso: producto.peso,
+            altura: producto.altura,
+            ancho: producto.ancho,
+            profundidad: producto.profundidad,
+            stock: producto.stock,
+            tipo: producto.tipo,
+            imagen_url: producto.imagen_url,
+            plantillaId: producto.plantillaId,
+            categoria_id: producto.categoria_id,
+            marca_id: producto.marca_id,
+          },
         });
-      }
 
-      if (producto.variantes.length > 0) {
-        for (const variante of producto.variantes) {
-          const nuevaVariante = await tx.productoVariante.create({
-            data: {
+        if (producto.imagenes.length > 0) {
+          await tx.productoImagen.createMany({
+            data: producto.imagenes.map((img) => ({
+              url: img.url,
               productoId: nuevoProducto.id_producto,
-              sku: variante.sku ? `${variante.sku}-COPIA` : null,
-              stockFisico: variante.stockFisico,
-              precioExtra: variante.precioExtra,
-              activo: variante.activo,
-            },
+            })),
           });
+        }
 
-          if (variante.opciones.length > 0) {
-            await tx.productoVarianteOpcion.createMany({
-              data: variante.opciones.map((vo) => ({
-                varianteId: nuevaVariante.id,
-                caracteristicaId: vo.caracteristicaId,
-                opcionId: vo.opcionId,
-              })),
+        if (producto.variantes.length > 0) {
+          for (const variante of producto.variantes) {
+            const nuevaVariante = await tx.productoVariante.create({
+              data: {
+                productoId: nuevoProducto.id_producto,
+                sku: variante.sku ? `${variante.sku}-COPIA` : null,
+                stockFisico: variante.stockFisico,
+                precioExtra: variante.precioExtra,
+                activo: variante.activo,
+              },
             });
+
+            if (variante.opciones.length > 0) {
+              await tx.productoVarianteOpcion.createMany({
+                data: variante.opciones.map((vo) => ({
+                  varianteId: nuevaVariante.id,
+                  caracteristicaId: vo.caracteristicaId,
+                  opcionId: vo.opcionId,
+                })),
+              });
+            }
           }
         }
-      }
 
-      return tx.producto.findUnique({
-        where: { id_producto: nuevoProducto.id_producto },
-        include: {
-          imagenes: true,
-          variantes: {
-            include: {
-              opciones: {
-                include: {
-                  caracteristica: true,
-                  opcion: true,
+        return tx.producto.findUnique({
+          where: { id_producto: nuevoProducto.id_producto },
+          include: {
+            imagenes: true,
+            variantes: {
+              include: {
+                opciones: {
+                  include: {
+                    caracteristica: true,
+                    opcion: true,
+                  },
                 },
               },
             },
           },
-        },
+        });
       });
-    });
+    } catch (error: unknown) {
+      const err = error as { code?: string };
+      if (err.code === 'P2002') {
+        throw new CustomError(
+          'No se puede duplicar: ya existe una variante con ese SKU. Cambiá el SKU de la variante original antes de volver a duplicar.',
+          409
+        );
+      }
+      throw error;
+    }
   }
 
 
@@ -328,6 +339,16 @@ export class ProductoService {
       throw new CustomError('El producto no tiene plantilla asignada', 400);
     }
 
+    const variantesExistentes = await this.prisma.productoVariante.count({
+      where: { productoId },
+    });
+    if (variantesExistentes > 0) {
+      throw new CustomError(
+        'Este producto ya tiene variantes generadas. Elimínalas primero si querés regenerarlas.',
+        409
+      );
+    }
+
     const caracteristicasIds = Object.keys(opcionesDisponibles).map(Number);
     const caracteristicasValidas = producto.plantilla.caracteristicas.map(
       (c) => c.id
@@ -347,7 +368,8 @@ export class ProductoService {
     const nombreLimpio = producto.nombre
       .substring(0, 10)
       .toUpperCase()
-      .replace(/\s+/g, '-');
+      .replace(/\s+/g, '-')
+      .replace(/-+$/g, '');
 
     const promesasVariantes = combinaciones.map((combinacion) => {
       const idsOpciones = Object.values(combinacion).join('-');
