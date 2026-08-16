@@ -216,6 +216,35 @@ describe("ProductoController", () => {
       expect(mockResponse.status).toHaveBeenCalledWith(500);
       expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({ message: "Error al actualizar" }));
     });
+
+    it("debería parsear opcionesDisponibles cuando llega como JSON string (multipart/form-data)", async () => {
+      mockRequest.params = { id: "1" };
+      mockRequest.body = {
+        ...validDto,
+        opcionesDisponibles: JSON.stringify({ "1": [10, 11] }),
+      };
+      mockProductoService.update.mockResolvedValue({ id_producto: 1 });
+
+      await controller.updateProducto(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockProductoService.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ opcionesDisponibles: { "1": [10, 11] } })
+      );
+    });
+
+    it("no debería tocar opcionesDisponibles cuando ya llega como objeto (JSON)", async () => {
+      mockRequest.params = { id: "1" };
+      mockRequest.body = { ...validDto, opcionesDisponibles: { "1": [10, 11] } };
+      mockProductoService.update.mockResolvedValue({ id_producto: 1 });
+
+      await controller.updateProducto(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockProductoService.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ opcionesDisponibles: { "1": [10, 11] } })
+      );
+    });
   });
 
   describe("deleteProducto", () => {

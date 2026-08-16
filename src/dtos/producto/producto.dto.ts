@@ -77,8 +77,10 @@ export class ProductoDTO {
   if (value === '' || value === 'null' || value === null) return null;
   // undefined → el campo no se envió, no tocar
   if (value === undefined) return undefined;
-  const num = Number(value);
-  return isNaN(num) ? null : num;
+  // Cualquier otra cosa que no sea un número válido (ej. "abc") queda como
+  // NaN para que @IsNumber la rechace con 400, en vez de convertirse en
+  // null y disparar "quitar la plantilla" por un valor basura.
+  return Number(value);
 })
 @IsNumber({}, { message: 'El id de la plantilla debe ser un número' })
 @IsPositive({ message: 'El id de la plantilla debe ser un número positivo' })

@@ -1,4 +1,5 @@
 import { plainToInstance } from "class-transformer";
+import { validate } from "class-validator";
 import { ProductoDTO } from "../../../src/dtos/producto/producto.dto";
 
 describe("ProductoDTO - transform de plantillaId", () => {
@@ -33,5 +34,18 @@ describe("ProductoDTO - transform de plantillaId", () => {
 
   it("debería preservar undefined cuando el campo no se envió (no tocar)", () => {
     expect(transformarPlantillaId({})).toBeUndefined();
+  });
+
+  it("un valor no numérico no debería convertirse en null (evita disparar 'quitar plantilla')", () => {
+    expect(transformarPlantillaId({ plantillaId: "abc" })).not.toBeNull();
+  });
+
+  it("un valor no numérico debería fallar la validación con un error claro", async () => {
+    const dto = plainToInstance(ProductoDTO, { ...baseBody, plantillaId: "abc" });
+    const errores = await validate(dto);
+    const errorPlantilla = errores.find((e) => e.property === "plantillaId");
+
+    expect(errorPlantilla).toBeDefined();
+    expect(errorPlantilla?.constraints).toHaveProperty("isNumber");
   });
 });

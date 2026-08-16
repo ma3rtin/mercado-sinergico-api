@@ -145,6 +145,15 @@ export class ProductoController {
     const producto: ProductoDTO = req.body;
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
+    // multipart/form-data manda objetos anidados como JSON string; a
+    // diferencia de plantillaId, opcionesDisponibles no tiene @Transform
+    // en el DTO, así que llega sin parsear si vino por FormData.
+    if (typeof producto.opcionesDisponibles === 'string') {
+      producto.opcionesDisponibles = JSON.parse(
+        producto.opcionesDisponibles
+      ) as Record<string, number[]>;
+    }
+
     if (files?.icono?.[0]) {
       producto.imagen_url = await this.imagenService.uploadToCloudinary(
         files.icono[0].buffer
