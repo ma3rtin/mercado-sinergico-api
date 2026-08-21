@@ -15,6 +15,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch (for diff auditing)
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.base_ref }}
 
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -23,6 +29,9 @@ jobs:
 
       - name: Install dependencies (skip scripts)
         run: npm ci --ignore-scripts
+
+      - name: Audit DB Migrations
+        run: node scripts/audit-migrations.js
 
       - name: Generate Prisma client (use fallback if no DATABASE_URL)
         run: |

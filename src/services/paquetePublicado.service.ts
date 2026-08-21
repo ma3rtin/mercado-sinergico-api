@@ -1,8 +1,9 @@
+import * as XLSX from 'xlsx';
 import { PaquetePublicadoDTO } from '../dtos/paquete/paquetePublicado.dto.js';
 import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdate.dto.js';
 import { CustomError } from '../errors/custom.error.js';
 import { prisma } from '../prisma/client.js';
-import { Prisma } from '@prisma/client';
+import { Prisma, TipoPaquete } from '@prisma/client';
 import { EmailService } from './email.service.js';
 import { PedidoPagoService } from './pedidoPago.service.js';
 import { mercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
@@ -17,6 +18,8 @@ import {
   PaqueteComputable
 } from '../types/computable.types.js';
 
+
+type PrismaOrTx = Prisma.TransactionClient | typeof prisma;
 
 export class PaquetePublicadoService {
   private prisma = prisma;
@@ -86,10 +89,85 @@ export class PaquetePublicadoService {
 
   // ─── Queries ─────────────────────────────────────────────────────────────────
 
-  async getAll(skip?: number, take?: number, includeArchived = false) {
+  async getAll(
+    skip?: number,
+    take?: number,
+    includeArchived = false,
+    categorias?: number[],
+    marcas?: number[],
+    zonas?: number[],
+    tiposPaquete?: string[],
+    estados?: string[]
+  ) {
     const where: Prisma.PaquetePublicadoWhereInput = {};
     if (!includeArchived) {
       where.archivado = false;
+      if (zonas && zonas.length > 0) {
+        where.estadoId = 1; // ESTADO_PAQUETE.ACTIVO
+        where.fecha_fin = { gte: new Date() };
+      }
+    }
+
+    const paqueteBaseConditions: Prisma.PaqueteBaseWhereInput = {};
+    let hasPaqueteBaseConditions = false;
+
+    if (categorias && categorias.length > 0) {
+      paqueteBaseConditions.categoria_id = { in: categorias };
+      hasPaqueteBaseConditions = true;
+    }
+    if (marcas && marcas.length > 0) {
+      paqueteBaseConditions.marcaId = { in: marcas };
+      hasPaqueteBaseConditions = true;
+    }
+
+    if (hasPaqueteBaseConditions) {
+      where.paqueteBase = paqueteBaseConditions;
+    }
+    if (zonas && zonas.length > 0) {
+      where.zonaId = { in: zonas };
+    }
+    if (tiposPaquete && tiposPaquete.length > 0) {
+      where.tipo = { in: tiposPaquete as TipoPaquete[] };
+    }
+
+    if (estados && estados.length > 0) {
+      const andConditions: Prisma.PaquetePublicadoWhereInput[] = [];
+
+      estados.forEach((est) => {
+        if (est === 'por-cerrar') {
+          const hoy = new Date();
+          const dentroDe5Dias = new Date(hoy);
+          dentroDe5Dias.setDate(hoy.getDate() + 5);
+          andConditions.push({
+            fecha_fin: {
+              gte: hoy,
+              lte: dentroDe5Dias
+            }
+          });
+        }
+        if (est === 'recien-abiertos') {
+          const hoy = new Date();
+          const hace7Dias = new Date(hoy);
+          hace7Dias.setDate(hoy.getDate() - 7);
+          andConditions.push({
+            fecha_inicio: {
+              gte: hace7Dias,
+              lte: hoy
+            }
+          });
+        }
+        if (est === 'populares') {
+          andConditions.push({
+            cant_usuarios_registrados: {
+              gte: 10
+            }
+          });
+        }
+      });
+
+      if (andConditions.length > 0) {
+        where.AND = andConditions;
+      }
     }
 
     const paquetes = await this.prisma.paquetePublicado.findMany({
@@ -116,6 +194,86 @@ export class PaquetePublicadoService {
       },
     });
     return paquetes.map((p) => this._mapComputedFields(p as PaqueteComputable));
+  }
+
+  async countAll(
+    includeArchived = false,
+    categorias?: number[],
+    marcas?: number[],
+    zonas?: number[],
+    tiposPaquete?: string[],
+    estados?: string[]
+  ): Promise<number> {
+    const where: Prisma.PaquetePublicadoWhereInput = {};
+    if (!includeArchived) {
+      where.archivado = false;
+      where.estadoId = 1;
+      where.fecha_fin = { gte: new Date() };
+    }
+
+    const paqueteBaseConditions: Prisma.PaqueteBaseWhereInput = {};
+    let hasPaqueteBaseConditions = false;
+
+    if (categorias && categorias.length > 0) {
+      paqueteBaseConditions.categoria_id = { in: categorias };
+      hasPaqueteBaseConditions = true;
+    }
+    if (marcas && marcas.length > 0) {
+      paqueteBaseConditions.marcaId = { in: marcas };
+      hasPaqueteBaseConditions = true;
+    }
+
+    if (hasPaqueteBaseConditions) {
+      where.paqueteBase = paqueteBaseConditions;
+    }
+    if (zonas && zonas.length > 0) {
+      where.zonaId = { in: zonas };
+    }
+    if (tiposPaquete && tiposPaquete.length > 0) {
+      where.tipo = { in: tiposPaquete as TipoPaquete[] };
+    }
+
+    if (estados && estados.length > 0) {
+      const andConditions: Prisma.PaquetePublicadoWhereInput[] = [];
+
+      estados.forEach((est) => {
+        if (est === 'por-cerrar') {
+          const hoy = new Date();
+          const dentroDe5Dias = new Date(hoy);
+          dentroDe5Dias.setDate(hoy.getDate() + 5);
+          andConditions.push({
+            fecha_fin: {
+              gte: hoy,
+              lte: dentroDe5Dias
+            }
+          });
+        }
+        if (est === 'recien-abiertos') {
+          const hoy = new Date();
+          const hace7Dias = new Date(hoy);
+          hace7Dias.setDate(hoy.getDate() - 7);
+          andConditions.push({
+            fecha_inicio: {
+              gte: hace7Dias,
+              lte: hoy
+            }
+          });
+        }
+        if (est === 'populares') {
+          andConditions.push({
+            cant_usuarios_registrados: {
+              gte: 10
+            }
+          });
+        }
+      });
+
+      if (andConditions.length > 0) {
+        where.AND = andConditions;
+      }
+    }
+
+    return this.prisma.paquetePublicado.count({ where });
   }
 
   async getById(id: number) {
@@ -351,20 +509,29 @@ export class PaquetePublicadoService {
       }
     }
 
-    return this.prisma.paquetePublicado.create({
-      data: {
-        nombre: paqueteBase.nombre,
-        cant_productos: dto.cant_productos,
-        fecha_inicio: new Date(dto.fecha_inicio),
-        fecha_fin: new Date(dto.fecha_fin),
-        descuento: dto.descuento,
-        // Heredar el tipo del paquete base (ENERGICO / SINERGICO)
-        tipo: paqueteBase.tipo,
-        ...(imagen_url && { imagen_url }),
-        zona: { connect: { id_zona: Number(dto.zonaId) } },
-        paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
-        estado: { connect: { id_estado: ESTADO_PAQUETE.ACTIVO } },
-      },
+    const nombrePublicacion = dto.nombre?.trim() || paqueteBase.nombre;
+
+    // Validar unicidad y crear en la misma transacción: si no, dos
+    // publicaciones con el mismo nombre creándose casi simultáneamente
+    // podrían pasar ambas la validación antes de que cualquiera exista todavía.
+    return this.prisma.$transaction(async (tx) => {
+      await this.validarNombreUnico(nombrePublicacion, undefined, tx);
+
+      return tx.paquetePublicado.create({
+        data: {
+          nombre: nombrePublicacion,
+          cant_productos: dto.cant_productos,
+          fecha_inicio: new Date(dto.fecha_inicio),
+          fecha_fin: new Date(dto.fecha_fin),
+          descuento: dto.descuento,
+          // Heredar el tipo del paquete base (ENERGICO / SINERGICO)
+          tipo: paqueteBase.tipo,
+          ...(imagen_url && { imagen_url }),
+          zona: { connect: { id_zona: Number(dto.zonaId) } },
+          paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
+          estado: { connect: { id_estado: ESTADO_PAQUETE.ACTIVO } },
+        },
+      });
     });
   }
 
@@ -372,6 +539,9 @@ export class PaquetePublicadoService {
     return this.prisma.$transaction(async (tx) => {
       const existente = await tx.paquetePublicado.findUnique({ where: { id_paquete_publicado: id } });
       if (!existente) throw new CustomError('No encontrado', 404);
+
+      const nombrePublicacion = dto.nombre?.trim() || existente.nombre;
+      await this.validarNombreUnico(nombrePublicacion, id, tx);
 
       if (dto.paqueteBaseId) {
         const pb = await tx.paqueteBase.findUnique({
@@ -386,7 +556,7 @@ export class PaquetePublicadoService {
       // Actualizar paqueteBase: descripcion y/o imagen
       const baseUpdate: Record<string, unknown> = {};
       if (dto.descripcion) baseUpdate.descripcion = dto.descripcion;
-      if (dto.nombre) baseUpdate.nombre = dto.nombre;
+      if (dto.nombre) baseUpdate.nombre = nombrePublicacion;
 
       if (dto.imagen_base64) {
         try {
@@ -407,7 +577,7 @@ export class PaquetePublicadoService {
         await tx.paqueteBase.update({
           where: { id_paquete_base: existente.paqueteBaseId },
           data: {
-            ...(dto.nombre && { nombre: dto.nombre }),
+            ...(dto.nombre && { nombre: nombrePublicacion }),
             ...(dto.descripcion && { descripcion: dto.descripcion }),
           },
         });
@@ -425,7 +595,7 @@ export class PaquetePublicadoService {
       return tx.paquetePublicado.update({
         where: { id_paquete_publicado: id },
         data: {
-          ...(dto.nombre && { nombre: dto.nombre }),
+          ...(dto.nombre && { nombre: nombrePublicacion }),
           ...(dto.fecha_inicio && { fecha_inicio: new Date(dto.fecha_inicio) }),
           ...(dto.fecha_fin && { fecha_fin: new Date(dto.fecha_fin) }),
           ...(dto.cant_productos && { cant_productos: Number(dto.cant_productos) }),
@@ -438,6 +608,35 @@ export class PaquetePublicadoService {
         },
       });
     });
+  }
+
+  /**
+   * Valida que no exista otra publicación (no archivada) con el mismo nombre,
+   * ignorando la propia publicación en edición cuando corresponde.
+   */
+  private async validarNombreUnico(
+    nombre: string,
+    excluirId?: number,
+    client: PrismaOrTx = this.prisma
+  ) {
+    const nombreLimpio = nombre?.trim();
+    if (!nombreLimpio) return;
+
+    const existente = await client.paquetePublicado.findFirst({
+      where: {
+        nombre: { equals: nombreLimpio },
+        archivado: false,
+        ...(excluirId ? { id_paquete_publicado: { not: excluirId } } : {}),
+      },
+      select: { id_paquete_publicado: true },
+    });
+
+    if (existente) {
+      throw new CustomError(
+        `Ya existe una publicación con el nombre "${nombreLimpio}". Elegí otro nombre.`,
+        409
+      );
+    }
   }
 
   async delete(id: number) {
@@ -573,7 +772,7 @@ export class PaquetePublicadoService {
 
       return await tx.paquetePublicado.create({
         data: {
-          nombre: paqueteOriginal.paqueteBase.nombre,
+          nombre: generarNombreCopia(paqueteOriginal.nombre || paqueteOriginal.paqueteBase.nombre),
           paqueteBaseId: baseDuplicado.id_paquete_base,
           zonaId: paqueteOriginal.zonaId,
           cant_productos: paqueteOriginal.cant_productos,
@@ -685,9 +884,9 @@ export class PaquetePublicadoService {
     if (correosCompradores.length > 0) {
       this.emailService.enviarEmail({
         para: correosCompradores,
-        asunto: `¡Tu pedido está confirmado! - ${paquete.paqueteBase.nombre}`,
+        asunto: `¡Tu pedido está confirmado! - ${paquete.nombre || paquete.paqueteBase.nombre}`,
         template: 'comprador-pedido-confirmado',
-        context: { nombrePaquete: paquete.paqueteBase.nombre },
+        context: { nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre },
       });
     }
 
@@ -768,9 +967,9 @@ export class PaquetePublicadoService {
     if (correosCompradores.length > 0) {
       this.emailService.enviarEmail({
         para: correosCompradores,
-        asunto: `Tu pedido llega hoy - ${paquete.paqueteBase.nombre}`,
+        asunto: `Tu pedido llega hoy - ${paquete.nombre || paquete.paqueteBase.nombre}`,
         template: 'comprador-pedido-en-camino',
-        context: { nombrePaquete: paquete.paqueteBase.nombre },
+        context: { nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre },
       });
     }
 
@@ -808,9 +1007,9 @@ export class PaquetePublicadoService {
     if (correosCompradores.length > 0 && paquete?.paqueteBase?.nombre) {
       this.emailService.enviarEmail({
         para: correosCompradores,
-        asunto: `Paquete cancelado y reembolsado - ${paquete.paqueteBase.nombre}`,
+        asunto: `Paquete cancelado y reembolsado - ${paquete.nombre || paquete.paqueteBase.nombre}`,
         template: 'comprador-paquete-cancelado',
-        context: { nombrePaquete: paquete.paqueteBase.nombre },
+        context: { nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre },
       });
     }
 
@@ -874,5 +1073,293 @@ export class PaquetePublicadoService {
       include: this._includeCompleto,
     });
     return this._mapComputedFields(updated as PaqueteComputable);
+  }
+
+  async exportarFabrica(id: number): Promise<Buffer> {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: {
+        paqueteBase: {
+          include: {
+            productos: {
+              include: {
+                producto: {
+                  include: {
+                    marca: true,
+                    variantes: {
+                      include: {
+                        opciones: {
+                          include: {
+                            caracteristica: true,
+                            opcion: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        zona: true,
+        pedidos: {
+          include: {
+            detalles: {
+              include: {
+                producto: {
+                  include: {
+                    marca: true,
+                  },
+                },
+                variante: {
+                  include: {
+                    opciones: {
+                      include: {
+                        caracteristica: true,
+                        opcion: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!paquete) {
+      throw new CustomError('Paquete no encontrado', 404);
+    }
+
+    const pedidosAprobados = (paquete.pedidos || []).filter(
+      (ped) => ped.estadoId !== 1 && ped.estadoId !== 3
+    );
+
+    const consolidado = new Map<
+      string,
+      {
+        sku: string;
+        producto: string;
+        variante: string;
+        marca: string;
+        cantidadTotal: number;
+      }
+    >();
+
+    pedidosAprobados.forEach((pedido) => {
+      pedido.detalles?.forEach((pp) => {
+        let varianteStr = '-';
+        let skuVal = pp.variante?.sku || String(pp.productoId);
+
+        const opciones = pp.variante?.opciones;
+        if (opciones && opciones.length > 0) {
+          varianteStr = opciones
+            .map((o) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
+            .join(', ');
+        }
+
+        const key = `${pp.productoId}-${varianteStr}`;
+        const current = consolidado.get(key) || {
+          sku: skuVal,
+          producto: pp.producto?.nombre || 'N/A',
+          variante: varianteStr,
+          marca: pp.producto?.marca?.nombre || 'N/A',
+          cantidadTotal: 0,
+        };
+
+        current.cantidadTotal += pp.cantidad;
+        consolidado.set(key, current);
+      });
+    });
+
+    const dataRows: (string | number)[][] = [];
+    consolidado.forEach((info) => {
+      dataRows.push([
+        info.sku,
+        info.producto,
+        info.variante,
+        info.marca,
+        info.cantidadTotal,
+      ]);
+    });
+
+    const now = new Date().toLocaleString('es-AR');
+    const rows = [
+      ['# REPORTES MERCADO SINERGICO #'],
+      ['Tipo', 'REPORTE PARA PROVEEDOR'],
+      ['Paquete', `${paquete.paqueteBase?.nombre || 'N/A'} (ID: ${paquete.id_paquete_publicado})`],
+      ['Zona', paquete.zona?.nombre || 'N/A'],
+      ['Fecha Generacion', now],
+      ['Pedidos Aprobados', pedidosAprobados.length],
+      [],
+      ['SKU', 'Producto', 'Variante/Modelo', 'Marca', 'Cantidad Total'],
+      ...dataRows,
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    worksheet['!cols'] = [
+      { wch: 20 }, // SKU
+      { wch: 30 }, // Producto
+      { wch: 30 }, // Variante
+      { wch: 20 }, // Marca
+      { wch: 15 }, // Cantidad Total
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Consolidado');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    return buffer as Buffer;
+  }
+
+  async exportarLogistica(id: number): Promise<Buffer> {
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: id },
+      include: {
+        paqueteBase: true,
+        zona: true,
+        pedidos: {
+          include: {
+            estado: true,
+            usuario: {
+              include: {
+                direccion: {
+                  include: {
+                    localidad: true,
+                  },
+                },
+              },
+            },
+            detalles: {
+              include: {
+                producto: {
+                  include: {
+                    marca: true,
+                  },
+                },
+                variante: {
+                  include: {
+                    opciones: {
+                      include: {
+                        caracteristica: true,
+                        opcion: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!paquete) {
+      throw new CustomError('Paquete no encontrado', 404);
+    }
+
+    // Filtrar pedidos aprobados (todos los que no son Pendientes (1) ni Reembolsados (3))
+    const pedidosAprobados = (paquete.pedidos || []).filter(
+      (ped) => ped.estadoId !== 1 && ped.estadoId !== 3
+    );
+
+    const dataRows: (string | number)[][] = [];
+
+    pedidosAprobados.forEach((ped) => {
+      const idPed = ped.id_pedido ?? 'N/A';
+      const nombre = ped.usuario?.nombre || 'N/A';
+      const telefono = ped.usuario?.telefono || 'N/A';
+      const email = ped.usuario?.email || 'N/A';
+
+      const dir = ped.usuario?.direccion;
+      const direccion = dir
+        ? `${dir.calle} ${dir.numero}${dir.piso ? ', Piso ' + dir.piso : ''}${
+            dir.departamento ? ', Depto ' + dir.departamento : ''
+          }${dir.localidad?.nombre ? ', ' + dir.localidad.nombre : ''}`
+        : 'N/A';
+
+      let estadoLabel = 'Desconocido';
+      switch (ped.estadoId) {
+        case 2: estadoLabel = 'Pagado'; break;
+        case 4: estadoLabel = 'En preparación'; break;
+        case 5: estadoLabel = 'En camino'; break;
+        case 6: estadoLabel = 'Recibido'; break;
+        default: estadoLabel = ped.estado?.nombre || 'N/A';
+      }
+
+      // Una fila por cada producto del pedido (datos divididos)
+      (ped.detalles || []).forEach((det) => {
+        let varianteStr = '-';
+        const opciones = det.variante?.opciones;
+        if (opciones && opciones.length > 0) {
+          varianteStr = opciones
+            .map((o) => `${o.caracteristica.nombre}: ${o.opcion.nombre}`)
+            .join(', ');
+        } else if (det.variante?.sku) {
+          varianteStr = det.variante.sku;
+        }
+
+        const productoNombre = det.producto?.nombre || 'N/A';
+        const marcaNombre = det.producto?.marca?.nombre || 'N/A';
+        const cantidad = det.cantidad ?? 0;
+
+        dataRows.push([
+          idPed,
+          nombre,
+          telefono,
+          email,
+          direccion,
+          productoNombre,
+          varianteStr,
+          marcaNombre,
+          cantidad,
+          estadoLabel,
+        ]);
+      });
+    });
+
+    const now = new Date().toLocaleString('es-AR');
+    const rows = [
+      ['# REPORTES MERCADO SINERGICO #'],
+      ['Tipo', 'HOJA DE RUTA / LOGISTICA'],
+      ['Paquete', `${paquete.paqueteBase?.nombre || 'N/A'} (ID: ${paquete.id_paquete_publicado})`],
+      ['Zona', paquete.zona?.nombre || 'N/A'],
+      ['Fecha Generacion', now],
+      ['Pedidos Aprobados', pedidosAprobados.length],
+      [],
+      [
+        'ID Pedido',
+        'Comprador',
+        'Teléfono',
+        'Email',
+        'Dirección de Entrega',
+        'Producto',
+        'Variante',
+        'Marca',
+        'Cantidad',
+        'Estado',
+      ],
+      ...dataRows,
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    worksheet['!cols'] = [
+      { wch: 10 }, // ID Pedido
+      { wch: 22 }, // Comprador
+      { wch: 15 }, // Teléfono
+      { wch: 28 }, // Email
+      { wch: 35 }, // Dirección
+      { wch: 28 }, // Producto
+      { wch: 28 }, // Variante
+      { wch: 18 }, // Marca
+      { wch: 10 }, // Cantidad
+      { wch: 15 }, // Estado
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Logistica');
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    return buffer as Buffer;
   }
 }

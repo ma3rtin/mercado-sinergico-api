@@ -11,13 +11,82 @@ export class ProductoController {
     private imagenService: ImagenService
   ) {}
 
+  // ProductoDTO ya parsea y valida este campo vía @Transform +
+  // @IsOpcionesDisponibles cuando la request pasa por validarDto(), así que
+  // en producción esto ya llega como objeto. Se mantiene como red de
+  // seguridad para cuando el controller se invoca sin pasar por ese
+  // middleware (p. ej. tests unitarios que llaman al método directamente).
+  private parseOpcionesDisponibles(value: unknown): Record<string, number[]> | undefined {
+    if (typeof value !== 'string') {
+      return value as Record<string, number[]> | undefined;
+    }
+
+    try {
+      return JSON.parse(value) as Record<string, number[]>;
+    } catch {
+      throw new CustomError('El campo "opcionesDisponibles" no es un JSON válido', 400);
+    }
+  }
+
   public getProductos = asyncHandler(async (req: Request, res: Response) => {
     const name = req.query.name as string | undefined;
-    const skip = parseInt(req.query.skip as string) || 0;
-    const take = parseInt(req.query.take as string) || 20;
     const includeArchived = req.query.includeArchived === 'true';
 
-    const productos = await this.productoService.getAll(name, skip, take, includeArchived);
+    const pageVal = req.query.page;
+    const limitVal = req.query.limit;
+
+    let page = pageVal ? parseInt(pageVal as string, 10) : undefined;
+    let limit = limitVal ? parseInt(limitVal as string, 10) : undefined;
+
+    // Validaciones
+    if (pageVal !== undefined && (isNaN(page!) || page! < 1)) {
+      return res.status(400).json({ message: 'El parámetro "page" debe ser un número entero mayor o igual a 1' });
+    }
+    if (limitVal !== undefined && (isNaN(limit!) || limit! < 1 || limit! > 100)) {
+      return res.status(400).json({ message: 'El parámetro "limit" debe ser un número entero entre 1 y 100' });
+    }
+
+    // Filtros opcionales
+    const categorias = req.query.categorias
+      ? (req.query.categorias as string).split(',').map(Number).filter((n) => !isNaN(n))
+      : undefined;
+    const marcas = req.query.marcas
+      ? (req.query.marcas as string).split(',').map(Number).filter((n) => !isNaN(n))
+      : undefined;
+    const zonas = req.query.zonas
+      ? (req.query.zonas as string).split(',').map(Number).filter((n) => !isNaN(n))
+      : undefined;
+    const precioMin = req.query.precioMin ? parseFloat(req.query.precioMin as string) : undefined;
+    const precioMax = req.query.precioMax ? parseFloat(req.query.precioMax as string) : undefined;
+
+    const skip = page && limit ? (page - 1) * limit : undefined;
+    const take = limit;
+
+    const productos = await this.productoService.getAll(
+      name,
+      skip,
+      take,
+      includeArchived,
+      categorias,
+      marcas,
+      precioMin,
+      precioMax,
+      zonas
+    );
+
+    if (page !== undefined && limit !== undefined) {
+      const total = await this.productoService.countAll(
+        name,
+        includeArchived,
+        categorias,
+        marcas,
+        precioMin,
+        precioMax,
+        zonas
+      );
+      res.setHeader('X-Total-Count', total);
+      res.setHeader('Access-Control-Expose-Headers', 'X-Total-Count');
+    }
 
     res.status(200).json(productos);
   });
@@ -34,6 +103,7 @@ export class ProductoController {
   });
 
   public createProducto = asyncHandler(async (req: Request, res: Response) => {
+    const start = Date.now();
     const body = req.body;
     const campos = req.files as { [fieldname: string]: Express.Multer.File[] };
 
@@ -59,10 +129,7 @@ export class ProductoController {
       stock: body.stock ? Number(body.stock) : undefined,
       plantillaId: body.plantillaId ? Number(body.plantillaId) : undefined,
       tipo: body.tipo || 'SINERGICO',
-      opcionesDisponibles:
-        typeof body.opcionesDisponibles === 'string'
-          ? (JSON.parse(body.opcionesDisponibles) as Record<string, number[]>)
-          : body.opcionesDisponibles,
+      opcionesDisponibles: this.parseOpcionesDisponibles(body.opcionesDisponibles),
     };
 
     if (!campos?.icono?.[0]) {
@@ -84,9 +151,9 @@ export class ProductoController {
     );
     console.log('[DEBUG] ✅ Imagenes subidas a Cloudinary con éxito:', urls);
 
-    producto.imagen_url = urls[0];
+    producto.imagen_url = urlPrincipal;
     if (campos?.imagenes?.length) {
-      producto.imagenes = urls.slice(1);
+      producto.imagenes = urlsAdicionales;
     }
 
     console.log('[DEBUG] 💾 Guardando producto en base de datos con Prisma...');
@@ -99,6 +166,8 @@ export class ProductoController {
     const id = parseInt(req.params.id, 10);
     const producto: ProductoDTO = req.body;
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+    producto.opcionesDisponibles = this.parseOpcionesDisponibles(producto.opcionesDisponibles);
 
     if (files?.icono?.[0]) {
       producto.imagen_url = await this.imagenService.uploadToCloudinary(
