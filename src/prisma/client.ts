@@ -12,7 +12,7 @@ if (!prismaInstance) {
     if (process.env.DATABASE_URL) {
       const url = new URL(process.env.DATABASE_URL);
       const database = url.pathname ? url.pathname.replace(/^\//, '') : undefined;
-      const configObj: any = {
+      const configObj = {
         host: url.hostname,
         port: url.port ? Number(url.port) : 3306,
         user: url.username,

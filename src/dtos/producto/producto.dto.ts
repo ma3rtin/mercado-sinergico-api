@@ -9,6 +9,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { TipoPaquete } from '@prisma/client';
+import { IsOpcionesDisponibles } from '../validators/isOpcionesDisponibles.validator.js';
 
 export class ProductoDTO {
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
@@ -73,9 +74,14 @@ export class ProductoDTO {
   stock?: number;
 
 @Transform(({ value }) => {
-  if (value === '' || value === 'null' || value === null || value === undefined) return null;
-  const num = Number(value);
-  return isNaN(num) ? null : num;
+  // '' | 'null' | null → el usuario pidió quitar la plantilla
+  if (value === '' || value === 'null' || value === null) return null;
+  // undefined → el campo no se envió, no tocar
+  if (value === undefined) return undefined;
+  // Cualquier otra cosa que no sea un número válido (ej. "abc") queda como
+  // NaN para que @IsNumber la rechace con 400, en vez de convertirse en
+  // null y disparar "quitar la plantilla" por un valor basura.
+  return Number(value);
 })
 @IsNumber({}, { message: 'El id de la plantilla debe ser un número' })
 @IsPositive({ message: 'El id de la plantilla debe ser un número positivo' })
@@ -88,6 +94,18 @@ plantillaId?: number | null;
   @IsOptional()
   tipo?: TipoPaquete;
 
+  @Transform(({ value }) => {
+    // multipart/form-data manda el objeto como JSON string; si viene mal
+    // formado se deja pasar tal cual para que @IsOpcionesDisponibles lo
+    // rechace con un mensaje claro en vez de romper el parseo acá.
+    if (typeof value !== 'string') return value;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  })
+  @IsOpcionesDisponibles()
   @IsOptional()
   opcionesDisponibles?: Record<string, number[]>;
 }
