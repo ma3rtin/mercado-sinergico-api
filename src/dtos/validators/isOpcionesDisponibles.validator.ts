@@ -1,4 +1,4 @@
-import { registerDecorator, ValidationOptions } from 'class-validator';
+import { registerDecorator, ValidationArguments, ValidationOptions } from 'class-validator';
 
 /**
  * Valida que el valor tenga la forma { caracteristicaId: [opcionId, ...] }:
@@ -26,8 +26,8 @@ export function IsOpcionesDisponibles(validationOptions?: ValidationOptions) {
               opcionIds.every((id) => typeof id === 'number' && Number.isInteger(id) && id > 0)
           );
         },
-        defaultMessage(): string {
-          return 'opcionesDisponibles debe tener la forma { caracteristicaId: [opcionId, ...] }, con ids numéricos positivos';
+        defaultMessage(args: ValidationArguments): string {
+          return `${args.property} debe tener la forma { caracteristicaId: [opcionId, ...] }, con ids numéricos positivos`;
         },
       },
     });

@@ -415,6 +415,15 @@ describe("ProductoService", () => {
 
       expect(result.nombre).toBe("Updated");
       expect(mockProductoVarianteDeleteMany).not.toHaveBeenCalled();
+      // Cubre una regresión silenciosa del fix de la condición de carrera:
+      // si alguien vuelve a leer plantillaId con un findUnique común en vez
+      // del SELECT ... FOR UPDATE, este mock ya no se llamaría y ningún otro
+      // assert de este archivo lo notaría (solo les importa el valor que
+      // devuelve, no cómo se obtuvo).
+      expect(mockTxQueryRaw).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.stringContaining("FOR UPDATE")]),
+        1
+      );
     });
 
     it("debería rechazar con 404 si el producto no existe (lock de fila sin resultado)", async () => {
