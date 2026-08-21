@@ -66,6 +66,10 @@ function validarOpcionesDisponibles(
   }
 }
 
+function contarCombinaciones(opcionesDisponibles: Record<string, number[]>): number {
+  return Object.values(opcionesDisponibles).reduce((total, opciones) => total * opciones.length, 1);
+}
+
 function generarCombinaciones(
   opcionesDisponibles: Record<string, number[]>
 ): Record<string, number>[] {
@@ -96,11 +100,15 @@ export async function generarVariantesEnTransaccion(
 ) {
   validarOpcionesDisponibles(producto, opcionesDisponibles);
 
-  const combinaciones = generarCombinaciones(opcionesDisponibles);
-
-  if (combinaciones.length > MAX_VARIANTES) {
+  // Se cuenta la cantidad de combinaciones antes de generarlas: con ids
+  // repetidos en un mismo arreglo (válidos individualmente, pero repetidos)
+  // el producto cartesiano puede ser enorme, y no tiene sentido construirlo
+  // en memoria solo para rechazarlo después.
+  if (contarCombinaciones(opcionesDisponibles) > MAX_VARIANTES) {
     throw new CustomError(`No se pueden generar más de ${MAX_VARIANTES} variantes a la vez`, 400);
   }
+
+  const combinaciones = generarCombinaciones(opcionesDisponibles);
 
   const stockInicial = producto.tipo === TipoPaquete.ENERGICO ? 0 : null;
   const nombreLimpio = producto.nombre.substring(0, 10).toUpperCase().replace(/\s+/g, '-');

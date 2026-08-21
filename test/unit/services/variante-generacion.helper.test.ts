@@ -90,6 +90,20 @@ describe("generarVariantesEnTransaccion", () => {
     ).rejects.toMatchObject({ status: 400, message: expect.stringContaining("200") });
   });
 
+  it("rechaza rápido (sin generar el producto cartesiano) si un id válido viene repetido miles de veces", async () => {
+    const tx = mockTx();
+    const opcionIdRepetido = Array.from({ length: 50000 }, () => 100);
+
+    const inicio = Date.now();
+    await expect(
+      generarVariantesEnTransaccion(tx, productoBase, { "10": opcionIdRepetido })
+    ).rejects.toMatchObject({ status: 400, message: expect.stringContaining("200") });
+    const duracionMs = Date.now() - inicio;
+
+    expect(duracionMs).toBeLessThan(500);
+    expect(tx.productoVariante.createMany).not.toHaveBeenCalled();
+  });
+
   it("genera las variantes y sus opciones cuando todo es válido", async () => {
     const createManyVariantes = jest.fn().mockResolvedValue({ count: 2 });
     const findManyVariantes = jest
