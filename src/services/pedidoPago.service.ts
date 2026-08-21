@@ -1,4 +1,5 @@
 import { prisma } from '../prisma/client.js';
+import { TX_OPTIONS } from '../prisma/transaccion.js';
 import { CustomError } from '../errors/custom.error.js';
 import { MercadoPagoService } from '../payments/mercadopago/mercadopago.service.js';
 import { despachadorEventosApp, DespachadorEventos } from '../events/despachadorEventos.js';
@@ -412,7 +413,7 @@ export class PedidoPagoService {
         ) {
           emitirEvento = true;
         }
-      });
+      }, TX_OPTIONS);
 
       if (emitirEvento) {
         despachadorEventosApp.emit(DespachadorEventos.PAQUETE_COMPLETO, pedido.paquetePublicadoId);
@@ -511,7 +512,7 @@ export class PedidoPagoService {
           data: { estadoId: ESTADO_PEDIDO.REEMBOLSADO }
         });
       }
-    });
+    }, TX_OPTIONS);
 
     return { message: 'Paquete cancelado y dinero reembolsado', paqueteId };
   }
@@ -590,7 +591,7 @@ export class PedidoPagoService {
         where: { id_pedido: pedidoId },
         data: { estadoId: ESTADO_PEDIDO.REEMBOLSADO }
       });
-    });
+    }, TX_OPTIONS);
 
     return { message: 'Reembolso procesado correctamente', pedidoId };
   }

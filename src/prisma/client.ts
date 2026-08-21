@@ -2,6 +2,22 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 
+/**
+ * Logging diagnóstico de Prisma activable por env var.
+ * Ej: PRISMA_LOG=query,error,warn  (valores: query | info | warn | error)
+ * Si no se define, no se suscribe ningún evento (comportamiento por defecto).
+ */
+type NivelPrisma = 'query' | 'info' | 'warn' | 'error';
+
+const nivelesPrisma = (process.env.PRISMA_LOG ?? '')
+	.split(',')
+	.map((n) => n.trim().toLowerCase())
+	.filter((n): n is NivelPrisma => ['query', 'info', 'warn', 'error'].includes(n));
+
+const logOptions = nivelesPrisma.length
+	? { log: nivelesPrisma.map((level) => ({ emit: 'event' as const, level })) }
+	: {};
+
 function buildHelpMessage(err: unknown) {
 	const lines = [
 		'Prisma Client failed to initialize.',
@@ -22,7 +38,7 @@ function buildHelpMessage(err: unknown) {
 // Use top-level await so the module exports a ready-to-use `prisma` instance.
 let prismaInstance: PrismaClient | null = null;
 try {
-	const clientOpts: any = {};
+	const clientOpts: any = { ...logOptions };
 
 	// Prefer explicit accelerate URL from env when provided.
 	if (process.env.ACCELERATE_URL) {
@@ -58,7 +74,7 @@ try {
 
 					// Instantiate the adapter factory with the config object
 					const factoryInstance = new (AdapterCtor as any)(configObj, factoryOptions);
-					prismaInstance = new PrismaClient({ adapter: factoryInstance } as any);
+					prismaInstance = new PrismaClient({ adapter: factoryInstance, ...logOptions } as any);
 				} catch (ex) {
 					 
 					console.warn('Failed to instantiate PrismaMariaDb adapter factory with config object:', (ex as Error)?.message ?? ex);
@@ -79,6 +95,30 @@ try {
 	 
 	console.error(buildHelpMessage(err));
 	throw err;
+}
+
+// El tipado de $on depende de las opciones pasadas al constructor; como se
+// resuelven en runtime desde PRISMA_LOG, casteamos a any.
+const clienteEventos = prismaInstance as any;
+if (nivelesPrisma.includes('query')) {
+	clienteEventos.$on('query', (e: any) => {
+		console.log(`[Prisma][query ${e.duration}ms] ${e.query}`);
+	});
+}
+if (nivelesPrisma.includes('info')) {
+	clienteEventos.$on('info', (e: any) => {
+		console.log(`[Prisma][info] ${e.message}`);
+	});
+}
+if (nivelesPrisma.includes('warn')) {
+	clienteEventos.$on('warn', (e: any) => {
+		console.warn(`[Prisma][warn] ${e.message}`);
+	});
+}
+if (nivelesPrisma.includes('error')) {
+	clienteEventos.$on('error', (e: any) => {
+		console.error(`[Prisma][error] ${e.message}`);
+	});
 }
 
 export const prisma = prismaInstance as PrismaClient;

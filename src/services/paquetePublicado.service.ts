@@ -2,6 +2,7 @@ import { PaquetePublicadoDTO } from '../dtos/paquete/paquetePublicado.dto.js';
 import { PaquetePublicadoUpdateDTO } from '../dtos/paquete/paquetePublicadoUpdate.dto.js';
 import { CustomError } from '../errors/custom.error.js';
 import { prisma } from '../prisma/client.js';
+import { TX_OPTIONS } from '../prisma/transaccion.js';
 import { Prisma } from '@prisma/client';
 import { EmailService } from './email.service.js';
 import { PedidoPagoService } from './pedidoPago.service.js';
@@ -437,7 +438,7 @@ export class PaquetePublicadoService {
           ...(imagen_url && { imagen_url }),
         },
       });
-    });
+    }, TX_OPTIONS);
   }
 
   async delete(id: number) {
@@ -587,7 +588,7 @@ export class PaquetePublicadoService {
           cant_usuarios_registrados: 0,
         },
       });
-    });
+    }, TX_OPTIONS);
   }
 
   async marcarCompleto(id: number) {
@@ -673,7 +674,7 @@ export class PaquetePublicadoService {
         },
         data: { estadoId: ESTADO_PEDIDO.EN_PREPARACION },
       });
-    });
+    }, TX_OPTIONS);
 
     // Notificar compradores
     const pedidosEnPrep = await this.prisma.pedido.findMany({
@@ -723,7 +724,7 @@ export class PaquetePublicadoService {
         },
         data: { estadoId: ESTADO_PEDIDO.RECIBIDO },
       });
-    });
+    }, TX_OPTIONS);
 
     despachadorEventosApp.emit(DespachadorEventos.PAQUETE_ENTREGADO, id);
 

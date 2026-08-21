@@ -5,6 +5,7 @@ import { LoginDTO } from '../dtos/usuario/login.dto.js';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto.js';
 import { UsuarioUpdateDTO } from '../dtos/usuario/usuarioUpdate.dto.js';
 import type { Direccion, Prisma, Usuario, Localidad, Zona } from '@prisma/client';
+import { TX_OPTIONS } from '../prisma/transaccion.js';
 
 export type UsuarioMapeado = Usuario & {
   rol: { nombre: string } | null;
@@ -102,7 +103,7 @@ export class UsuarioService {
       });
 
       return resultado;
-    });
+    }, TX_OPTIONS);
   }
 
   public async buscarPorEmail(

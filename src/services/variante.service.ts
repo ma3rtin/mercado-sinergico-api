@@ -1,4 +1,5 @@
 import { prisma } from '../prisma/client.js';
+import { TX_OPTIONS } from '../prisma/transaccion.js';
 import { CustomError } from '../errors/custom.error.js';
 import { TipoPaquete, Prisma } from '@prisma/client';
 import { GenerarVariantesDTO } from '../dtos/variante/generarVariantes.dto.js';
@@ -164,6 +165,8 @@ export class VarianteService {
       });
     });
 
+    // Nota: la forma batch/array de $transaction solo acepta isolationLevel,
+    // no soporta maxWait/timeout (eso es solo para transacciones interactivas).
     const variantesCreadas = await this.prisma.$transaction(promesasVariantes);
 
     return {
@@ -205,9 +208,7 @@ export class VarianteService {
           )
         );
       },
-      {
-        timeout: 20000,
-      }
+      TX_OPTIONS
     );
 
     return {
@@ -260,9 +261,7 @@ export class VarianteService {
           })
         );
       },
-      {
-        timeout: 20000,
-      }
+      TX_OPTIONS
     );
 
     return {

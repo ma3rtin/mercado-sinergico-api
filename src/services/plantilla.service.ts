@@ -1,4 +1,5 @@
 import { prisma } from '../prisma/client.js';
+import { TX_OPTIONS } from '../prisma/transaccion.js';
 import type { Prisma } from '@prisma/client';
 
 import { PlantillaDTO } from '../dtos/plantilla/plantilla.dto.js';
@@ -102,7 +103,7 @@ export class PlantillaService {
                     caracteristicas: { include: { opciones: true } },
                 },
             });
-        });
+        }, TX_OPTIONS);
     }
 
 

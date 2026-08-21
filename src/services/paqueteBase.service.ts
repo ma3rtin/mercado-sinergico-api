@@ -1,10 +1,39 @@
 import { PaqueteBaseDTO, TipoPaquete } from '../dtos/paquete/paqueteBase.dto.js';
 import { prisma } from '../prisma/client.js';
+import { TX_OPTIONS } from '../prisma/transaccion.js';
 import { CustomError } from '../errors/custom.error.js';
 import { Prisma } from '@prisma/client';
 
 export class PaqueteBaseService {
   private prisma = prisma;
+
+  /**
+   * Ejecuta una transacción interactiva con TX_OPTIONS y logging de
+   * diagnóstico: mide el tiempo hasta la falla y distingue errores de Prisma
+   * (ej. P2028 "unable to start a transaction") de errores de negocio.
+   */
+  private async ejecutarTransaccion<T>(
+    nombre: string,
+    fn: (tx: Prisma.TransactionClient) => Promise<T>
+  ): Promise<T> {
+    const inicio = Date.now();
+    try {
+      return await this.prisma.$transaction(fn, TX_OPTIONS);
+    } catch (error) {
+      const elapsedMs = Date.now() - inicio;
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        console.error(
+          `[PaqueteBaseService] Transaccion '${nombre}' fallo tras ${elapsedMs}ms | code=${error.code} | message=${error.message} | meta=${JSON.stringify(error.meta ?? {})}`
+        );
+      } else if (!(error instanceof CustomError)) {
+        console.error(
+          `[PaqueteBaseService] Transaccion '${nombre}' fallo tras ${elapsedMs}ms con error inesperado:`,
+          error
+        );
+      }
+      throw error;
+    }
+  }
 
   public async getAll(includeArchived = false) {
     const where: Prisma.PaqueteBaseWhereInput = {};
@@ -40,7 +69,7 @@ export class PaqueteBaseService {
   }
 
   public async create(data: PaqueteBaseDTO) {
-    return this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    return this.ejecutarTransaccion('create', async (tx: Prisma.TransactionClient) => {
       const categoria = await tx.categoria.findUnique({
         where: { id_categoria: data.categoria_id },
       });
@@ -144,7 +173,6 @@ export class PaqueteBaseService {
       return paqueteCreado;
     });
   }
-
   public async update(id: number, data: PaqueteBaseDTO) {
     if (data.categoria_id) {
       const categoria = await this.prisma.categoria.findUnique({
@@ -340,7 +368,7 @@ export class PaqueteBaseService {
       }
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    await this.ejecutarTransaccion('sincronizarProductos', async (tx) => {
       await tx.paqueteBaseProducto.deleteMany({
         where: { paqueteBaseId },
       });
@@ -397,7 +425,7 @@ export class PaqueteBaseService {
   }
 
   public async duplicar(id: number) {
-    return this.prisma.$transaction(async (tx) => {
+    return this.ejecutarTransaccion('duplicar', async (tx) => {
       const paqueteOriginal = await tx.paqueteBase.findUnique({
         where: { id_paquete_base: id },
         include: {

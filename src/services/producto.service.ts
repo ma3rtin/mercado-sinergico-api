@@ -1,6 +1,7 @@
 import { ProductoDTO } from '../dtos/producto/producto.dto.js';
 import { Prisma, Producto, TipoPaquete } from '@prisma/client';
 import { prisma } from '../prisma/client.js';
+import { TX_OPTIONS } from '../prisma/transaccion.js';
 import { CustomError } from '../errors/custom.error.js';
 import { ProductoItemListaDTO } from '../dtos/producto/productoItemLista.dto.js';
 import { ProductoDetalleRespuestaDTO } from '../dtos/producto/productoDetalleRespuesta.dto.js';
@@ -299,7 +300,7 @@ export class ProductoService {
           },
         },
       });
-    });
+    }, TX_OPTIONS);
   }
 
 
@@ -372,6 +373,8 @@ export class ProductoService {
       });
     });
 
+    // Nota: la forma batch/array de $transaction solo acepta isolationLevel,
+    // no soporta maxWait/timeout (eso es solo para transacciones interactivas).
     await this.prisma.$transaction(promesasVariantes);
   }
 
