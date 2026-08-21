@@ -6,6 +6,9 @@ jest.mock("../../../src/prisma/client", () => {
   const mockPaquetePublicadoFindUnique = jest.fn();
   const mockPaquetePublicadoUpdate = jest.fn();
   const mockPaquetePublicadoCreate = jest.fn();
+  const mockPaquetePublicadoCount = jest.fn();
+  const mockPaquetePublicadoFindFirst = jest.fn();
+  const mockTxPaquetePublicadoFindFirst = jest.fn();
   const mockLocalidadFindUnique = jest.fn();
   const mockUsuarioFindUnique = jest.fn();
   const mockPaqueteBaseFindUnique = jest.fn();
@@ -21,6 +24,11 @@ jest.mock("../../../src/prisma/client", () => {
             findUnique: mockPaquetePublicadoFindUnique,
             update: mockPaquetePublicadoUpdate,
             create: mockPaquetePublicadoCreate,
+            count: mockPaquetePublicadoCount,
+            // Mock propio, distinto del de prisma.paquetePublicado.findFirst:
+            // así los tests pueden verificar que validarNombreUnico corre con
+            // el cliente de la transacción y no con el cliente normal.
+            findFirst: mockTxPaquetePublicadoFindFirst,
           },
           localidad: { findUnique: mockLocalidadFindUnique },
           usuario: { findUnique: mockUsuarioFindUnique },
@@ -34,6 +42,8 @@ jest.mock("../../../src/prisma/client", () => {
         findUnique: mockPaquetePublicadoFindUnique,
         update: mockPaquetePublicadoUpdate,
         create: mockPaquetePublicadoCreate,
+        count: mockPaquetePublicadoCount,
+        findFirst: mockPaquetePublicadoFindFirst,
       },
       localidad: { findUnique: mockLocalidadFindUnique },
       usuario: { findUnique: mockUsuarioFindUnique },
@@ -47,6 +57,9 @@ jest.mock("../../../src/prisma/client", () => {
       mockPaquetePublicadoFindUnique,
       mockPaquetePublicadoUpdate,
       mockPaquetePublicadoCreate,
+      mockPaquetePublicadoCount,
+      mockPaquetePublicadoFindFirst,
+      mockTxPaquetePublicadoFindFirst,
       mockLocalidadFindUnique,
       mockUsuarioFindUnique,
       mockPaqueteBaseFindUnique,
@@ -68,6 +81,9 @@ describe("PaquetePublicadoService", () => {
       mockPaquetePublicadoFindUnique,
       mockPaquetePublicadoUpdate,
       mockPaquetePublicadoCreate,
+      mockPaquetePublicadoCount,
+      mockPaquetePublicadoFindFirst,
+      mockTxPaquetePublicadoFindFirst,
       mockLocalidadFindUnique,
       mockUsuarioFindUnique,
       mockPaqueteBaseFindUnique,
@@ -79,6 +95,9 @@ describe("PaquetePublicadoService", () => {
     mockPaquetePublicadoFindUnique.mockResolvedValue(null);
     mockPaquetePublicadoUpdate.mockResolvedValue({});
     mockPaquetePublicadoCreate.mockResolvedValue({});
+    mockPaquetePublicadoCount.mockResolvedValue(0);
+    mockPaquetePublicadoFindFirst.mockResolvedValue(null);
+    mockTxPaquetePublicadoFindFirst.mockResolvedValue(null);
     mockLocalidadFindUnique.mockResolvedValue(null);
     mockUsuarioFindUnique.mockResolvedValue(null);
     mockPaqueteBaseFindUnique.mockResolvedValue({ id_paquete_base: 1, nombre: "Base", archivado: false, productos: [] });
@@ -111,6 +130,54 @@ describe("PaquetePublicadoService", () => {
         expect.objectContaining({
           where: expect.not.objectContaining({
             archivado: false,
+          }),
+        })
+      );
+    });
+
+    it("debería pasar skip y take a prisma para la paginación de paquetes", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(10, 5);
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 10,
+          take: 5,
+        })
+      );
+    });
+
+    it("debería aplicar filtros de categorías, marcas, zonas, tipos de paquetes y estados en paquetes", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(0, 10, false, [1, 2], [3], [4], ["SINERGICO"], ["por-cerrar"]);
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            paqueteBase: expect.objectContaining({
+              categoria_id: { in: [1, 2] },
+              marcaId: { in: [3] },
+            }),
+            zonaId: { in: [4] },
+            tipo: { in: ["SINERGICO"] },
+          }),
+        })
+      );
+    });
+  });
+
+  describe("countAll", () => {
+    it("debería llamar a prisma.paquetePublicado.count con los filtros de paquetes correspondientes", async () => {
+      const { mockPaquetePublicadoCount } = require("../../../src/prisma/client").__mocks;
+      await service.countAll(false, [1, 2], [3], [4], ["SINERGICO"], ["por-cerrar"]);
+      expect(mockPaquetePublicadoCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            archivado: false,
+            paqueteBase: expect.objectContaining({
+              categoria_id: { in: [1, 2] },
+              marcaId: { in: [3] },
+            }),
+            zonaId: { in: [4] },
+            tipo: { in: ["SINERGICO"] },
           }),
         })
       );
@@ -160,6 +227,48 @@ describe("PaquetePublicadoService", () => {
 
       await expect(service.create(dto)).rejects.toThrow("No se puede publicar un paquete base archivado");
     });
+
+    const dtoValido = {
+      nombre: "Test Publicado",
+      zonaId: 1,
+      paqueteBaseId: 1,
+      cant_productos: 10,
+      fecha_inicio: "2026-06-20",
+      fecha_fin: "2026-07-20",
+      descuento: 0,
+    };
+
+    it("debería rechazar con 409 si ya existe una publicación con ese nombre", async () => {
+      const { mockTxPaquetePublicadoFindFirst } = require("../../../src/prisma/client").__mocks;
+      mockTxPaquetePublicadoFindFirst.mockResolvedValue({ id_paquete_publicado: 99 });
+
+      await expect(service.create(dtoValido)).rejects.toMatchObject({
+        status: 409,
+        message: expect.stringContaining("Test Publicado"),
+      });
+    });
+
+    it("debería crear la publicación cuando el nombre es único", async () => {
+      const { mockPaquetePublicadoCreate } = require("../../../src/prisma/client").__mocks;
+      mockPaquetePublicadoCreate.mockResolvedValue({ id_paquete_publicado: 1, nombre: "Test Publicado" });
+
+      const resultado = await service.create(dtoValido);
+
+      expect(mockPaquetePublicadoCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ nombre: "Test Publicado" }) })
+      );
+      expect((resultado as any).id_paquete_publicado).toBe(1);
+    });
+
+    it("valida el nombre único con el cliente de la transacción, no con prisma directo", async () => {
+      const { mockPaquetePublicadoFindFirst, mockTxPaquetePublicadoFindFirst } =
+        require("../../../src/prisma/client").__mocks;
+
+      await service.create(dtoValido);
+
+      expect(mockTxPaquetePublicadoFindFirst).toHaveBeenCalled();
+      expect(mockPaquetePublicadoFindFirst).not.toHaveBeenCalled();
+    });
   });
 
   describe("update", () => {
@@ -173,6 +282,47 @@ describe("PaquetePublicadoService", () => {
       };
 
       await expect(service.update(1, dto)).rejects.toThrow("No se puede conectar un paquete base archivado");
+    });
+
+    it("debería rechazar con 409 si otra publicación ya tiene ese nombre", async () => {
+      const {
+        mockPaquetePublicadoFindUnique,
+        mockTxPaquetePublicadoFindFirst,
+      } = require("../../../src/prisma/client").__mocks;
+      mockPaquetePublicadoFindUnique.mockResolvedValueOnce({
+        id_paquete_publicado: 1,
+        nombre: "Nombre viejo",
+        paqueteBaseId: 1,
+      });
+      mockTxPaquetePublicadoFindFirst.mockResolvedValue({ id_paquete_publicado: 2 });
+
+      await expect(
+        service.update(1, { nombre: "Nombre repetido" } as any)
+      ).rejects.toMatchObject({ status: 409 });
+    });
+
+    it("no debería contarse a sí misma como duplicado al mantener el nombre", async () => {
+      const {
+        mockPaquetePublicadoFindUnique,
+        mockTxPaquetePublicadoFindFirst,
+        mockPaquetePublicadoUpdate,
+      } = require("../../../src/prisma/client").__mocks;
+      mockPaquetePublicadoFindUnique.mockResolvedValueOnce({
+        id_paquete_publicado: 1,
+        nombre: "Mismo nombre",
+        paqueteBaseId: 1,
+      });
+      mockPaquetePublicadoUpdate.mockResolvedValue({ id_paquete_publicado: 1, nombre: "Mismo nombre" });
+
+      await service.update(1, { nombre: "Mismo nombre" } as any);
+
+      expect(mockTxPaquetePublicadoFindFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id_paquete_publicado: { not: 1 },
+          }),
+        })
+      );
     });
   });
 

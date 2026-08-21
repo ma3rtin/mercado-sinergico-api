@@ -4,44 +4,46 @@ import { TipoPaquete } from "@prisma/client";
 jest.mock("../../../src/prisma/client", () => {
   const mockTransaction = jest.fn();
   const mockProductoFindUnique = jest.fn();
-  const mockProductoVarianteCreate = jest.fn();
-  const mockProductoVarianteCount = jest.fn();
+  const mockProductoVarianteCreateMany = jest.fn();
   const mockProductoVarianteFindMany = jest.fn();
-  const mockProductoVarianteUpdate = jest.fn();
+  const mockProductoVarianteOpcionCreateMany = jest.fn();
+  const mockProductoVarianteCount = jest.fn();
+  const mockExecuteRaw = jest.fn();
 
   return {
     prisma: {
-      $transaction: mockTransaction.mockImplementation(async (promisesOrCb) => {
-        if (typeof promisesOrCb === "function") {
-          const tx = {
-            productoVariante: {
-              update: mockProductoVarianteUpdate,
-            },
-          };
-          return promisesOrCb(tx);
-        }
-        return Promise.all(promisesOrCb);
-      }),
+      $transaction: mockTransaction,
       producto: {
         findUnique: mockProductoFindUnique,
       },
       productoVariante: {
-        create: mockProductoVarianteCreate,
-        count: mockProductoVarianteCount,
+        createMany: mockProductoVarianteCreateMany,
         findMany: mockProductoVarianteFindMany,
-        update: mockProductoVarianteUpdate,
+        count: mockProductoVarianteCount,
+      },
+      productoVarianteOpcion: {
+        createMany: mockProductoVarianteOpcionCreateMany,
       },
     },
     __mocks: {
       mockTransaction,
       mockProductoFindUnique,
-      mockProductoVarianteCreate,
-      mockProductoVarianteCount,
+      mockProductoVarianteCreateMany,
       mockProductoVarianteFindMany,
-      mockProductoVarianteUpdate,
+      mockProductoVarianteOpcionCreateMany,
+      mockProductoVarianteCount,
+      mockExecuteRaw,
     },
   };
 });
+
+function sqlString(q: any): string {
+  let result = q.strings[0];
+  for (let i = 0; i < q.values.length; i++) {
+    result += String(q.values[i]) + q.strings[i + 1];
+  }
+  return result;
+}
 
 function makeProducto(productoId: number, overrides: Partial<any> = {}) {
   return {
@@ -69,19 +71,46 @@ function makeProducto(productoId: number, overrides: Partial<any> = {}) {
 describe("VarianteService - generarVariantes", () => {
   let service: VarianteService;
   let mocks: any;
+  let lastVariantesData: any[] = [];
 
   beforeEach(() => {
     service = new VarianteService();
     jest.clearAllMocks();
     mocks = require("../../../src/prisma/client").__mocks;
+    lastVariantesData = [];
 
     mocks.mockProductoVarianteCount.mockResolvedValue(0);
-    mocks.mockProductoVarianteCreate.mockImplementation(({ data }: any) => {
-      return Promise.resolve({
-        id: Math.floor(Math.random() * 1000),
-        ...data,
-      });
+    mocks.mockTransaction.mockImplementation(async (callback: any) => {
+      const tx = {
+        productoVariante: {
+          createMany: mocks.mockProductoVarianteCreateMany,
+          findMany: mocks.mockProductoVarianteFindMany,
+        },
+        productoVarianteOpcion: {
+          createMany: mocks.mockProductoVarianteOpcionCreateMany,
+        },
+        $executeRaw: mocks.mockExecuteRaw,
+      };
+      return callback(tx);
     });
+    mocks.mockExecuteRaw.mockResolvedValue(0);
+    mocks.mockProductoVarianteCreateMany.mockImplementation(
+      async ({ data }: any) => {
+        lastVariantesData = data;
+        return { count: data.length };
+      }
+    );
+    mocks.mockProductoVarianteFindMany.mockImplementation(
+      async ({ where }: any) => {
+        const ids: number[] = where.id?.in ?? [];
+        const skus: string[] = where.sku?.in ?? [];
+        return lastVariantesData
+          .map((v: any, i: number) => ({ id: i + 1, ...v }))
+          .filter((v: any) =>
+            skus.length ? skus.includes(v.sku) : ids.includes(v.id)
+          );
+      }
+    );
   });
 
   it("debería generar variantes con SKU conteniendo el productoId", async () => {
@@ -98,7 +127,12 @@ describe("VarianteService - generarVariantes", () => {
     expect(resultado.variantes).toHaveLength(2);
     expect(resultado.variantes[0].sku).toContain("-42-");
     expect(resultado.variantes[1].sku).toContain("-42-");
-    expect(mocks.mockProductoVarianteCreate).toHaveBeenCalledTimes(2);
+    expect(mocks.mockProductoVarianteCreateMany).toHaveBeenCalledTimes(1);
+    expect(mocks.mockProductoVarianteCreateMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({ sku: expect.stringContaining("-42-") }),
+      ]),
+    });
   });
 
   describe("guard de idempotencia", () => {
@@ -308,7 +342,7 @@ describe("VarianteService - generarVariantes", () => {
   });
 });
 
-describe("actualizarVariante - colisión de SKU", () => {
+describe("VarianteService - actualizarStockBulk", () => {
   let service: VarianteService;
   let mocks: any;
 
@@ -316,81 +350,169 @@ describe("actualizarVariante - colisión de SKU", () => {
     service = new VarianteService();
     jest.clearAllMocks();
     mocks = require("../../../src/prisma/client").__mocks;
-  });
 
-  it("debería lanzar CustomError 409 cuando el SKU ya existe (P2002)", async () => {
-    mocks.mockProductoVarianteUpdate.mockRejectedValue({ code: "P2002" });
-
-    await expect(
-      service.actualizarVariante(1, { sku: "SKU-DUPLICADO" })
-    ).rejects.toMatchObject({
-      status: 409,
-      message: "Ya existe una variante con ese SKU. Elegí un SKU distinto.",
-    });
-  });
-
-  it("debería actualizar la variante sin colisión de SKU", async () => {
-    mocks.mockProductoVarianteUpdate.mockResolvedValue({ id: 1, sku: "SKU-NUEVO" });
-
-    const resultado = await service.actualizarVariante(1, { sku: "SKU-NUEVO" });
-    expect(resultado.sku).toBe("SKU-NUEVO");
-  });
-
-  it("debería relanzar errores que no son P2002", async () => {
-    mocks.mockProductoVarianteUpdate.mockRejectedValue(new Error("boom"));
-
-    await expect(
-      service.actualizarVariante(1, { sku: "X" })
-    ).rejects.toThrow("boom");
-  });
-});
-
-describe("actualizarVarianteBulk - colisión de SKU", () => {
-  let service: VarianteService;
-  let mocks: any;
-
-  beforeEach(() => {
-    service = new VarianteService();
-    jest.clearAllMocks();
-    mocks = require("../../../src/prisma/client").__mocks;
-  });
-
-  it("debería lanzar CustomError 409 cuando un SKU ya existe (P2002)", async () => {
     mocks.mockProductoVarianteFindMany.mockResolvedValue([
-      { id: 1, productoId: 5 },
-      { id: 2, productoId: 5 },
+      { id: 1, sku: "A", stockFisico: 10 },
+      { id: 2, sku: "B", stockFisico: 20 },
     ]);
-    mocks.mockProductoVarianteUpdate.mockRejectedValue({ code: "P2002" });
-
-    await expect(
-      service.actualizarVarianteBulk(5, {
-        variantes: [
-          { id: 1, sku: "NUEVO-1" },
-          { id: 2, sku: "NUEVO-2" },
-        ],
-      })
-    ).rejects.toMatchObject({
-      status: 409,
-      message: "Ya existe una variante con ese SKU. Elegí un SKU distinto.",
+    mocks.mockTransaction.mockImplementation(async (callback: any) => {
+      const tx = { $executeRaw: mocks.mockExecuteRaw };
+      return callback(tx);
     });
+    mocks.mockExecuteRaw.mockResolvedValue(2);
   });
 
-  it("debería actualizar las variantes correctamente sin colisión", async () => {
-    mocks.mockProductoVarianteFindMany.mockResolvedValue([
-      { id: 1, productoId: 5 },
-      { id: 2, productoId: 5 },
-    ]);
-    mocks.mockProductoVarianteUpdate.mockResolvedValue({});
-
-    const resultado = await service.actualizarVarianteBulk(5, {
+  it("debería actualizar todo el stock con un único $executeRaw y un CASE sin comas entre WHEN", async () => {
+    await service.actualizarStockBulk(59, {
       variantes: [
-        { id: 1, activo: true },
-        { id: 2, activo: false },
+        { id: 1, stockFisico: 5 },
+        { id: 2, stockFisico: null },
       ],
     });
 
-    expect(resultado.message).toContain("2");
-    expect(mocks.mockTransaction).toHaveBeenCalled();
-    expect(mocks.mockProductoVarianteUpdate).toHaveBeenCalledTimes(2);
+    expect(mocks.mockExecuteRaw).toHaveBeenCalledTimes(1);
+    const query = mocks.mockExecuteRaw.mock.calls[0][0];
+    const sql = sqlString(query);
+    expect(sql).toContain("UPDATE ProductoVariante");
+    expect(sql).toContain("stockFisico = CASE id");
+    expect(sql).toContain("ELSE stockFisico END");
+    expect(sql).toContain("WHERE id IN");
+    expect(sql).not.toContain(",WHEN");
+    expect(sql).toMatch(/CASE id WHEN \d+ THEN [^,]+ WHEN \d+ THEN [^,]+ END/);
+    expect(query.values).toEqual([1, 5, 2, null, 1, 2]);
+  });
+
+  it("debería lanzar 400 con stock negativo sin llamar a $executeRaw", async () => {
+    await expect(
+      service.actualizarStockBulk(59, {
+        variantes: [
+          { id: 1, stockFisico: -3 },
+          { id: 2, stockFisico: 5 },
+        ],
+      })
+    ).rejects.toMatchObject({
+      status: 400,
+      message: "El stock físico no puede ser negativo.",
+    });
+
+    expect(mocks.mockExecuteRaw).not.toHaveBeenCalled();
+  });
+
+  it("debería lanzar 400 si alguna variante no pertenece al producto", async () => {
+    mocks.mockProductoVarianteFindMany.mockResolvedValue([{ id: 1 }]);
+
+    await expect(
+      service.actualizarStockBulk(59, {
+        variantes: [
+          { id: 1, stockFisico: 5 },
+          { id: 2, stockFisico: 5 },
+        ],
+      })
+    ).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringContaining("no pertenecen"),
+    });
+
+    expect(mocks.mockExecuteRaw).not.toHaveBeenCalled();
+  });
+
+  it("debería ser un no-op exitoso con variantes vacías", async () => {
+    mocks.mockProductoVarianteFindMany.mockResolvedValue([]);
+    const resultado = await service.actualizarStockBulk(59, { variantes: [] });
+
+    expect(resultado.message).toBe("Stock actualizado para 0 variantes");
+    expect(mocks.mockExecuteRaw).not.toHaveBeenCalled();
+  });
+});
+
+describe("VarianteService - actualizarVarianteBulk", () => {
+  let service: VarianteService;
+  let mocks: any;
+
+  beforeEach(() => {
+    service = new VarianteService();
+    jest.clearAllMocks();
+    mocks = require("../../../src/prisma/client").__mocks;
+
+    mocks.mockProductoVarianteFindMany.mockResolvedValue([
+      { id: 1, sku: "A" },
+      { id: 2, sku: "B" },
+    ]);
+    mocks.mockTransaction.mockImplementation(async (callback: any) => {
+      const tx = { $executeRaw: mocks.mockExecuteRaw };
+      return callback(tx);
+    });
+    mocks.mockExecuteRaw.mockResolvedValue(2);
+  });
+
+  it("debería armar un CASE por columna solo con las variantes que la definen", async () => {
+    await service.actualizarVarianteBulk(59, {
+      variantes: [
+        { id: 1, sku: "SKU-1", stockFisico: 5, precioExtra: 1.5, activo: true },
+        { id: 2, sku: "SKU-2", stockFisico: 8, activo: false },
+      ],
+    });
+
+    expect(mocks.mockExecuteRaw).toHaveBeenCalledTimes(1);
+    const query = mocks.mockExecuteRaw.mock.calls[0][0];
+    const sql = sqlString(query);
+    expect(sql).toContain("UPDATE ProductoVariante");
+    expect(sql).toContain("sku = CASE id");
+    expect(sql).toContain("stockFisico = CASE id");
+    expect(sql).toContain("activo = CASE id");
+    expect(sql).toContain("precioExtra = CASE id");
+    expect(sql).toContain("WHERE id IN");
+
+    expect(sql).not.toContain(",WHEN");
+    expect(sql).toMatch(/CASE id WHEN \d+ THEN [^,]+ WHEN \d+ THEN [^,]+ END/);
+    expect(sql).toMatch(/ELSE \w+ END, \w+ = CASE/);
+
+    expect(query.values).toEqual([
+      1, "SKU-1", 2, "SKU-2",
+      1, 5, 2, 8,
+      1, 1.5,
+      1, true, 2, false,
+      1, 2,
+    ]);
+  });
+
+  it("debería lanzar 400 con stock negativo sin llamar a $executeRaw", async () => {
+    await expect(
+      service.actualizarVarianteBulk(59, {
+        variantes: [
+          { id: 1, stockFisico: -1 },
+          { id: 2, sku: "B" },
+        ],
+      })
+    ).rejects.toMatchObject({
+      status: 400,
+      message: "El stock físico no puede ser negativo.",
+    });
+
+    expect(mocks.mockExecuteRaw).not.toHaveBeenCalled();
+  });
+
+  it("debería ser un no-op exitoso cuando ninguna variante trae campos", async () => {
+    const resultado = await service.actualizarVarianteBulk(59, {
+      variantes: [{ id: 1 }, { id: 2 }],
+    });
+
+    expect(resultado.message).toBe("Se actualizaron exitosamente 2 variantes.");
+    expect(mocks.mockExecuteRaw).not.toHaveBeenCalled();
+  });
+
+  it("debería lanzar 400 si alguna variante no pertenece al producto", async () => {
+    mocks.mockProductoVarianteFindMany.mockResolvedValue([{ id: 1 }]);
+
+    await expect(
+      service.actualizarVarianteBulk(59, {
+        variantes: [{ id: 1, sku: "A" }, { id: 2, sku: "B" }],
+      })
+    ).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringContaining("no pertenecen"),
+    });
+
+    expect(mocks.mockExecuteRaw).not.toHaveBeenCalled();
   });
 });

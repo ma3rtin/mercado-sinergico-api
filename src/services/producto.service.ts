@@ -8,13 +8,54 @@ import { ProductoDetalleRespuestaDTO } from '../dtos/producto/productoDetalleRes
 export class ProductoService {
   private prisma = prisma;
 
-  public async getAll(name?: string, skip = 0, take = 10, includeArchived = false) {
+  public async getAll(
+    name?: string,
+    skip?: number,
+    take?: number,
+    includeArchived = false,
+    categorias?: number[],
+    marcas?: number[],
+    precioMin?: number,
+    precioMax?: number,
+    zonas?: number[]
+  ) {
     const where: Prisma.ProductoWhereInput = {};
     if (name) {
       where.nombre = { contains: name };
     }
     if (!includeArchived) {
       where.archivado = false;
+    }
+    if (categorias && categorias.length > 0) {
+      where.categoria_id = { in: categorias };
+    }
+    if (marcas && marcas.length > 0) {
+      where.marca_id = { in: marcas };
+    }
+    if (precioMin !== undefined || precioMax !== undefined) {
+      where.precio = {};
+      if (precioMin !== undefined) {
+        where.precio.gte = precioMin;
+      }
+      if (precioMax !== undefined) {
+        where.precio.lte = precioMax;
+      }
+    }
+    if (!includeArchived && zonas && zonas.length > 0) {
+      where.paquetes = {
+        some: {
+          paqueteBase: {
+            publicados: {
+              some: {
+                estadoId: 1, // ESTADO_PAQUETE.ACTIVO
+                archivado: false,
+                fecha_fin: { gte: new Date() },
+                zonaId: { in: zonas }
+              }
+            }
+          }
+        }
+      };
     }
 
     const productos = await this.prisma.producto.findMany({
@@ -26,12 +67,63 @@ export class ProductoService {
         plantilla: true,
         variantes: true,
       },
-      skip,
-      take,
+      ...(skip !== undefined && { skip }),
+      ...(take !== undefined && { take }),
       orderBy: { id_producto: 'asc' },
     });
 
     return productos.map((p) => new ProductoItemListaDTO(p));
+  }
+
+  public async countAll(
+    name?: string,
+    includeArchived = false,
+    categorias?: number[],
+    marcas?: number[],
+    precioMin?: number,
+    precioMax?: number,
+    zonas?: number[]
+  ): Promise<number> {
+    const where: Prisma.ProductoWhereInput = {};
+    if (name) {
+      where.nombre = { contains: name };
+    }
+    if (!includeArchived) {
+      where.archivado = false;
+    }
+    if (categorias && categorias.length > 0) {
+      where.categoria_id = { in: categorias };
+    }
+    if (marcas && marcas.length > 0) {
+      where.marca_id = { in: marcas };
+    }
+    if (precioMin !== undefined || precioMax !== undefined) {
+      where.precio = {};
+      if (precioMin !== undefined) {
+        where.precio.gte = precioMin;
+      }
+      if (precioMax !== undefined) {
+        where.precio.lte = precioMax;
+      }
+    }
+    if (!includeArchived && zonas && zonas.length > 0) {
+      where.paquetes = {
+        some: {
+          paqueteBase: {
+            publicados: {
+              some: {
+                estadoId: 1, // ESTADO_PAQUETE.ACTIVO
+                archivado: false,
+                fecha_fin: { gte: new Date() },
+                zonaId: { in: zonas }
+              }
+            }
+          }
+        }
+      };
+    }
+
+    return this.prisma.producto.count({ where });
   }
 
   public async getById(id: number) {
@@ -110,32 +202,55 @@ export class ProductoService {
       throw new CustomError('Categoria no encontrada', 404);
     }
 
-    const nuevoProducto = await this.prisma.producto.create({
-      data: {
-        ...rest,
-        tipo: tipo || TipoPaquete.SINERGICO,
-        categoria: { connect: { id_categoria: categoria_id } },
-        marca: { connect: { id_marca: marca_id } },
-        plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
-        imagenes: {
-          create: imagenes?.map((url) => ({ url })) || [],
-        },
-      },
-      include: {
-        imagenes: true,
-        categoria: true,
-        marca: true,
-        plantilla: {
+    const nuevoProducto = await this.prisma.$transaction(
+      async (tx) => {
+        const productoCreado = await tx.producto.create({
+          data: {
+            ...rest,
+            tipo: tipo || TipoPaquete.SINERGICO,
+            categoria: { connect: { id_categoria: categoria_id } },
+            marca: { connect: { id_marca: marca_id } },
+            plantilla: plantillaId ? { connect: { id: plantillaId } } : undefined,
+          },
+        });
+
+        if (imagenes && imagenes.length > 0) {
+          await tx.productoImagen.createMany({
+            data: imagenes.map((url) => ({
+              url,
+              productoId: productoCreado.id_producto,
+            })),
+          });
+        }
+
+        const productoFinal = await tx.producto.findUnique({
+          where: { id_producto: productoCreado.id_producto },
           include: {
-            caracteristicas: {
+            imagenes: true,
+            categoria: true,
+            marca: true,
+            plantilla: {
               include: {
-                opciones: true,
+                caracteristicas: {
+                  include: {
+                    opciones: true,
+                  },
+                },
               },
             },
           },
-        },
+        });
+
+        if (!productoFinal) {
+          throw new CustomError('Error al recuperar el producto recién creado', 500);
+        }
+
+        return productoFinal;
       },
-    });
+      {
+        timeout: 20000,
+      }
+    );
 
     if (plantillaId && opcionesDisponibles) {
       await this.generarVariantesAutomaticas(
@@ -365,36 +480,88 @@ export class ProductoService {
 
     const combinaciones = this.generarCombinaciones(opcionesDisponibles);
 
+    if (combinaciones.length === 0) {
+      return;
+    }
+
     const nombreLimpio = producto.nombre
       .substring(0, 10)
       .toUpperCase()
       .replace(/\s+/g, '-')
       .replace(/-+$/g, '');
 
-    const promesasVariantes = combinaciones.map((combinacion) => {
+    const stockInicial = tipo === TipoPaquete.ENERGICO ? 0 : null;
+
+    const variantesData = combinaciones.map((combinacion) => {
       const idsOpciones = Object.values(combinacion).join('-');
       const sku = `${nombreLimpio}-${productoId}-${idsOpciones}`;
 
-      const stockInicial = tipo === TipoPaquete.ENERGICO ? 0 : null;
-
-      return this.prisma.productoVariante.create({
-        data: {
-          productoId,
-          sku,
-          stockFisico: stockInicial,
-          precioExtra: 0,
-          activo: true,
-          opciones: {
-            create: Object.entries(combinacion).map(([caracId, opcionId]) => ({
-              caracteristicaId: parseInt(caracId),
-              opcionId,
-            })),
-          },
-        },
-      });
+      return {
+        productoId,
+        sku,
+        stockFisico: stockInicial,
+        precioExtra: 0,
+        activo: true,
+      };
     });
 
-    await this.prisma.$transaction(promesasVariantes);
+    const skusGenerados = variantesData.map((v) => v.sku);
+
+    await this.prisma.$transaction(
+      async (tx) => {
+        try {
+          await tx.productoVariante.createMany({ data: variantesData });
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2002'
+          ) {
+            throw new CustomError(
+              'Ya existe una variante con ese SKU. Verificá que el producto no tenga variantes previas.',
+              409,
+              error
+            );
+          }
+          throw error;
+        }
+
+        const variantes = await tx.productoVariante.findMany({
+          where: {
+            productoId,
+            sku: { in: skusGenerados },
+          },
+          orderBy: { id: 'asc' },
+        });
+
+        const varianteIdPorSku = new Map(
+          variantes.map((v) => [v.sku, v.id])
+        );
+
+        const opcionesData = combinaciones.flatMap((combinacion) => {
+          const idsOpciones = Object.values(combinacion).join('-');
+          const sku = `${nombreLimpio}-${productoId}-${idsOpciones}`;
+          const varianteId = varianteIdPorSku.get(sku);
+
+          if (varianteId === undefined) {
+            throw new CustomError(
+              'Error al recuperar las variantes creadas',
+              500
+            );
+          }
+
+          return Object.entries(combinacion).map(([caracId, opcionId]) => ({
+            varianteId,
+            caracteristicaId: parseInt(caracId),
+            opcionId: opcionId as number,
+          }));
+        });
+
+        await tx.productoVarianteOpcion.createMany({ data: opcionesData });
+      },
+      {
+        timeout: 20000,
+      }
+    );
   }
 
   private generarCombinaciones(
