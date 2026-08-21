@@ -9,6 +9,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { TipoPaquete } from '@prisma/client';
+import { IsOpcionesDisponibles } from '../validators/isOpcionesDisponibles.validator.js';
 
 export class ProductoDTO {
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
@@ -93,6 +94,18 @@ plantillaId?: number | null;
   @IsOptional()
   tipo?: TipoPaquete;
 
+  @Transform(({ value }) => {
+    // multipart/form-data manda el objeto como JSON string; si viene mal
+    // formado se deja pasar tal cual para que @IsOpcionesDisponibles lo
+    // rechace con un mensaje claro en vez de romper el parseo acá.
+    if (typeof value !== 'string') return value;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  })
+  @IsOpcionesDisponibles()
   @IsOptional()
   opcionesDisponibles?: Record<string, number[]>;
 }
