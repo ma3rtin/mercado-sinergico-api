@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsDefined, IsNumber, IsPositive } from 'class-validator';
+import { IsNumber, IsPositive } from 'class-validator';
 import { IsOpcionesDisponibles } from '../validators/isOpcionesDisponibles.validator.js';
 
 export class GenerarVariantesDTO {
@@ -9,7 +9,10 @@ export class GenerarVariantesDTO {
     productoId!: number;
 
     // { caracteristicaId: [opcionId, opcionId, ...] }
-    @IsDefined({ message: 'opcionesDisponibles es obligatorio' })
+    // IsOpcionesDisponibles ya rechaza undefined/null (no requiere @IsDefined
+    // aparte): agregarlo duplicaba el error, porque @ValidateIf en
+    // class-validator aplica a TODOS los decoradores de la propiedad, no solo
+    // al que sigue, así que tampoco sirve para separar los mensajes acá.
     @IsOpcionesDisponibles()
     opcionesDisponibles!: Record<string, number[]>;
   }

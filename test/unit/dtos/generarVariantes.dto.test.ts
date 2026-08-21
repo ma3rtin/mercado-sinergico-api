@@ -18,7 +18,8 @@ describe("GenerarVariantesDTO", () => {
     const error = errores.find((e) => e.property === "opcionesDisponibles");
 
     expect(error).toBeDefined();
-    expect(error?.constraints).toHaveProperty("isDefined");
+    // Un solo motivo de error, no uno duplicado por cada decorador.
+    expect(error?.constraints).toEqual({ isOpcionesDisponibles: expect.any(String) });
   });
 
   it("debería rechazar opcionesDisponibles con forma inválida", async () => {
