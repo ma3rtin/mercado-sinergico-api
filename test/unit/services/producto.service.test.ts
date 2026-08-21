@@ -18,6 +18,8 @@ jest.mock("../../../src/prisma/client", () => {
   const mockProductoImagenDeleteMany = jest.fn();
   const mockProductoVarianteDeleteMany = jest.fn();
   const mockProductoVarianteOpcionCreateMany = jest.fn();
+  const mockProductoVarianteCreate = jest.fn();
+  const mockProductoVarianteCount = jest.fn();
   const mockProductoVarianteCreateMany = jest.fn();
   const mockProductoVarianteFindMany = jest.fn();
 
@@ -40,6 +42,8 @@ jest.mock("../../../src/prisma/client", () => {
           paqueteBaseProducto: { deleteMany: mockPaqueteBaseProductoDeleteMany },
           productoImagen: { deleteMany: mockProductoImagenDeleteMany },
           productoVariante: {
+            create: mockProductoVarianteCreate,
+            count: mockProductoVarianteCount,
             createMany: mockProductoVarianteCreateMany,
             findMany: mockProductoVarianteFindMany,
             deleteMany: mockProductoVarianteDeleteMany,
@@ -62,6 +66,8 @@ jest.mock("../../../src/prisma/client", () => {
       paqueteBaseProducto: { deleteMany: mockPaqueteBaseProductoDeleteMany },
       productoImagen: { deleteMany: mockProductoImagenDeleteMany },
       productoVariante: {
+        create: mockProductoVarianteCreate,
+        count: mockProductoVarianteCount,
         createMany: mockProductoVarianteCreateMany,
         findMany: mockProductoVarianteFindMany,
         deleteMany: mockProductoVarianteDeleteMany,
@@ -82,6 +88,8 @@ jest.mock("../../../src/prisma/client", () => {
       mockPaqueteBaseProductoDeleteMany,
       mockProductoImagenDeleteMany,
       mockProductoVarianteDeleteMany,
+      mockProductoVarianteCreate,
+      mockProductoVarianteCount,
       mockProductoVarianteCreateMany,
       mockProductoVarianteFindMany,
       mockProductoVarianteOpcionCreateMany,
@@ -108,6 +116,8 @@ describe("ProductoService", () => {
       mockPlantillaFindUnique,
       mockPaqueteBaseProductoDeleteMany,
       mockProductoImagenDeleteMany,
+      mockProductoVarianteCreate,
+      mockProductoVarianteCount,
       mockProductoVarianteCreateMany,
       mockProductoVarianteFindMany,
       mockProductoVarianteOpcionCreateMany,
@@ -125,6 +135,8 @@ describe("ProductoService", () => {
     mockPaqueteBaseProductoDeleteMany.mockResolvedValue({ count: 0 });
     mockProductoImagenDeleteMany.mockResolvedValue({ count: 0 });
     mockPlantillaFindUnique.mockResolvedValue(null);
+    mockProductoVarianteCreate.mockResolvedValue({});
+    mockProductoVarianteCount.mockResolvedValue(0);
     mockProductoVarianteCreateMany.mockResolvedValue({ count: 0 });
     mockProductoVarianteFindMany.mockResolvedValue([]);
     mockProductoVarianteOpcionCreateMany.mockResolvedValue({ count: 0 });

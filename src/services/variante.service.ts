@@ -148,7 +148,8 @@ export class VarianteService {
     const nombreLimpio = producto.nombre
       .substring(0, 10)
       .toUpperCase()
-      .replace(/\s+/g, '-');
+      .replace(/\s+/g, '-')
+      .replace(/-+$/g, '');
 
     const variantesCreadas = await this.prisma.$transaction(
       async (tx) => {
