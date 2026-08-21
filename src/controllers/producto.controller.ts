@@ -143,7 +143,6 @@ export class ProductoController {
       ...(campos?.imagenes || []),
     ];
 
-    console.log('[DEBUG] 🖼️ Subiendo', todosLosArchivos.length, 'imagenes a Cloudinary...');
     const urls = await Promise.all(
       todosLosArchivos.map((file) =>
         this.imagenService.uploadToCloudinary(file.buffer)
@@ -151,6 +150,7 @@ export class ProductoController {
     );
     console.log('[DEBUG] ✅ Imagenes subidas a Cloudinary con éxito:', urls);
 
+    const [urlPrincipal, ...urlsAdicionales] = urls;
     producto.imagen_url = urlPrincipal;
     if (campos?.imagenes?.length) {
       producto.imagenes = urlsAdicionales;
