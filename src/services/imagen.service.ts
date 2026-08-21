@@ -10,9 +10,18 @@ export class ImagenService {
     folder = 'mercado_sinergico'
   ): Promise<string> => {
     return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(
+          new Error(
+            'Timeout excedido al subir imagen a Cloudinary (límite de 15 segundos). Por favor, verifique la configuración de credenciales de Cloudinary y la conectividad del servidor.'
+          )
+        );
+      }, 15000);
+
       const stream = cloudinary.uploader.upload_stream(
         { folder },
         (error, result) => {
+          clearTimeout(timeoutId);
           if (error) return reject(error);
           if (!result?.secure_url)
             return reject(new Error('No se obtuvo URL segura de Cloudinary'));

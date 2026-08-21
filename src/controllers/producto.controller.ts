@@ -37,6 +37,15 @@ export class ProductoController {
     const body = req.body;
     const campos = req.files as { [fieldname: string]: Express.Multer.File[] };
 
+    console.log('[DEBUG] 🚀 Iniciando creación de producto:', body.nombre);
+    console.log('[DEBUG] 📋 Datos del cuerpo recibidos:', {
+      precio: body.precio,
+      marca_id: body.marca_id,
+      categoria_id: body.categoria_id,
+      plantillaId: body.plantillaId,
+      tipo: body.tipo,
+    });
+
     const producto: ProductoDTO = {
       nombre: body.nombre,
       descripcion: body.descripcion,
@@ -67,18 +76,22 @@ export class ProductoController {
       ...(campos?.imagenes || []),
     ];
 
+    console.log('[DEBUG] 🖼️ Subiendo', todosLosArchivos.length, 'imagenes a Cloudinary...');
     const urls = await Promise.all(
       todosLosArchivos.map((file) =>
         this.imagenService.uploadToCloudinary(file.buffer)
       )
     );
+    console.log('[DEBUG] ✅ Imagenes subidas a Cloudinary con éxito:', urls);
 
     producto.imagen_url = urls[0];
     if (campos?.imagenes?.length) {
       producto.imagenes = urls.slice(1);
     }
 
+    console.log('[DEBUG] 💾 Guardando producto en base de datos con Prisma...');
     const newProducto = await this.productoService.create(producto);
+    console.log('[DEBUG] 🎉 Producto creado exitosamente con ID:', newProducto.id_producto);
     res.status(201).json(newProducto);
   });
 
