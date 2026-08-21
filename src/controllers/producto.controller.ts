@@ -103,7 +103,6 @@ export class ProductoController {
   });
 
   public createProducto = asyncHandler(async (req: Request, res: Response) => {
-    const start = Date.now();
     const body = req.body;
     const campos = req.files as { [fieldname: string]: Express.Multer.File[] };
 
