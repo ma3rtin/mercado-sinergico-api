@@ -11,6 +11,21 @@ export class ProductoController {
     private imagenService: ImagenService
   ) {}
 
+  // multipart/form-data manda objetos anidados como JSON string; a diferencia
+  // de plantillaId, opcionesDisponibles no tiene @Transform en el DTO, así
+  // que llega sin parsear si vino por FormData.
+  private parseOpcionesDisponibles(value: unknown): Record<string, number[]> | undefined {
+    if (typeof value !== 'string') {
+      return value as Record<string, number[]> | undefined;
+    }
+
+    try {
+      return JSON.parse(value) as Record<string, number[]>;
+    } catch {
+      throw new CustomError('El campo "opcionesDisponibles" no es un JSON válido', 400);
+    }
+  }
+
   public getProductos = asyncHandler(async (req: Request, res: Response) => {
     const name = req.query.name as string | undefined;
     const includeArchived = req.query.includeArchived === 'true';
@@ -103,10 +118,7 @@ export class ProductoController {
       stock: body.stock ? Number(body.stock) : undefined,
       plantillaId: body.plantillaId ? Number(body.plantillaId) : undefined,
       tipo: body.tipo || 'SINERGICO',
-      opcionesDisponibles:
-        typeof body.opcionesDisponibles === 'string'
-          ? (JSON.parse(body.opcionesDisponibles) as Record<string, number[]>)
-          : body.opcionesDisponibles,
+      opcionesDisponibles: this.parseOpcionesDisponibles(body.opcionesDisponibles),
     };
 
     if (!campos?.icono?.[0]) {
@@ -145,14 +157,7 @@ export class ProductoController {
     const producto: ProductoDTO = req.body;
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
-    // multipart/form-data manda objetos anidados como JSON string; a
-    // diferencia de plantillaId, opcionesDisponibles no tiene @Transform
-    // en el DTO, así que llega sin parsear si vino por FormData.
-    if (typeof producto.opcionesDisponibles === 'string') {
-      producto.opcionesDisponibles = JSON.parse(
-        producto.opcionesDisponibles
-      ) as Record<string, number[]>;
-    }
+    producto.opcionesDisponibles = this.parseOpcionesDisponibles(producto.opcionesDisponibles);
 
     if (files?.icono?.[0]) {
       producto.imagen_url = await this.imagenService.uploadToCloudinary(
