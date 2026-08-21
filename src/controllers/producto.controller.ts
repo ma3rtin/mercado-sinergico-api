@@ -11,9 +11,11 @@ export class ProductoController {
     private imagenService: ImagenService
   ) {}
 
-  // multipart/form-data manda objetos anidados como JSON string; a diferencia
-  // de plantillaId, opcionesDisponibles no tiene @Transform en el DTO, así
-  // que llega sin parsear si vino por FormData.
+  // ProductoDTO ya parsea y valida este campo vía @Transform +
+  // @IsOpcionesDisponibles cuando la request pasa por validarDto(), así que
+  // en producción esto ya llega como objeto. Se mantiene como red de
+  // seguridad para cuando el controller se invoca sin pasar por ese
+  // middleware (p. ej. tests unitarios que llaman al método directamente).
   private parseOpcionesDisponibles(value: unknown): Record<string, number[]> | undefined {
     if (typeof value !== 'string') {
       return value as Record<string, number[]> | undefined;
