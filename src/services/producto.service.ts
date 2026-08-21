@@ -371,56 +371,66 @@ export class ProductoService {
           }
         }
 
-        await tx.producto.update({ where: { id_producto: id }, data });
-
-        if (opcionesDisponibles) {
-          const productoConPlantilla = await tx.producto.findUnique({
-            where: { id_producto: id },
+        const includeRespuesta = {
+          imagenes: true,
+          variantes: {
             include: {
-              plantilla: { include: { caracteristicas: { include: { opciones: true } } } },
-            },
-          });
-
-          if (!productoConPlantilla?.plantilla) {
-            throw new CustomError('El producto no tiene plantilla asignada', 400);
-          }
-
-          const variantesActuales = await tx.productoVariante.count({
-            where: { productoId: id },
-          });
-
-          if (variantesActuales > 0) {
-            throw new CustomError(
-              'Este producto ya tiene variantes generadas. Elimínalas primero si querés regenerarlas.',
-              409
-            );
-          }
-
-          await generarVariantesEnTransaccion(tx, productoConPlantilla, opcionesDisponibles);
-        }
-
-        const productoActualizado = await tx.producto.findUnique({
-          where: { id_producto: id },
-          include: {
-            imagenes: true,
-            variantes: {
-              include: {
-                opciones: {
-                  include: {
-                    caracteristica: true,
-                    opcion: true,
-                  },
+              opciones: {
+                include: {
+                  caracteristica: true,
+                  opcion: true,
                 },
               },
             },
           },
+        } as const;
+
+        const productoActualizado = await tx.producto.update({
+          where: { id_producto: id },
+          data,
+          include: includeRespuesta,
         });
 
-        if (!productoActualizado) {
+        if (!opcionesDisponibles) {
+          return productoActualizado;
+        }
+
+        // Si hay que generar variantes, el update de arriba ya no las
+        // refleja: se necesita un refetch después de generarlas.
+        const productoConPlantilla = await tx.producto.findUnique({
+          where: { id_producto: id },
+          include: {
+            plantilla: { include: { caracteristicas: { include: { opciones: true } } } },
+          },
+        });
+
+        if (!productoConPlantilla?.plantilla) {
+          throw new CustomError('El producto no tiene plantilla asignada', 400);
+        }
+
+        const variantesActuales = await tx.productoVariante.count({
+          where: { productoId: id },
+        });
+
+        if (variantesActuales > 0) {
+          throw new CustomError(
+            'Este producto ya tiene variantes generadas. Elimínalas primero si querés regenerarlas.',
+            409
+          );
+        }
+
+        await generarVariantesEnTransaccion(tx, productoConPlantilla, opcionesDisponibles);
+
+        const productoConVariantesNuevas = await tx.producto.findUnique({
+          where: { id_producto: id },
+          include: includeRespuesta,
+        });
+
+        if (!productoConVariantesNuevas) {
           throw new CustomError('Error al recuperar el producto actualizado', 500);
         }
 
-        return productoActualizado;
+        return productoConVariantesNuevas;
       },
       {
         timeout: 20000,
