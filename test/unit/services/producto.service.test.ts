@@ -22,11 +22,13 @@ jest.mock("../../../src/prisma/client", () => {
   const mockProductoVarianteCount = jest.fn();
   const mockPedidoDetalleCount = jest.fn();
   const mockTxPedidoDetalleCount = jest.fn();
+  const mockTxQueryRaw = jest.fn();
 
   return {
     prisma: {
       $transaction: mockTransaction.mockImplementation(async (callback) => {
         const tx = {
+          $queryRaw: mockTxQueryRaw,
           producto: {
             findMany: mockProductoFindMany,
             findUnique: mockProductoFindUnique,
@@ -96,6 +98,7 @@ jest.mock("../../../src/prisma/client", () => {
       mockProductoVarianteCount,
       mockPedidoDetalleCount,
       mockTxPedidoDetalleCount,
+      mockTxQueryRaw,
     },
   };
 });
@@ -402,7 +405,9 @@ describe("ProductoService", () => {
         mockProductoFindUnique,
         mockProductoUpdate,
         mockProductoVarianteDeleteMany,
+        mockTxQueryRaw,
       } = require("../../../src/prisma/client").__mocks;
+      mockTxQueryRaw.mockResolvedValue([{ plantillaId: null }]);
       mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: null, plantilla: null, ...dtoBase });
       mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dtoBase });
 
@@ -412,6 +417,16 @@ describe("ProductoService", () => {
       expect(mockProductoVarianteDeleteMany).not.toHaveBeenCalled();
     });
 
+    it("debería rechazar con 404 si el producto no existe (lock de fila sin resultado)", async () => {
+      const { mockTxQueryRaw } = require("../../../src/prisma/client").__mocks;
+      mockTxQueryRaw.mockResolvedValue([]);
+
+      await expect(service.update(999, dtoBase)).rejects.toMatchObject({
+        status: 404,
+        message: expect.stringContaining("no encontrado"),
+      });
+    });
+
     it("debería borrar las variantes existentes al cambiar de plantilla si no tienen pedidos", async () => {
       const {
         mockProductoFindUnique,
@@ -419,11 +434,20 @@ describe("ProductoService", () => {
         mockTxPedidoDetalleCount,
         mockProductoVarianteDeleteMany,
         mockProductoUpdate,
+        mockProductoVarianteCreateMany,
+        mockProductoVarianteFindMany,
+        mockTxQueryRaw,
       } = require("../../../src/prisma/client").__mocks;
-      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: 1, plantilla: null, ...dtoBase });
-      mockProductoVarianteCount.mockResolvedValue(2);
+      const plantilla = { id: 2, caracteristicas: [{ id: 1, opciones: [{ id: 1 }] }] };
+      mockTxQueryRaw.mockResolvedValue([{ plantillaId: 1 }]);
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, nombre: "Updated", tipo: "SINERGICO", plantilla });
+      mockProductoVarianteCount
+        .mockResolvedValueOnce(2) // variantes existentes antes del borrado
+        .mockResolvedValueOnce(0); // conteo post-borrado, habilita la regeneración
       mockTxPedidoDetalleCount.mockResolvedValue(0);
       mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dtoBase });
+      mockProductoVarianteCreateMany.mockResolvedValue({ count: 1 });
+      mockProductoVarianteFindMany.mockResolvedValue([{ id: 1, sku: "UPDATED-1-1" }]);
 
       await service.update(1, { ...dtoBase, plantillaId: 2, opcionesDisponibles: { "1": [1] } });
 
@@ -440,8 +464,9 @@ describe("ProductoService", () => {
         mockTxPedidoDetalleCount,
         mockProductoVarianteDeleteMany,
         mockProductoUpdate,
+        mockTxQueryRaw,
       } = require("../../../src/prisma/client").__mocks;
-      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: 1, plantilla: null, ...dtoBase });
+      mockTxQueryRaw.mockResolvedValue([{ plantillaId: 1 }]);
       mockProductoVarianteCount.mockResolvedValue(2);
       mockTxPedidoDetalleCount.mockResolvedValue(1);
 
@@ -456,18 +481,24 @@ describe("ProductoService", () => {
       expect(mockProductoUpdate).not.toHaveBeenCalled();
     });
 
-    it("debería rechazar con 400 si cambia de plantilla sin mandar opcionesDisponibles", async () => {
-      const { mockProductoFindUnique, mockProductoVarianteCount } =
-        require("../../../src/prisma/client").__mocks;
+    it("debería permitir cambiar de plantilla sin mandar opcionesDisponibles (las variantes se generan después, en un segundo request)", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoVarianteCount,
+        mockProductoUpdate,
+        mockProductoVarianteCreateMany,
+        mockTxQueryRaw,
+      } = require("../../../src/prisma/client").__mocks;
+      mockTxQueryRaw.mockResolvedValue([{ plantillaId: 1 }]);
       mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: 1, plantilla: null, ...dtoBase });
       mockProductoVarianteCount.mockResolvedValue(0);
+      mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dtoBase });
 
-      await expect(
-        service.update(1, { ...dtoBase, plantillaId: 2 })
-      ).rejects.toMatchObject({
-        status: 400,
-        message: expect.stringContaining("opciones"),
-      });
+      const result = await service.update(1, { ...dtoBase, plantillaId: 2 });
+
+      expect(result.id_producto).toBe(1);
+      expect(mockProductoUpdate).toHaveBeenCalled();
+      expect(mockProductoVarianteCreateMany).not.toHaveBeenCalled();
     });
 
     it("debería permitir cambiar de plantilla sin borrar nada si no hay variantes generadas", async () => {
@@ -476,10 +507,17 @@ describe("ProductoService", () => {
         mockProductoVarianteCount,
         mockProductoVarianteDeleteMany,
         mockProductoUpdate,
+        mockProductoVarianteCreateMany,
+        mockProductoVarianteFindMany,
+        mockTxQueryRaw,
       } = require("../../../src/prisma/client").__mocks;
-      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: 8, plantilla: null, ...dtoBase });
+      const plantilla = { id: 5, caracteristicas: [{ id: 1, opciones: [{ id: 1 }] }] };
+      mockTxQueryRaw.mockResolvedValue([{ plantillaId: 8 }]);
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, nombre: "Updated", tipo: "SINERGICO", plantilla });
       mockProductoVarianteCount.mockResolvedValue(0);
       mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dtoBase });
+      mockProductoVarianteCreateMany.mockResolvedValue({ count: 1 });
+      mockProductoVarianteFindMany.mockResolvedValue([{ id: 1, sku: "UPDATED-1-1" }]);
 
       await service.update(1, { ...dtoBase, plantillaId: 5, opcionesDisponibles: { "1": [1] } });
 
@@ -487,12 +525,38 @@ describe("ProductoService", () => {
       expect(mockProductoUpdate).toHaveBeenCalled();
     });
 
+    it("debería rechazar con 409 (no quedar en silencio) si manda opcionesDisponibles con la plantilla sin cambiar y ya hay variantes", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoVarianteCount,
+        mockProductoUpdate,
+        mockProductoVarianteCreateMany,
+        mockTxQueryRaw,
+      } = require("../../../src/prisma/client").__mocks;
+      const plantilla = { id: 8, caracteristicas: [{ id: 1, opciones: [{ id: 1 }] }] };
+      mockTxQueryRaw.mockResolvedValue([{ plantillaId: 8 }]);
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, nombre: "Updated", tipo: "SINERGICO", plantilla });
+      mockProductoVarianteCount.mockResolvedValue(2); // ya tiene variantes generadas
+      mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dtoBase });
+
+      await expect(
+        service.update(1, { ...dtoBase, plantillaId: 8, opcionesDisponibles: { "1": [1] } })
+      ).rejects.toMatchObject({
+        status: 409,
+        message: expect.stringContaining("ya tiene variantes generadas"),
+      });
+
+      expect(mockProductoVarianteCreateMany).not.toHaveBeenCalled();
+    });
+
     it("debería mantener la misma plantilla sin disparar borrado (plantillaId igual al actual)", async () => {
       const {
         mockProductoFindUnique,
         mockProductoVarianteDeleteMany,
         mockProductoUpdate,
+        mockTxQueryRaw,
       } = require("../../../src/prisma/client").__mocks;
+      mockTxQueryRaw.mockResolvedValue([{ plantillaId: 8 }]);
       mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: 8, plantilla: null, ...dtoBase });
       mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dtoBase });
 
@@ -509,8 +573,10 @@ describe("ProductoService", () => {
         mockTxPedidoDetalleCount,
         mockProductoVarianteDeleteMany,
         mockProductoUpdate,
+        mockTxQueryRaw,
       } = require("../../../src/prisma/client").__mocks;
-      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: 1, plantilla: null, ...dtoBase });
+      mockTxQueryRaw.mockResolvedValue([{ plantillaId: 1 }]);
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: null, plantilla: null, ...dtoBase });
       mockProductoVarianteCount.mockResolvedValue(1);
       mockTxPedidoDetalleCount.mockResolvedValue(0);
       mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dtoBase });
@@ -530,11 +596,20 @@ describe("ProductoService", () => {
         mockPedidoDetalleCount,
         mockTxPedidoDetalleCount,
         mockProductoUpdate,
+        mockProductoVarianteCreateMany,
+        mockProductoVarianteFindMany,
+        mockTxQueryRaw,
       } = require("../../../src/prisma/client").__mocks;
-      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, plantillaId: 1, plantilla: null, ...dtoBase });
-      mockProductoVarianteCount.mockResolvedValue(2);
+      const plantilla = { id: 2, caracteristicas: [{ id: 1, opciones: [{ id: 1 }] }] };
+      mockTxQueryRaw.mockResolvedValue([{ plantillaId: 1 }]);
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, nombre: "Updated", tipo: "SINERGICO", plantilla });
+      mockProductoVarianteCount
+        .mockResolvedValueOnce(2) // variantesExistentes antes del borrado
+        .mockResolvedValueOnce(0); // variantesActuales post-borrado
       mockTxPedidoDetalleCount.mockResolvedValue(0);
       mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dtoBase });
+      mockProductoVarianteCreateMany.mockResolvedValue({ count: 1 });
+      mockProductoVarianteFindMany.mockResolvedValue([{ id: 1, sku: "UPDATED-1-1" }]);
 
       await service.update(1, { ...dtoBase, plantillaId: 2, opcionesDisponibles: { "1": [1] } });
 
@@ -550,15 +625,15 @@ describe("ProductoService", () => {
         mockProductoVarianteCreateMany,
         mockProductoVarianteFindMany,
         mockProductoVarianteOpcionCreateMany,
+        mockTxQueryRaw,
       } = require("../../../src/prisma/client").__mocks;
 
       const plantilla = {
         id: 5,
         caracteristicas: [{ id: 1, nombre: "Color", opciones: [{ id: 1 }] }],
       };
-      mockProductoFindUnique
-        .mockResolvedValueOnce({ id_producto: 1, plantillaId: null })
-        .mockResolvedValue({ id_producto: 1, nombre: "Updated", tipo: "SINERGICO", plantilla });
+      mockTxQueryRaw.mockResolvedValue([{ plantillaId: null }]);
+      mockProductoFindUnique.mockResolvedValue({ id_producto: 1, nombre: "Updated", tipo: "SINERGICO", plantilla });
       mockProductoVarianteCount.mockResolvedValue(0);
       mockProductoUpdate.mockResolvedValue({ id_producto: 1, ...dtoBase });
       mockProductoVarianteCreateMany.mockResolvedValue({ count: 1 });

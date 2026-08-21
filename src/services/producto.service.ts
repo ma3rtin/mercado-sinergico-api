@@ -225,10 +225,6 @@ export class ProductoService {
       throw new CustomError('Categoria no encontrada', 404);
     }
 
-    if (plantillaId && !opcionesDisponibles) {
-      throw new CustomError('Se requieren las opciones de la plantilla para generar las variantes', 400);
-    }
-
     return this.prisma.$transaction(
       async (tx) => {
         const productoCreado = await tx.producto.create({
@@ -330,28 +326,28 @@ export class ProductoService {
       };
     }
 
-    const productoActual = await this.prisma.producto.findUnique({
-      where: { id_producto: id },
-      select: { plantillaId: true },
-    });
-
-    if (!productoActual) {
-      throw new CustomError('Producto no encontrado', 404);
-    }
-
-    // Cambio de plantilla = el payload trae plantillaId (null para quitarla) y
-    // difiere del valor actual en base. plantillaId === undefined → no se tocó,
-    // no se compara ni se regenera nada.
-    const huboCambioPlantilla =
-      plantillaId !== undefined &&
-      (plantillaId ?? null) !== (productoActual.plantillaId ?? null);
-
-    if (huboCambioPlantilla && plantillaId && !opcionesDisponibles) {
-      throw new CustomError('Se requieren las opciones de la plantilla para generar las variantes', 400);
-    }
-
     return this.prisma.$transaction(
       async (tx) => {
+        // SELECT ... FOR UPDATE: toma el lock de la fila ya dentro de la
+        // transacción, así un update() concurrente sobre el mismo producto
+        // espera a que esta transacción termine en vez de decidir
+        // huboCambioPlantilla con un plantillaId que quedó desactualizado.
+        const filas = await tx.$queryRaw<{ plantillaId: number | null }[]>`
+          SELECT plantillaId FROM Producto WHERE id_producto = ${id} FOR UPDATE
+        `;
+        const productoActual = filas[0];
+
+        if (!productoActual) {
+          throw new CustomError('Producto no encontrado', 404);
+        }
+
+        // Cambio de plantilla = el payload trae plantillaId (null para quitarla) y
+        // difiere del valor actual en base. plantillaId === undefined → no se tocó,
+        // no se compara ni se regenera nada.
+        const huboCambioPlantilla =
+          plantillaId !== undefined &&
+          (plantillaId ?? null) !== (productoActual.plantillaId ?? null);
+
         if (huboCambioPlantilla) {
           const variantesExistentes = await tx.productoVariante.count({
             where: { productoId: id },
@@ -385,15 +381,22 @@ export class ProductoService {
             },
           });
 
-          if (productoConPlantilla?.plantilla) {
-            const variantesActuales = await tx.productoVariante.count({
-              where: { productoId: id },
-            });
-
-            if (variantesActuales === 0) {
-              await generarVariantesEnTransaccion(tx, productoConPlantilla, opcionesDisponibles);
-            }
+          if (!productoConPlantilla?.plantilla) {
+            throw new CustomError('El producto no tiene plantilla asignada', 400);
           }
+
+          const variantesActuales = await tx.productoVariante.count({
+            where: { productoId: id },
+          });
+
+          if (variantesActuales > 0) {
+            throw new CustomError(
+              'Este producto ya tiene variantes generadas. Elimínalas primero si querés regenerarlas.',
+              409
+            );
+          }
+
+          await generarVariantesEnTransaccion(tx, productoConPlantilla, opcionesDisponibles);
         }
 
         const productoActualizado = await tx.producto.findUnique({
