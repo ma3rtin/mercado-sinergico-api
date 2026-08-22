@@ -6,6 +6,7 @@ import { ActualizarStockVariantesDTO } from '../dtos/variante/actualizarStockVar
 import { ActualizarVarianteDTO } from '../dtos/variante/actualizarVariante.dto.js';
 import { ActualizarVarianteBulkDTO } from '../dtos/variante/actualizarVarianteBulk.dto.js';
 import { ImagenService } from './imagen.service.js';
+import { generarVariantesEnTransaccion } from './variante-generacion.helper.js';
 
 export class VarianteService {
   private prisma = prisma;
@@ -99,6 +100,10 @@ export class VarianteService {
       throw new CustomError('El producto no tiene plantilla asignada', 400);
     }
 
+    // Guard contra duplicados: si el producto ya tiene variantes, se rechaza la
+    // regeneración. Cuando el cambio de plantilla se autoriza (ProductoService.update
+    // sin pedidos asociados), las variantes viejas se eliminan en la misma transacción
+    // del update, por lo que acá el count ya es 0 y la generación procede normal.
     const variantesExistentes = await this.prisma.productoVariante.count({
       where: { productoId },
     });
@@ -109,131 +114,11 @@ export class VarianteService {
       );
     }
 
-    const caracteristicasIds = Object.keys(opcionesDisponibles).map(Number);
-    const caracteristicasValidas = producto.plantilla.caracteristicas.map(
-      (c) => c.id
-    );
 
-    for (const caracId of caracteristicasIds) {
-      if (!caracteristicasValidas.includes(caracId)) {
-        throw new CustomError(
-          `La característica ${caracId} no pertenece a la plantilla del producto`,
-          400
-        );
-      }
-    }
-
-    const combinaciones = this.generarCombinaciones(opcionesDisponibles);
-
-    if (combinaciones.length > 200) {
-      throw new CustomError('No se pueden generar más de 200 variantes a la vez', 400);
-    }
-
-    let stockInicial: number | null;
-    type ProductoWithTipo = typeof producto & { tipo: TipoPaquete | null };
-    const productoWithTipo = producto as ProductoWithTipo;
-    if (productoWithTipo.tipo === TipoPaquete.ENERGICO) {
-      stockInicial = 0;
-    } else {
-      stockInicial = null;
-    }
-
-    if (combinaciones.length === 0) {
-      return {
-        message: '0 variantes generadas correctamente',
-        variantes: [],
-      };
-    }
-
-    const nombreLimpio = producto.nombre
-      .substring(0, 10)
-      .toUpperCase()
-      .replace(/\s+/g, '-')
-      .replace(/-+$/g, '');
 
     const variantesCreadas = await this.prisma.$transaction(
-      async (tx) => {
-        const variantesData = combinaciones.map((combinacion) => {
-          const idsOpciones = Object.values(combinacion).join('-');
-          const sku = `${nombreLimpio}-${productoId}-${idsOpciones}`;
-
-          return {
-            productoId,
-            sku,
-            stockFisico: stockInicial,
-            precioExtra: 0,
-            activo: true,
-          };
-        });
-
-        const skusGenerados = variantesData.map((v) => v.sku);
-
-        try {
-          await tx.productoVariante.createMany({ data: variantesData });
-        } catch (error) {
-          if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === 'P2002'
-          ) {
-            throw new CustomError(
-              'Ya existe una variante con ese SKU. Verificá que el producto no tenga variantes previas.',
-              409,
-              error
-            );
-          }
-          throw error;
-        }
-
-        const variantes = await tx.productoVariante.findMany({
-          where: {
-            productoId,
-            sku: { in: skusGenerados },
-          },
-          orderBy: { id: 'asc' },
-        });
-
-        const varianteIdPorSku = new Map(
-          variantes.map((v) => [v.sku, v.id])
-        );
-
-        const opcionesData = combinaciones.flatMap((combinacion) => {
-          const idsOpciones = Object.values(combinacion).join('-');
-          const sku = `${nombreLimpio}-${productoId}-${idsOpciones}`;
-          const varianteId = varianteIdPorSku.get(sku);
-
-          if (varianteId === undefined) {
-            throw new CustomError(
-              'Error al recuperar las variantes creadas',
-              500
-            );
-          }
-
-          return Object.entries(combinacion).map(([caracId, opcionId]) => ({
-            varianteId,
-            caracteristicaId: parseInt(caracId),
-            opcionId: opcionId as number,
-          }));
-        });
-
-        await tx.productoVarianteOpcion.createMany({ data: opcionesData });
-
-        const variantesFinales = await tx.productoVariante.findMany({
-          where: {
-            id: { in: variantes.map((v) => v.id) },
-          },
-          orderBy: { id: 'asc' },
-          include: {
-            opciones: {
-              include: { caracteristica: true, opcion: true },
-            },
-          },
-        });
-
-        return variantesFinales;
-      },
-      {
-        timeout: 20000,
-      }
+      (tx) => generarVariantesEnTransaccion(tx, producto, opcionesDisponibles),
+      { timeout: 20000 }
     );
 
     console.log(
@@ -528,37 +413,5 @@ export class VarianteService {
       stockTotal: stockTotal,
       distribucion,
     };
-  }
-
-  private generarCombinaciones(
-    opcionesDisponibles: Record<string, number[]>
-  ): Record<string, number>[] {
-    const caracteristicas = Object.keys(opcionesDisponibles);
-    const valores = Object.values(opcionesDisponibles);
-
-    if (caracteristicas.length === 0) return [];
-
-    const resultado: Record<string, number>[] = [];
-
-    const generarRecursivo = (
-      index: number,
-      combinacionActual: Record<string, number>
-    ) => {
-      if (index === caracteristicas.length) {
-        resultado.push({ ...combinacionActual });
-        return;
-      }
-
-      const caracId = caracteristicas[index];
-      const opciones = valores[index];
-
-      for (const opcionId of opciones) {
-        combinacionActual[caracId] = opcionId;
-        generarRecursivo(index + 1, combinacionActual);
-      }
-    };
-
-    generarRecursivo(0, {});
-    return resultado;
   }
 }

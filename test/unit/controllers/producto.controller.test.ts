@@ -180,6 +180,21 @@ describe("ProductoController", () => {
       expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({ message: "Error subiendo a Cloudinary" }));
       expect(mockProductoService.create).not.toHaveBeenCalled();
     });
+
+    it("debería retornar 400 (no 500) si opcionesDisponibles llega como JSON inválido", async () => {
+      mockRequest.body = { ...validBody, opcionesDisponibles: "{esto no es json" };
+      mockRequest.files = {
+        icono: [{ buffer: Buffer.from("icono"), fieldname: "icono", originalname: "icono.jpg" }] as any,
+      };
+
+      await controller.createProducto(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockProductoService.create).not.toHaveBeenCalled();
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
+      expect(mockResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringContaining("JSON válido") })
+      );
+    });
   });
 
   describe("updateProducto", () => {
@@ -215,6 +230,48 @@ describe("ProductoController", () => {
 
       expect(mockResponse.status).toHaveBeenCalledWith(500);
       expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({ message: "Error al actualizar" }));
+    });
+
+    it("debería parsear opcionesDisponibles cuando llega como JSON string (multipart/form-data)", async () => {
+      mockRequest.params = { id: "1" };
+      mockRequest.body = {
+        ...validDto,
+        opcionesDisponibles: JSON.stringify({ "1": [10, 11] }),
+      };
+      mockProductoService.update.mockResolvedValue({ id_producto: 1 });
+
+      await controller.updateProducto(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockProductoService.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ opcionesDisponibles: { "1": [10, 11] } })
+      );
+    });
+
+    it("no debería tocar opcionesDisponibles cuando ya llega como objeto (JSON)", async () => {
+      mockRequest.params = { id: "1" };
+      mockRequest.body = { ...validDto, opcionesDisponibles: { "1": [10, 11] } };
+      mockProductoService.update.mockResolvedValue({ id_producto: 1 });
+
+      await controller.updateProducto(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockProductoService.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ opcionesDisponibles: { "1": [10, 11] } })
+      );
+    });
+
+    it("debería retornar 400 (no 500) si opcionesDisponibles llega como JSON inválido", async () => {
+      mockRequest.params = { id: "1" };
+      mockRequest.body = { ...validDto, opcionesDisponibles: "{esto no es json" };
+
+      await controller.updateProducto(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockProductoService.update).not.toHaveBeenCalled();
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
+      expect(mockResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringContaining("JSON válido") })
+      );
     });
   });
 
