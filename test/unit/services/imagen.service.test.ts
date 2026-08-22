@@ -147,6 +147,48 @@ describe("ImagenService", () => {
     warnSpy.mockRestore();
   });
 
+  it("rechaza con CustomError (no un Error genérico) si Cloudinary nunca responde en 15s", async () => {
+    jest.useFakeTimers({ doNotFake: ["nextTick", "queueMicrotask"] });
+    try {
+      // upload_stream nunca llama al callback: simula una conexión colgada.
+      mockUploadStream.mockImplementation((options) => {
+        cloudinaryOptions.push(options);
+        return new Writable({
+          write(chunk, _encoding, done) {
+            done();
+          },
+          final(done) {
+            done();
+          },
+        });
+      });
+
+      const png = await generatePng(50, 50);
+      const uploadPromise = service.uploadToCloudinary(png);
+      const assertion = expect(uploadPromise).rejects.toMatchObject({
+        status: 500,
+        message: expect.stringContaining("15 segundos"),
+      });
+
+      await jest.advanceTimersByTimeAsync(15000);
+      await assertion;
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("no deja un timer colgado después de una subida exitosa", async () => {
+    jest.useFakeTimers({ doNotFake: ["nextTick", "queueMicrotask"] });
+    try {
+      const png = await generatePng(50, 50);
+      await service.uploadToCloudinary(png);
+
+      expect(jest.getTimerCount()).toBe(0);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("rechaza si Cloudinary devuelve un error", async () => {
     uploadError = new Error("cloudinary boom");
     const png = await generatePng(100, 100);
