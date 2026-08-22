@@ -52,9 +52,18 @@ export class ImagenService {
 
     const uploadStart = Date.now();
     return new Promise<string>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(
+          new Error(
+            'Timeout excedido al subir imagen a Cloudinary (límite de 15 segundos). Por favor, verifique la configuración de credenciales de Cloudinary y la conectividad del servidor.'
+          )
+        );
+      }, 15000);
+
       const stream = cloudinary.uploader.upload_stream(
         { folder },
         (error, result) => {
+          clearTimeout(timeoutId);
           if (error) {
             console.error(
               `[uploadToCloudinary] Error subiendo a Cloudinary (${Date.now() - uploadStart}ms):`,
