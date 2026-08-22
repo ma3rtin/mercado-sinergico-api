@@ -4,8 +4,8 @@ import streamifier from 'streamifier';
 import sharp from 'sharp';
 import { CustomError } from '../errors/custom.error.js';
 
-const MAX_DIMENSION = 2000;
-const WEBP_QUALITY = 85;
+const MAX_DIMENSION = 1200;
+const WEBP_QUALITY = 80;
 const UPLOAD_TIMEOUT_MS = 15000;
 
 export class ImagenService {
