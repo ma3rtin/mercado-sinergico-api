@@ -1,5 +1,6 @@
 import { ProductoService } from "../../../src/services/producto.service";
 import { ProductoDTO } from "../../../src/dtos/producto/producto.dto";
+import { TipoPaquete } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 
 jest.mock("../../../src/prisma/client", () => {
@@ -16,10 +17,11 @@ jest.mock("../../../src/prisma/client", () => {
   const mockPaqueteBaseProductoDeleteMany = jest.fn();
   const mockProductoImagenDeleteMany = jest.fn();
   const mockProductoVarianteDeleteMany = jest.fn();
+  const mockProductoVarianteOpcionCreateMany = jest.fn();
+  const mockProductoVarianteCreate = jest.fn();
+  const mockProductoVarianteCount = jest.fn();
   const mockProductoVarianteCreateMany = jest.fn();
   const mockProductoVarianteFindMany = jest.fn();
-  const mockProductoVarianteOpcionCreateMany = jest.fn();
-  const mockProductoVarianteCount = jest.fn();
   const mockPedidoDetalleCount = jest.fn();
   const mockTxPedidoDetalleCount = jest.fn();
   const mockTxQueryRaw = jest.fn();
@@ -43,10 +45,11 @@ jest.mock("../../../src/prisma/client", () => {
           paqueteBaseProducto: { deleteMany: mockPaqueteBaseProductoDeleteMany },
           productoImagen: { deleteMany: mockProductoImagenDeleteMany },
           productoVariante: {
+            create: mockProductoVarianteCreate,
+            count: mockProductoVarianteCount,
             createMany: mockProductoVarianteCreateMany,
             findMany: mockProductoVarianteFindMany,
             deleteMany: mockProductoVarianteDeleteMany,
-            count: mockProductoVarianteCount,
           },
           productoVarianteOpcion: { createMany: mockProductoVarianteOpcionCreateMany },
           // Mock propio, distinto del de prisma.pedidoDetalle: así los tests
@@ -70,10 +73,11 @@ jest.mock("../../../src/prisma/client", () => {
       paqueteBaseProducto: { deleteMany: mockPaqueteBaseProductoDeleteMany },
       productoImagen: { deleteMany: mockProductoImagenDeleteMany },
       productoVariante: {
+        create: mockProductoVarianteCreate,
+        count: mockProductoVarianteCount,
         createMany: mockProductoVarianteCreateMany,
         findMany: mockProductoVarianteFindMany,
         deleteMany: mockProductoVarianteDeleteMany,
-        count: mockProductoVarianteCount,
       },
       productoVarianteOpcion: { createMany: mockProductoVarianteOpcionCreateMany },
       pedidoDetalle: { count: mockPedidoDetalleCount },
@@ -92,10 +96,11 @@ jest.mock("../../../src/prisma/client", () => {
       mockPaqueteBaseProductoDeleteMany,
       mockProductoImagenDeleteMany,
       mockProductoVarianteDeleteMany,
+      mockProductoVarianteCreate,
+      mockProductoVarianteCount,
       mockProductoVarianteCreateMany,
       mockProductoVarianteFindMany,
       mockProductoVarianteOpcionCreateMany,
-      mockProductoVarianteCount,
       mockPedidoDetalleCount,
       mockTxPedidoDetalleCount,
       mockTxQueryRaw,
@@ -122,10 +127,11 @@ describe("ProductoService", () => {
       mockPlantillaFindUnique,
       mockPaqueteBaseProductoDeleteMany,
       mockProductoImagenDeleteMany,
+      mockProductoVarianteCreate,
+      mockProductoVarianteCount,
       mockProductoVarianteCreateMany,
       mockProductoVarianteFindMany,
       mockProductoVarianteOpcionCreateMany,
-      mockProductoVarianteCount,
       mockPedidoDetalleCount,
     } = require("../../../src/prisma/client").__mocks;
 
@@ -141,10 +147,11 @@ describe("ProductoService", () => {
     mockPaqueteBaseProductoDeleteMany.mockResolvedValue({ count: 0 });
     mockProductoImagenDeleteMany.mockResolvedValue({ count: 0 });
     mockPlantillaFindUnique.mockResolvedValue(null);
+    mockProductoVarianteCreate.mockResolvedValue({});
+    mockProductoVarianteCount.mockResolvedValue(0);
     mockProductoVarianteCreateMany.mockResolvedValue({ count: 0 });
     mockProductoVarianteFindMany.mockResolvedValue([]);
     mockProductoVarianteOpcionCreateMany.mockResolvedValue({ count: 0 });
-    mockProductoVarianteCount.mockResolvedValue(0);
     mockPedidoDetalleCount.mockResolvedValue(0);
   });
 
@@ -735,6 +742,74 @@ describe("ProductoService", () => {
       mockProductoFindUnique.mockResolvedValue(null);
 
       await expect(service.archivar(99, true)).rejects.toThrow("Producto no encontrado");
+    });
+  });
+
+
+  describe("duplicarProducto", () => {
+    it("debería lanzar CustomError 409 si un SKU -COPIA ya existe (P2002)", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoVarianteCreate,
+      } = require("../../../src/prisma/client").__mocks;
+
+      mockProductoFindUnique.mockResolvedValue({
+        id_producto: 1,
+        nombre: "Producto Original",
+        descripcion: "Desc",
+        precio: 100,
+        peso: 1,
+        altura: 1,
+        ancho: 1,
+        profundidad: 1,
+        stock: null,
+        tipo: "SINERGICO",
+        imagen_url: null,
+        plantillaId: null,
+        categoria_id: 1,
+        marca_id: 1,
+        imagenes: [],
+        variantes: [
+          { id: 10, sku: "ABC-1-1", stockFisico: null, precioExtra: 0, activo: true, opciones: [] },
+        ],
+      });
+      mockProductoVarianteCreate.mockRejectedValue({ code: "P2002" });
+
+      await expect(service.duplicarProducto(1)).rejects.toMatchObject({
+        status: 409,
+        message:
+          "No se puede duplicar: ya existe una variante con ese SKU. Cambiá el SKU de la variante original antes de volver a duplicar.",
+      });
+    });
+
+    it("debería duplicar un producto sin variantes correctamente", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoCreate,
+      } = require("../../../src/prisma/client").__mocks;
+
+      mockProductoFindUnique.mockResolvedValue({
+        id_producto: 1,
+        nombre: "Producto Original",
+        descripcion: "Desc",
+        precio: 100,
+        peso: null,
+        altura: null,
+        ancho: null,
+        profundidad: null,
+        stock: null,
+        tipo: "SINERGICO",
+        imagen_url: null,
+        plantillaId: null,
+        categoria_id: 1,
+        marca_id: 1,
+        imagenes: [],
+        variantes: [],
+      });
+      mockProductoCreate.mockResolvedValue({ id_producto: 2 });
+
+      const result = await service.duplicarProducto(1);
+      expect(result).toBeTruthy();
     });
   });
 });

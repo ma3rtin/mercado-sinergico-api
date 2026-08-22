@@ -111,7 +111,7 @@ export async function generarVariantesEnTransaccion(
   const combinaciones = generarCombinaciones(opcionesDisponibles);
 
   const stockInicial = producto.tipo === TipoPaquete.ENERGICO ? 0 : null;
-  const nombreLimpio = producto.nombre.substring(0, 10).toUpperCase().replace(/\s+/g, '-');
+  const nombreLimpio = producto.nombre.substring(0, 10).toUpperCase().replace(/\s+/g, '-').replace(/-+$/g, '');
   const productoId = producto.id_producto;
 
   const variantesData = combinaciones.map((combinacion) => ({
