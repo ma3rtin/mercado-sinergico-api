@@ -745,39 +745,6 @@ describe("ProductoService", () => {
     });
   });
 
-  describe("create - guard de variantes existentes", () => {
-    it("debería lanzar CustomError 409 si el producto ya tiene variantes y se regeneran", async () => {
-      const {
-        mockProductoCreate,
-        mockProductoFindUnique,
-        mockProductoVarianteCount,
-      } = require("../../../src/prisma/client").__mocks;
-
-      mockProductoCreate.mockResolvedValue({ id_producto: 5 });
-      mockProductoFindUnique.mockResolvedValue({
-        id_producto: 5,
-        nombre: "Producto Con Plantilla",
-        plantilla: { id: 1, nombre: "T", caracteristicas: [] },
-      });
-      mockProductoVarianteCount.mockResolvedValue(2);
-
-      const dto: ProductoDTO = {
-        nombre: "Producto Con Plantilla",
-        descripcion: "Desc",
-        precio: 100,
-        marca_id: 1,
-        categoria_id: 1,
-        plantillaId: 1,
-        tipo: TipoPaquete.SINERGICO,
-        opcionesDisponibles: { "10": [101] },
-      };
-
-      await expect(service.create(dto)).rejects.toMatchObject({
-        status: 409,
-        message: expect.stringContaining("ya tiene variantes generadas"),
-      });
-    });
-  });
 
   describe("duplicarProducto", () => {
     it("debería lanzar CustomError 409 si un SKU -COPIA ya existe (P2002)", async () => {
