@@ -75,6 +75,7 @@
     "prisma": "^7.0.0",
     "reflect-metadata": "^0.2.2",
     "rimraf": "^6.0.1",
+    "sharp": "^0.35.3",
     "streamifier": "^0.1.1",
     "xlsx": "^0.18.5"
   }

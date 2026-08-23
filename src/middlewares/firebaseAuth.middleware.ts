@@ -46,11 +46,11 @@ export const firebaseAuthMiddleware = async (
     console.error('Error en autenticación Firebase:', error);
     
     if (error instanceof CustomError) {
-      return res.status(error.status).json({ error: error.message });
+      return res.status(error.status).json({ message: error.message });
     }
     
     return res.status(401).json({ 
-      error: 'Token inválido o expirado' 
+      message: 'Token inválido o expirado' 
     });
   }
 };
