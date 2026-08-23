@@ -1,4 +1,5 @@
 import { prisma } from '../prisma/client.js';
+import { TX_OPTIONS } from '../prisma/transaccion.js';
 import { CustomError } from '../errors/custom.error.js';
 import { TipoPaquete, Prisma } from '@prisma/client';
 import { GenerarVariantesDTO } from '../dtos/variante/generarVariantes.dto.js';
@@ -130,7 +131,6 @@ export class VarianteService {
       variantes: variantesCreadas,
     };
   }
-
   public async actualizarStockBulk(
     productoId: number,
     data: ActualizarStockVariantesDTO
@@ -209,78 +209,37 @@ export class VarianteService {
       throw new CustomError('Algunas variantes no pertenecen al producto', 400);
     }
 
-    for (const v of variantes) {
-      if (v.stockFisico !== undefined && v.stockFisico !== null && v.stockFisico < 0) {
-        throw new CustomError('El stock físico no puede ser negativo.', 400);
-      }
-    }
+    await this.prisma.$transaction(
+      async (tx) => {
+        await Promise.all(
+          variantes.map((v) => {
+            const dataToUpdate: {
+              sku?: string;
+              stockFisico?: number | null;
+              precioExtra?: number;
+              activo?: boolean;
+            } = {};
+            if (v.sku !== undefined) dataToUpdate.sku = v.sku;
+            if (v.stockFisico !== undefined) {
+              if (v.stockFisico !== null && v.stockFisico < 0) {
+                throw new CustomError('El stock físico no puede ser negativo.', 400);
+              }
+              dataToUpdate.stockFisico = v.stockFisico;
+            }
+            if (v.precioExtra !== undefined) dataToUpdate.precioExtra = v.precioExtra;
+            if (v.activo !== undefined) dataToUpdate.activo = v.activo;
 
-    const clauses: Prisma.Sql[] = [];
-
-    const skuFragments = variantes
-      .filter((v) => v.sku !== undefined)
-      .map((v) => Prisma.sql`WHEN ${v.id} THEN ${v.sku}`);
-    if (skuFragments.length > 0) {
-      clauses.push(
-        Prisma.sql`sku = CASE id ${Prisma.join(skuFragments, ' ')} ELSE sku END`
-      );
-    }
-
-    const stockFragments = variantes
-      .filter((v) => v.stockFisico !== undefined)
-      .map((v) => Prisma.sql`WHEN ${v.id} THEN ${v.stockFisico}`);
-    if (stockFragments.length > 0) {
-      clauses.push(
-        Prisma.sql`stockFisico = CASE id ${Prisma.join(stockFragments, ' ')} ELSE stockFisico END`
-      );
-    }
-
-    const precioFragments = variantes
-      .filter((v) => v.precioExtra !== undefined)
-      .map((v) => Prisma.sql`WHEN ${v.id} THEN ${v.precioExtra}`);
-    if (precioFragments.length > 0) {
-      clauses.push(
-        Prisma.sql`precioExtra = CASE id ${Prisma.join(precioFragments, ' ')} ELSE precioExtra END`
-      );
-    }
-
-    const activoFragments = variantes
-      .filter((v) => v.activo !== undefined)
-      .map((v) => Prisma.sql`WHEN ${v.id} THEN ${v.activo}`);
-    if (activoFragments.length > 0) {
-      clauses.push(
-        Prisma.sql`activo = CASE id ${Prisma.join(activoFragments, ' ')} ELSE activo END`
-      );
-    }
-
-    if (clauses.length > 0) {
-      const query = Prisma.sql`
-        UPDATE ProductoVariante
-        SET ${Prisma.join(clauses, ', ')}
-        WHERE id IN (${Prisma.join(variantesIds)})
-      `;
-
-      try {
-        await this.prisma.$transaction(
-          (tx) => tx.$executeRaw(query),
-          {
-            timeout: 20000,
-          }
+            return tx.productoVariante.update({
+              where: { id: v.id },
+              data: dataToUpdate,
+            });
+          })
         );
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2002'
-        ) {
-          throw new CustomError(
-            'Ya existe una variante con ese SKU. Verificá que los SKUs no se repitan.',
-            409,
-            error
-          );
-        }
-        throw error;
+      },
+      {
+        timeout: 20000,
       }
-    }
+    );
 
     return {
       message: `Se actualizaron exitosamente ${variantes.length} variantes.`,
