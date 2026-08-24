@@ -26,6 +26,7 @@ const mockProductoService = {
 
 const mockImagenService = {
   uploadToCloudinary: jest.fn(),
+  subirArchivosEnLotes: jest.fn(),
 };
 
 describe("ProductoController", () => {
@@ -136,17 +137,24 @@ describe("ProductoController", () => {
         ] as any,
       };
 
-      mockImagenService.uploadToCloudinary
-        .mockResolvedValueOnce("https://cloudinary.com/icono.jpg")
-        .mockResolvedValueOnce("https://cloudinary.com/img1.jpg")
-        .mockResolvedValueOnce("https://cloudinary.com/img2.jpg");
+      mockImagenService.subirArchivosEnLotes.mockResolvedValue([
+        "https://cloudinary.com/icono.jpg",
+        "https://cloudinary.com/img1.jpg",
+        "https://cloudinary.com/img2.jpg",
+      ]);
 
       const productoCreado = { id_producto: 1, nombre: validBody.nombre, precio: 100 };
       mockProductoService.create.mockResolvedValue(productoCreado);
 
       await controller.createProducto(mockRequest as Request, mockResponse as Response, next);
 
-      expect(mockImagenService.uploadToCloudinary).toHaveBeenCalledTimes(3);
+      // Se llamó una sola vez con los 3 archivos en orden (icono → img1 → img2)
+      expect(mockImagenService.subirArchivosEnLotes).toHaveBeenCalledTimes(1);
+      expect(mockImagenService.subirArchivosEnLotes).toHaveBeenCalledWith([
+        expect.objectContaining({ buffer: Buffer.from("icono") }),
+        expect.objectContaining({ buffer: Buffer.from("img1") }),
+        expect.objectContaining({ buffer: Buffer.from("img2") }),
+      ]);
       expect(mockProductoService.create).toHaveBeenCalledWith(expect.objectContaining({
         nombre: "Nuevo Producto",
         precio: 100,
@@ -163,7 +171,7 @@ describe("ProductoController", () => {
 
       await controller.createProducto(mockRequest as Request, mockResponse as Response, next);
 
-      expect(mockImagenService.uploadToCloudinary).not.toHaveBeenCalled();
+      expect(mockImagenService.subirArchivosEnLotes).not.toHaveBeenCalled();
       expect(mockProductoService.create).not.toHaveBeenCalled();
       expect(mockResponse.status).toHaveBeenCalledWith(400);
       expect(mockResponse.json).toHaveBeenCalledWith({ message: "La imagen principal es obligatoria" });
@@ -172,7 +180,7 @@ describe("ProductoController", () => {
     it("debería manejar error en la subida de imagen principal", async () => {
       mockRequest.body = validBody;
       mockRequest.files = { icono: [{ buffer: Buffer.from("icono"), fieldname: "icono", originalname: "icono.jpg" }] } as any;
-      mockImagenService.uploadToCloudinary.mockRejectedValue(new Error("Error subiendo a Cloudinary"));
+      mockImagenService.subirArchivosEnLotes.mockRejectedValue(new Error("Error subiendo a Cloudinary"));
 
       await controller.createProducto(mockRequest as Request, mockResponse as Response, next);
 

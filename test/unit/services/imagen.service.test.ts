@@ -236,4 +236,76 @@ describe("ImagenService", () => {
       "network down"
     );
   });
+
+  describe("subirArchivosEnLotes", () => {
+    // Nota: el mock de p-limit en Jest (passthrough sin throttle real) hace que
+    // no se pueda verificar la concurrencia máxima en este entorno. El test
+    // verifica la funcionalidad: N archivos → N llamadas → N URLs en orden.
+    it("llama a uploadToCloudinary exactamente una vez por archivo y devuelve todas las URLs en orden", async () => {
+      const TOTAL = 9;
+
+      let callCount = 0;
+      jest.spyOn(service, "uploadToCloudinary").mockImplementation(async (buf) => {
+        callCount++;
+        return `https://cloudinary.com/img-${buf.toString()}.jpg`;
+      });
+
+      const archivos = Array.from({ length: TOTAL }, (_, i) => ({
+        buffer: Buffer.from(`${i}`),
+      }));
+
+      const urls = await service.subirArchivosEnLotes(archivos, 3);
+
+      expect(callCount).toBe(TOTAL);
+      expect(urls).toHaveLength(TOTAL);
+      urls.forEach((url, i) => {
+        expect(url).toBe(`https://cloudinary.com/img-${i}.jpg`);
+      });
+    });
+
+    it("preserva el orden de las URLs independientemente del orden de resolución", async () => {
+      const TOTAL = 4;
+      const resolvers: Array<() => void> = [];
+
+      jest.spyOn(service, "uploadToCloudinary").mockImplementation(async (buf, _folder) => {
+        await new Promise<void>((res) => resolvers.push(res));
+        return `https://cloudinary.com/${buf.toString()}.jpg`;
+      });
+
+      const archivos = ["a", "b", "c", "d"].map((s) => ({ buffer: Buffer.from(s) }));
+      const lotePromise = service.subirArchivosEnLotes(archivos, TOTAL);
+
+      await new Promise((res) => setImmediate(res));
+
+      // Resolver en orden invertido para verificar que Promise.all mantiene índices
+      for (let i = TOTAL - 1; i >= 0; i--) {
+        resolvers[i]?.();
+        await new Promise((res) => setImmediate(res));
+      }
+
+      const urls = await lotePromise;
+      expect(urls).toEqual([
+        "https://cloudinary.com/a.jpg",
+        "https://cloudinary.com/b.jpg",
+        "https://cloudinary.com/c.jpg",
+        "https://cloudinary.com/d.jpg",
+      ]);
+    });
+
+    it("propaga el error fail-fast si uno de los uploads falla", async () => {
+      jest
+        .spyOn(service, "uploadToCloudinary")
+        .mockResolvedValueOnce("https://cloudinary.com/ok.jpg")
+        .mockRejectedValueOnce(new Error("boom en upload 2"))
+        .mockResolvedValue("https://cloudinary.com/otro.jpg");
+
+      const archivos = Array.from({ length: 3 }, (_, i) => ({
+        buffer: Buffer.from(`img-${i}`),
+      }));
+
+      await expect(service.subirArchivosEnLotes(archivos, 3)).rejects.toThrow(
+        "boom en upload 2"
+      );
+    });
+  });
 });

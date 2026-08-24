@@ -142,11 +142,7 @@ export class ProductoController {
       ...(campos?.imagenes || []),
     ];
 
-    const urls = await Promise.all(
-      todosLosArchivos.map((file) =>
-        this.imagenService.uploadToCloudinary(file.buffer)
-      )
-    );
+    const urls = await this.imagenService.subirArchivosEnLotes(todosLosArchivos);
     console.log('[DEBUG] ✅ Imagenes subidas a Cloudinary con éxito:', urls);
 
     const [urlPrincipal, ...urlsAdicionales] = urls;
@@ -175,11 +171,7 @@ export class ProductoController {
     }
 
     if (files?.imagenes?.length) {
-      producto.imagenes = await Promise.all(
-        files.imagenes.map((file) =>
-          this.imagenService.uploadToCloudinary(file.buffer)
-        )
-      );
+      producto.imagenes = await this.imagenService.subirArchivosEnLotes(files.imagenes);
     }
 
     const updatedProducto = await this.productoService.update(id, producto);
