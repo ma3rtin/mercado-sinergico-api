@@ -116,3 +116,28 @@ describe("ProductoDTO - validación de opcionesDisponibles", () => {
     expect((await validarOpciones({ "1": [1.5] }))?.constraints).toHaveProperty("isOpcionesDisponibles");
   });
 });
+
+describe("ProductoDTO - límites numéricos", () => {
+  const baseBody = {
+    nombre: "Producto Test",
+    descripcion: "Descripción válida del producto",
+    marca_id: 1,
+    categoria_id: 1,
+  };
+
+  async function validar(body: Record<string, unknown>) {
+    const dto = plainToInstance(ProductoDTO, { ...baseBody, ...body });
+    return validate(dto);
+  }
+
+  it("acepta precio y stock iguales a cero", async () => {
+    expect(await validar({ precio: 0, stock: 0 })).toHaveLength(0);
+  });
+
+  it("rechaza precio y stock negativos", async () => {
+    const errores = await validar({ precio: -1, stock: -1 });
+    expect(errores.map((error) => error.property)).toEqual(
+      expect.arrayContaining(["precio", "stock"]),
+    );
+  });
+});

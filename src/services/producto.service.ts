@@ -210,7 +210,7 @@ export class ProductoService {
       );
     }
 
-    if (!plantillaId && tipo === TipoPaquete.ENERGICO && !rest.stock) {
+    if (!plantillaId && tipo === TipoPaquete.ENERGICO && (rest.stock === undefined || rest.stock === null)) {
       throw new CustomError(
         'Los productos enérgicos sin variantes deben tener stock definido.',
         400
