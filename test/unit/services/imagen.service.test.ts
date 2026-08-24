@@ -94,7 +94,7 @@ describe("ImagenService", () => {
     setupUploadStream();
   });
 
-  it("comprime una imagen grande a WebP sin exceder 2000px y le pasa { folder } a Cloudinary", async () => {
+  it("comprime una imagen grande a WebP sin exceder 1200px y le pasa { folder } a Cloudinary", async () => {
     const png = await generatePng(3000, 2000);
 
     const url = await service.uploadToCloudinary(png);
@@ -105,14 +105,14 @@ describe("ImagenService", () => {
 
     const metadata = await sharp(uploadedBuffers[0]).metadata();
     expect(metadata.format).toBe("webp");
-    expect(metadata.width).toBe(2000);
-    expect(metadata.height).toBe(1333);
-    expect(Math.max(metadata.width ?? 0, metadata.height ?? 0)).toBeLessThanOrEqual(2000);
+    expect(metadata.width).toBe(1200);
+    expect(metadata.height).toBe(800);
+    expect(Math.max(metadata.width ?? 0, metadata.height ?? 0)).toBeLessThanOrEqual(1200);
 
     expect(cloudinaryOptions).toEqual([{ folder: "mercado_sinergico" }]);
   });
 
-  it("no agranda imágenes más chicas que 2000px (withoutEnlargement)", async () => {
+  it("no agranda imágenes más chicas que 1200px (withoutEnlargement)", async () => {
     const png = await generatePng(100, 80);
 
     const url = await service.uploadToCloudinary(png);
