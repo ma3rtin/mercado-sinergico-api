@@ -13,6 +13,11 @@ const UPLOAD_TIMEOUT_MS = 15000;
 // Los módulos ESM son singletons: corre una sola vez por proceso al boot.
 sharp.concurrency(1);
 
+// Desactiva la caché interna de sharp. En endpoints que procesan varias
+// imágenes por request, la caché acumula píxeles decodificados en memoria
+// nativa que V8 no puede liberar, presionando el límite del contenedor.
+sharp.cache(false);
+
 export class ImagenService {
   constructor() {}
 

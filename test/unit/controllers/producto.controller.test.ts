@@ -203,6 +203,45 @@ describe("ProductoController", () => {
         expect.objectContaining({ message: expect.stringContaining("JSON válido") })
       );
     });
+
+    it("debería crear un producto con el máximo de archivos (1 icono + 7 imágenes = 8 total)", async () => {
+      mockRequest.body = validBody;
+      mockRequest.files = {
+        icono: [{ buffer: Buffer.from("icono"), fieldname: "icono", originalname: "icono.jpg" }] as any,
+        imagenes: Array.from({ length: 7 }, (_, i) => ({
+          buffer: Buffer.from(`img${i}`),
+          fieldname: "imagenes",
+          originalname: `img${i}.jpg`,
+        })) as any,
+      };
+
+      mockImagenService.subirArchivosEnLotes.mockResolvedValue([
+        "https://cloudinary.com/icono.jpg",
+        ...Array.from({ length: 7 }, (_, i) => `https://cloudinary.com/img${i}.jpg`),
+      ]);
+
+      const productoCreado = { id_producto: 1, nombre: validBody.nombre, precio: 100 };
+      mockProductoService.create.mockResolvedValue(productoCreado);
+
+      await controller.createProducto(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockImagenService.subirArchivosEnLotes).toHaveBeenCalledTimes(1);
+      expect(mockImagenService.subirArchivosEnLotes).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ buffer: Buffer.from("icono") }),
+          ...Array.from({ length: 7 }, (_, i) =>
+            expect.objectContaining({ buffer: Buffer.from(`img${i}`) })
+          ),
+        ])
+      );
+      expect(mockProductoService.create).toHaveBeenCalledWith(expect.objectContaining({
+        imagen_url: "https://cloudinary.com/icono.jpg",
+        imagenes: expect.arrayContaining(
+          Array.from({ length: 7 }, (_, i) => `https://cloudinary.com/img${i}.jpg`)
+        ),
+      }));
+      expect(mockResponse.status).toHaveBeenCalledWith(201);
+    });
   });
 
   describe("updateProducto", () => {
