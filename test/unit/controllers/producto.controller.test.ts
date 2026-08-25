@@ -204,11 +204,11 @@ describe("ProductoController", () => {
       );
     });
 
-    it("debería crear un producto con el máximo de archivos (1 icono + 7 imágenes = 8 total)", async () => {
+    it("debería crear un producto con el máximo de archivos (1 icono + 15 imágenes = 16 total)", async () => {
       mockRequest.body = validBody;
       mockRequest.files = {
         icono: [{ buffer: Buffer.from("icono"), fieldname: "icono", originalname: "icono.jpg" }] as any,
-        imagenes: Array.from({ length: 7 }, (_, i) => ({
+        imagenes: Array.from({ length: 15 }, (_, i) => ({
           buffer: Buffer.from(`img${i}`),
           fieldname: "imagenes",
           originalname: `img${i}.jpg`,
@@ -217,7 +217,7 @@ describe("ProductoController", () => {
 
       mockImagenService.subirArchivosEnLotes.mockResolvedValue([
         "https://cloudinary.com/icono.jpg",
-        ...Array.from({ length: 7 }, (_, i) => `https://cloudinary.com/img${i}.jpg`),
+        ...Array.from({ length: 15 }, (_, i) => `https://cloudinary.com/img${i}.jpg`),
       ]);
 
       const productoCreado = { id_producto: 1, nombre: validBody.nombre, precio: 100 };
@@ -229,7 +229,7 @@ describe("ProductoController", () => {
       expect(mockImagenService.subirArchivosEnLotes).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({ buffer: Buffer.from("icono") }),
-          ...Array.from({ length: 7 }, (_, i) =>
+          ...Array.from({ length: 15 }, (_, i) =>
             expect.objectContaining({ buffer: Buffer.from(`img${i}`) })
           ),
         ])
@@ -237,7 +237,7 @@ describe("ProductoController", () => {
       expect(mockProductoService.create).toHaveBeenCalledWith(expect.objectContaining({
         imagen_url: "https://cloudinary.com/icono.jpg",
         imagenes: expect.arrayContaining(
-          Array.from({ length: 7 }, (_, i) => `https://cloudinary.com/img${i}.jpg`)
+          Array.from({ length: 15 }, (_, i) => `https://cloudinary.com/img${i}.jpg`)
         ),
       }));
       expect(mockResponse.status).toHaveBeenCalledWith(201);
