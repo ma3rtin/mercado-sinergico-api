@@ -106,14 +106,17 @@ export class ProductoController {
     const body = req.body;
     const campos = req.files as { [fieldname: string]: Express.Multer.File[] };
 
-    console.log('[DEBUG] 🚀 Iniciando creación de producto:', body.nombre);
-    console.log('[DEBUG] 📋 Datos del cuerpo recibidos:', {
-      precio: body.precio,
-      marca_id: body.marca_id,
-      categoria_id: body.categoria_id,
-      plantillaId: body.plantillaId,
-      tipo: body.tipo,
-    });
+    const totalArchivos = (campos?.icono?.length ?? 0) + (campos?.imagenes?.length ?? 0);
+    const totalBytes = [...(campos?.icono ?? []), ...(campos?.imagenes ?? [])]
+      .reduce((sum, f) => sum + f.buffer.length, 0);
+    const memBefore = process.memoryUsage();
+    console.log(
+      `[createProducto] Archivos recibidos: ${totalArchivos} ` +
+      `(icono: ${campos?.icono?.length ?? 0}, imagenes: ${campos?.imagenes?.length ?? 0}), ` +
+      `tamaño total: ${(totalBytes / 1024).toFixed(1)} KB, ` +
+      `heap: ${(memBefore.heapUsed / 1024 / 1024).toFixed(1)} MB / ${(memBefore.heapTotal / 1024 / 1024).toFixed(1)} MB, ` +
+      `rss: ${(memBefore.rss / 1024 / 1024).toFixed(1)} MB`
+    );
 
     const producto: ProductoDTO = {
       nombre: body.nombre,
@@ -142,12 +145,13 @@ export class ProductoController {
       ...(campos?.imagenes || []),
     ];
 
-    const urls = await Promise.all(
-      todosLosArchivos.map((file) =>
-        this.imagenService.uploadToCloudinary(file.buffer)
-      )
+    const urls = await this.imagenService.subirArchivosEnLotes(todosLosArchivos);
+    const memAfter = process.memoryUsage();
+    console.log(
+      `[createProducto] Imagenes subidas: ${urls.length} URLs, ` +
+      `heap: ${(memAfter.heapUsed / 1024 / 1024).toFixed(1)} MB / ${(memAfter.heapTotal / 1024 / 1024).toFixed(1)} MB, ` +
+      `rss: ${(memAfter.rss / 1024 / 1024).toFixed(1)} MB`
     );
-    console.log('[DEBUG] ✅ Imagenes subidas a Cloudinary con éxito:', urls);
 
     const [urlPrincipal, ...urlsAdicionales] = urls;
     producto.imagen_url = urlPrincipal;
@@ -155,9 +159,9 @@ export class ProductoController {
       producto.imagenes = urlsAdicionales;
     }
 
-    console.log('[DEBUG] 💾 Guardando producto en base de datos con Prisma...');
+    console.log('[createProducto] Guardando producto en base de datos...');
     const newProducto = await this.productoService.create(producto);
-    console.log('[DEBUG] 🎉 Producto creado exitosamente con ID:', newProducto.id_producto);
+    console.log(`[createProducto] Producto creado con ID: ${newProducto.id_producto}`);
     res.status(201).json(newProducto);
   });
 
@@ -175,11 +179,7 @@ export class ProductoController {
     }
 
     if (files?.imagenes?.length) {
-      producto.imagenes = await Promise.all(
-        files.imagenes.map((file) =>
-          this.imagenService.uploadToCloudinary(file.buffer)
-        )
-      );
+      producto.imagenes = await this.imagenService.subirArchivosEnLotes(files.imagenes);
     }
 
     const updatedProducto = await this.productoService.update(id, producto);

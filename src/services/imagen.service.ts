@@ -2,11 +2,21 @@ import { v2 as cloudinary } from 'cloudinary';
 import axios from 'axios';
 import streamifier from 'streamifier';
 import sharp from 'sharp';
+import pLimit from 'p-limit';
 import { CustomError } from '../errors/custom.error.js';
 
-const MAX_DIMENSION = 2000;
-const WEBP_QUALITY = 85;
+const MAX_DIMENSION = 1200;
+const WEBP_QUALITY = 80;
 const UPLOAD_TIMEOUT_MS = 15000;
+
+// Limita sharp a 1 hilo de libvips para evitar saturar el contenedor (0.1 vCPU).
+// Los módulos ESM son singletons: corre una sola vez por proceso al boot.
+sharp.concurrency(1);
+
+// Desactiva la caché interna de sharp. En endpoints que procesan varias
+// imágenes por request, la caché acumula píxeles decodificados en memoria
+// nativa que V8 no puede liberar, presionando el límite del contenedor.
+sharp.cache(false);
 
 export class ImagenService {
   constructor() {}
@@ -108,6 +118,24 @@ export class ImagenService {
     } finally {
       clearTimeout(timeoutId);
     }
+  };
+
+  // Sube un lote de archivos a Cloudinary con concurrencia controlada.
+  // - Reutilizable por cualquier controller mediante tipado estructural { buffer: Buffer }[].
+  // - Promise.all preserva el orden por índice (urls[0] = icono en createProducto).
+  // - Fail-fast idéntico al Promise.all anterior.
+  // - folder?: string — undefined dispara el default 'mercado_sinergico' de uploadToCloudinary.
+  public subirArchivosEnLotes = async (
+    archivos: { buffer: Buffer }[],
+    limite = 3,
+    folder?: string
+  ): Promise<string[]> => {
+    const limit = pLimit(limite);
+    return Promise.all(
+      archivos.map((archivo) =>
+        limit(() => this.uploadToCloudinary(archivo.buffer, folder))
+      )
+    );
   };
 
   public async uploadFromUrl(
