@@ -5,6 +5,7 @@ import pLimit from 'p-limit';
 import { CustomError } from '../errors/custom.error.js';
 
 const MAX_DIMENSION = 1200;
+const WEBP_QUALITY = 80;
 const UPLOAD_TIMEOUT_MS = 15000;
 
 export class ImagenService {
@@ -31,8 +32,13 @@ export class ImagenService {
         const stream = cloudinary.uploader.upload_stream(
           {
             folder,
+            // format: 'webp' convierte el asset guardado. Ojo: fetch_format:'auto'
+            // NO sirve acá — es una feature de entrega (f_auto en la URL), como
+            // transformación de subida se ignora y el asset queda en su formato
+            // original, ~2.4x más pesado que el WebP que producía sharp.
+            format: 'webp',
             transformation: [
-              { width: MAX_DIMENSION, height: MAX_DIMENSION, crop: 'limit', quality: 'auto', fetch_format: 'auto' },
+              { width: MAX_DIMENSION, height: MAX_DIMENSION, crop: 'limit', quality: WEBP_QUALITY },
             ],
           },
           (error, result) => {

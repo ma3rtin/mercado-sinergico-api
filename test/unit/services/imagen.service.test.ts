@@ -94,11 +94,20 @@ describe("ImagenService", () => {
     expect(cloudinaryOptions).toEqual([
       {
         folder: "mercado_sinergico",
-        transformation: [
-          { width: 1200, height: 1200, crop: "limit", quality: "auto", fetch_format: "auto" },
-        ],
+        format: "webp",
+        transformation: [{ width: 1200, height: 1200, crop: "limit", quality: 80 }],
       },
     ]);
+  });
+
+  // fetch_format:'auto' es una feature de entrega, no de subida: si se usa acá
+  // el asset queda en su formato original (~2.4x más pesado). Este test evita
+  // que alguien lo reintroduzca por confundirlo con f_auto de la URL.
+  it("guarda el asset en webp, no en el formato original", async () => {
+    await service.uploadToCloudinary(Buffer.from("imagen"));
+
+    expect(cloudinaryOptions[0].format).toBe("webp");
+    expect(cloudinaryOptions[0]).not.toHaveProperty("fetch_format");
   });
 
   it("rechaza con CustomError (no un Error genérico) si Cloudinary nunca responde en 15s", async () => {
