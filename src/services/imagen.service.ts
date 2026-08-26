@@ -1,22 +1,11 @@
 import { v2 as cloudinary } from 'cloudinary';
 import axios from 'axios';
 import streamifier from 'streamifier';
-import sharp from 'sharp';
 import pLimit from 'p-limit';
 import { CustomError } from '../errors/custom.error.js';
 
 const MAX_DIMENSION = 1200;
-const WEBP_QUALITY = 80;
 const UPLOAD_TIMEOUT_MS = 15000;
-
-// Limita sharp a 1 hilo de libvips para evitar saturar el contenedor (0.1 vCPU).
-// Los módulos ESM son singletons: corre una sola vez por proceso al boot.
-sharp.concurrency(1);
-
-// Desactiva la caché interna de sharp. En endpoints que procesan varias
-// imágenes por request, la caché acumula píxeles decodificados en memoria
-// nativa que V8 no puede liberar, presionando el límite del contenedor.
-sharp.cache(false);
 
 export class ImagenService {
   constructor() {}
@@ -24,81 +13,51 @@ export class ImagenService {
   // Compartido por creación y edición de productos, y por la edición de
   // variantes individuales (VarianteService.actualizarVariante): el timeout
   // de acá protege a los tres flujos, no solo a la creación de productos.
+  //
+  // El resize/recompresión se delega a Cloudinary vía "incoming transformation"
+  // en vez de procesarlo acá con sharp: en un contenedor de CPU compartida
+  // (0.1-0.2 vCPU), decodificar+recodificar 16 imágenes secuencialmente
+  // dominaba el tiempo de la request y disparaba 504 en el gateway. Subir el
+  // buffer original y dejar que Cloudinary transforme del otro lado saca ese
+  // costo de CPU del contenedor.
   public uploadToCloudinary = async (
     buffer: Buffer,
     folder = 'mercado_sinergico'
   ): Promise<string> => {
     const start = Date.now();
 
-    const procesarYSubir = async (): Promise<string> => {
-      let uploadBuffer = buffer;
-      try {
-        const metadata = await sharp(buffer).metadata();
-        const originalKb = buffer.length / 1024;
-        const longestSide = Math.max(metadata.width ?? 0, metadata.height ?? 0);
-        console.log(
-          `[uploadToCloudinary] Procesando imagen: ${metadata.width ?? '?'}x${
-            metadata.height ?? '?'
-          }px (${originalKb.toFixed(1)} KB, lado mayor ${longestSide}px)`
-        );
-
-        uploadBuffer = await sharp(buffer)
-          .rotate()
-          .resize({
-            width: MAX_DIMENSION,
-            height: MAX_DIMENSION,
-            fit: 'inside',
-            withoutEnlargement: true
-          })
-          .webp({ quality: WEBP_QUALITY })
-          .toBuffer();
-
-        const processedKb = uploadBuffer.length / 1024;
-        console.log(
-          `[uploadToCloudinary] Compresión con sharp: ${originalKb.toFixed(1)} KB -> ${
-            processedKb.toFixed(1)
-          } KB WebP en ${Date.now() - start}ms`
-        );
-      } catch (error) {
-        console.warn(
-          `[uploadToCloudinary] No se pudo procesar la imagen con sharp, se sube el buffer original (${Date.now() - start}ms):`,
-          error
-        );
-      }
-
-      const uploadStart = Date.now();
-      return new Promise<string>((resolve, reject) => {
+    const subir = (): Promise<string> =>
+      new Promise<string>((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
-          { folder },
+          {
+            folder,
+            transformation: [
+              { width: MAX_DIMENSION, height: MAX_DIMENSION, crop: 'limit', quality: 'auto', fetch_format: 'auto' },
+            ],
+          },
           (error, result) => {
             if (error) {
               console.error(
-                `[uploadToCloudinary] Error subiendo a Cloudinary (${Date.now() - uploadStart}ms):`,
+                `[uploadToCloudinary] Error subiendo a Cloudinary (${Date.now() - start}ms):`,
                 error
               );
               return reject(error);
             }
             if (!result?.secure_url) {
               console.error(
-                `[uploadToCloudinary] Cloudinary no devolvió URL segura (${Date.now() - uploadStart}ms)`
+                `[uploadToCloudinary] Cloudinary no devolvió URL segura (${Date.now() - start}ms)`
               );
               return reject(new Error('No se obtuvo URL segura de Cloudinary'));
             }
             console.log(
-              `[uploadToCloudinary] Subida a Cloudinary completada en ${
-                Date.now() - uploadStart
-              }ms. URL: ${result.secure_url}`
+              `[uploadToCloudinary] Subida a Cloudinary completada en ${Date.now() - start}ms. URL: ${result.secure_url}`
             );
             resolve(result.secure_url);
           }
         );
-        streamifier.createReadStream(uploadBuffer).pipe(stream);
+        streamifier.createReadStream(buffer).pipe(stream);
       });
-    };
 
-    // Cubre toda la operación (compresión con sharp + subida), no solo la
-    // subida: si sharp se cuelga con una imagen rara, este límite también
-    // corta, no solo un problema de conectividad con Cloudinary.
     let timeoutId!: NodeJS.Timeout;
     const timeout = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => {
@@ -112,9 +71,7 @@ export class ImagenService {
     });
 
     try {
-      const url = await Promise.race([procesarYSubir(), timeout]);
-      console.log(`[uploadToCloudinary] Total (compresión + subida): ${Date.now() - start}ms`);
-      return url;
+      return await Promise.race([subir(), timeout]);
     } finally {
       clearTimeout(timeoutId);
     }
@@ -125,9 +82,11 @@ export class ImagenService {
   // - Promise.all preserva el orden por índice (urls[0] = icono en createProducto).
   // - Fail-fast idéntico al Promise.all anterior.
   // - folder?: string — undefined dispara el default 'mercado_sinergico' de uploadToCloudinary.
+  // - limite sube de 3 a 6: sin sharp, la request es I/O de red, no CPU, y
+  //   soporta más subidas simultáneas sin saturar el contenedor.
   public subirArchivosEnLotes = async (
     archivos: { buffer: Buffer }[],
-    limite = 3,
+    limite = 6,
     folder?: string
   ): Promise<string[]> => {
     const limit = pLimit(limite);

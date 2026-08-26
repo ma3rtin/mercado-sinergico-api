@@ -160,8 +160,11 @@ export class ProductoController {
     }
 
     console.log('[createProducto] Guardando producto en base de datos...');
+    const dbStart = Date.now();
     const newProducto = await this.productoService.create(producto);
-    console.log(`[createProducto] Producto creado con ID: ${newProducto.id_producto}`);
+    console.log(
+      `[createProducto] Producto creado con ID: ${newProducto.id_producto} en ${Date.now() - dbStart}ms`
+    );
     res.status(201).json(newProducto);
   });
 
