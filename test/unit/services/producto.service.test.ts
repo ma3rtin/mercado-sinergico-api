@@ -200,6 +200,45 @@ describe("ProductoService", () => {
       );
     });
 
+    it("ordena por id ascendente cuando no se pide ningún orden", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll();
+      expect(mockProductoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [{ id_producto: "asc" }] })
+      );
+    });
+
+    it.each([
+      ["recientes", { createdAt: "desc" }],
+      ["a-z", { nombre: "asc" }],
+      ["z-a", { nombre: "desc" }],
+      ["precio-asc", { precio: "asc" }],
+      ["precio-desc", { precio: "desc" }],
+      ["mas-stock", { stock: "desc" }],
+    ])("traduce el orden '%s' a la cláusula de prisma correcta", async (orden, esperado) => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, 0, 10, false, undefined, undefined, undefined, undefined, undefined, orden as string);
+      expect(mockProductoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [esperado, { id_producto: "asc" }] })
+      );
+    });
+
+    it("agrega el id como desempate para que la paginación sea estable", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, 0, 10, false, undefined, undefined, undefined, undefined, undefined, "precio-asc");
+      const orderBy = mockProductoFindMany.mock.calls[0][0].orderBy;
+      expect(orderBy).toHaveLength(2);
+      expect(orderBy[1]).toEqual({ id_producto: "asc" });
+    });
+
+    it("cae al orden por defecto si el valor es desconocido", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, 0, 10, false, undefined, undefined, undefined, undefined, undefined, "no-existe");
+      expect(mockProductoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [{ id_producto: "asc" }] })
+      );
+    });
+
     it("debería aplicar filtros de categorías, marcas, precios y tipo de producto", async () => {
       const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
       await service.getAll(undefined, 0, 10, false, [1, 2], [3], 100, 500);
