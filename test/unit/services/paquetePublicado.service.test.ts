@@ -405,4 +405,83 @@ describe("PaquetePublicadoService", () => {
       await expect(service.archivar(99, true)).rejects.toThrow("Paquete no encontrado");
     });
   });
+
+  describe("getPorCerrarse", () => {
+    const paqueteCrudo = {
+      id_paquete_publicado: 1,
+      nombre: "Paquete cerca de cerrar",
+      tipo: "SINERGICO",
+      cant_usuarios_registrados: 0,
+      cant_productos_reservados: 0,
+      monto_total: 0,
+      pedidos: [
+        {
+          estadoId: 2,
+          usuario: { id: 7 },
+          monto_total: 1500,
+          detalles: [{ cantidad: 3 }],
+        },
+      ],
+    };
+
+    it("debería pedir sólo paquetes activos y no archivados", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getPorCerrarse();
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ estadoId: 1, archivado: false }),
+        })
+      );
+    });
+
+    it("debería acotar la búsqueda a los que cierran dentro de los próximos 30 días", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      jest.useFakeTimers().setSystemTime(new Date("2026-03-01T12:00:00Z"));
+
+      const limiteEsperado = new Date("2026-03-01T12:00:00Z");
+      limiteEsperado.setDate(limiteEsperado.getDate() + 30);
+
+      await service.getPorCerrarse();
+
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ fecha_fin: { lte: limiteEsperado } }),
+        })
+      );
+      jest.useRealTimers();
+    });
+
+    it("debería ordenar por fecha de cierre ascendente", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getPorCerrarse();
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { fecha_fin: "asc" } })
+      );
+    });
+
+    it("debería retornar un array vacío cuando no hay paquetes por cerrarse", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockPaquetePublicadoFindMany.mockResolvedValue([]);
+
+      const result = await service.getPorCerrarse();
+
+      expect(result).toEqual([]);
+    });
+
+    it("debería devolver los paquetes con los campos computados aplicados", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockPaquetePublicadoFindMany.mockResolvedValue([paqueteCrudo]);
+
+      const [result] = await service.getPorCerrarse();
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          id_paquete_publicado: 1,
+          cant_usuarios_registrados: 1,
+          cant_productos_reservados: 3,
+          monto_total: 1500,
+        })
+      );
+    });
+  });
 });
