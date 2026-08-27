@@ -425,7 +425,9 @@ export class PaquetePublicadoService {
     const paquetes = await this.prisma.paquetePublicado.findMany({
       where: {
         estadoId: ESTADO_PAQUETE.ACTIVO,
-        fecha_fin: { lte: dentroDe30Dias },
+        // El gte descarta los que ya vencieron: sin el, un paquete ACTIVO con
+        // fecha pasada seguia entrando en "por cerrarse".
+        fecha_fin: { gte: hoy, lte: dentroDe30Dias },
         archivado: false,
       },
       include: {

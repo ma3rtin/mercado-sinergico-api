@@ -436,7 +436,8 @@ describe("PaquetePublicadoService", () => {
 
     it("debería acotar la búsqueda a los que cierran dentro de los próximos 30 días", async () => {
       const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
-      jest.useFakeTimers().setSystemTime(new Date("2026-03-01T12:00:00Z"));
+      const ahora = new Date("2026-03-01T12:00:00Z");
+      jest.useFakeTimers().setSystemTime(ahora);
 
       const limiteEsperado = new Date("2026-03-01T12:00:00Z");
       limiteEsperado.setDate(limiteEsperado.getDate() + 30);
@@ -445,9 +446,23 @@ describe("PaquetePublicadoService", () => {
 
       expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ fecha_fin: { lte: limiteEsperado } }),
+          where: expect.objectContaining({ fecha_fin: { gte: ahora, lte: limiteEsperado } }),
         })
       );
+      jest.useRealTimers();
+    });
+
+    it("no debería incluir los paquetes cuya fecha de cierre ya pasó", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      const ahora = new Date("2026-03-01T12:00:00Z");
+      jest.useFakeTimers().setSystemTime(ahora);
+
+      await service.getPorCerrarse();
+
+      const { where } = mockPaquetePublicadoFindMany.mock.calls[0][0];
+      // Sin cota inferior, un paquete ACTIVO vencido se colaba al home y la
+      // card lo mostraba como "Finaliza en Finalizado".
+      expect(where.fecha_fin.gte).toEqual(ahora);
       jest.useRealTimers();
     });
 
