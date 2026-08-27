@@ -58,6 +58,9 @@ export class ProductoController {
       : undefined;
     const precioMin = req.query.precioMin ? parseFloat(req.query.precioMin as string) : undefined;
     const precioMax = req.query.precioMax ? parseFloat(req.query.precioMax as string) : undefined;
+    // Un orden desconocido cae al default en vez de responder 400: es un
+    // parametro cosmetico y una URL vieja no deberia romper el catalogo.
+    const orden = req.query.orden ? (req.query.orden as string) : undefined;
 
     const skip = page && limit ? (page - 1) * limit : undefined;
     const take = limit;
@@ -71,7 +74,8 @@ export class ProductoController {
       marcas,
       precioMin,
       precioMax,
-      zonas
+      zonas,
+      orden
     );
 
     if (page !== undefined && limit !== undefined) {
@@ -160,8 +164,11 @@ export class ProductoController {
     }
 
     console.log('[createProducto] Guardando producto en base de datos...');
+    const dbStart = Date.now();
     const newProducto = await this.productoService.create(producto);
-    console.log(`[createProducto] Producto creado con ID: ${newProducto.id_producto}`);
+    console.log(
+      `[createProducto] Producto creado con ID: ${newProducto.id_producto} en ${Date.now() - dbStart}ms`
+    );
     res.status(201).json(newProducto);
   });
 

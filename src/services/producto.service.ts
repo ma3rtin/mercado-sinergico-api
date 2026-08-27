@@ -8,6 +8,24 @@ import { generarVariantesEnTransaccion } from './variante-generacion.helper.js';
 
 type PrismaOrTx = Prisma.TransactionClient | typeof prisma;
 
+const ORDEN_PRODUCTOS: Record<string, Prisma.ProductoOrderByWithRelationInput> = {
+  recientes: { createdAt: 'desc' },
+  'a-z': { nombre: 'asc' },
+  'z-a': { nombre: 'desc' },
+  'precio-asc': { precio: 'asc' },
+  'precio-desc': { precio: 'desc' },
+  'mas-stock': { stock: 'desc' },
+};
+
+// El id como desempate deja la paginacion estable: sin el, dos productos con
+// el mismo precio pueden repetirse o saltearse entre paginas.
+const DESEMPATE: Prisma.ProductoOrderByWithRelationInput = { id_producto: 'asc' };
+
+function construirOrderBy(orden?: string): Prisma.ProductoOrderByWithRelationInput[] {
+  const criterio = orden ? ORDEN_PRODUCTOS[orden] : undefined;
+  return criterio ? [criterio, DESEMPATE] : [DESEMPATE];
+}
+
 export class ProductoService {
   private prisma = prisma;
 
@@ -20,7 +38,8 @@ export class ProductoService {
     marcas?: number[],
     precioMin?: number,
     precioMax?: number,
-    zonas?: number[]
+    zonas?: number[],
+    orden?: string
   ) {
     const where: Prisma.ProductoWhereInput = {};
     if (name) {
@@ -72,7 +91,7 @@ export class ProductoService {
       },
       ...(skip !== undefined && { skip }),
       ...(take !== undefined && { take }),
-      orderBy: { id_producto: 'asc' },
+      orderBy: construirOrderBy(orden),
     });
 
     return productos.map((p) => new ProductoItemListaDTO(p));
@@ -473,75 +492,90 @@ export class ProductoService {
     }
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        const nuevoProducto = await tx.producto.create({
-          data: {
-            nombre: `${producto.nombre} (Copia)`,
-            descripcion: producto.descripcion,
-            precio: producto.precio,
-            peso: producto.peso,
-            altura: producto.altura,
-            ancho: producto.ancho,
-            profundidad: producto.profundidad,
-            stock: producto.stock,
-            tipo: producto.tipo,
-            imagen_url: producto.imagen_url,
-            plantillaId: producto.plantillaId,
-            categoria_id: producto.categoria_id,
-            marca_id: producto.marca_id,
-          },
-        });
-
-        if (producto.imagenes.length > 0) {
-          await tx.productoImagen.createMany({
-            data: producto.imagenes.map((img) => ({
-              url: img.url,
-              productoId: nuevoProducto.id_producto,
-            })),
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const nuevoProducto = await tx.producto.create({
+            data: {
+              nombre: `${producto.nombre} (Copia)`,
+              descripcion: producto.descripcion,
+              precio: producto.precio,
+              peso: producto.peso,
+              altura: producto.altura,
+              ancho: producto.ancho,
+              profundidad: producto.profundidad,
+              stock: producto.stock,
+              tipo: producto.tipo,
+              imagen_url: producto.imagen_url,
+              plantillaId: producto.plantillaId,
+              categoria_id: producto.categoria_id,
+              marca_id: producto.marca_id,
+            },
           });
-        }
 
-        if (producto.variantes.length > 0) {
-          for (const variante of producto.variantes) {
-            const nuevaVariante = await tx.productoVariante.create({
-              data: {
+          if (producto.imagenes.length > 0) {
+            await tx.productoImagen.createMany({
+              data: producto.imagenes.map((img) => ({
+                url: img.url,
                 productoId: nuevoProducto.id_producto,
-                sku: variante.sku ? `${variante.sku}-COPIA` : null,
-                stockFisico: variante.stockFisico,
-                precioExtra: variante.precioExtra,
-                activo: variante.activo,
-              },
+              })),
+            });
+          }
+
+          if (producto.variantes.length > 0) {
+            // El id del producto nuevo alcanza para hacer único el SKU de la
+            // copia, así que no hace falta consultar colisiones ni escalar sufijos.
+            const variantesData = producto.variantes.map((variante) => ({
+              productoId: nuevoProducto.id_producto,
+              sku: variante.sku
+                ? `${variante.sku}-COPIA-${nuevoProducto.id_producto}`
+                : null,
+              stockFisico: variante.stockFisico,
+              precioExtra: variante.precioExtra,
+              activo: variante.activo,
+            }));
+
+            await tx.productoVariante.createMany({ data: variantesData });
+
+            const variantesCreadas = await tx.productoVariante.findMany({
+              where: { productoId: nuevoProducto.id_producto },
+              orderBy: { id: 'asc' },
             });
 
-            if (variante.opciones.length > 0) {
-              await tx.productoVarianteOpcion.createMany({
-                data: variante.opciones.map((vo) => ({
-                  varianteId: nuevaVariante.id,
-                  caracteristicaId: vo.caracteristicaId,
-                  opcionId: vo.opcionId,
-                })),
-              });
+            const opcionesData = variantesCreadas.flatMap((nuevaVariante, i) => {
+              const original = producto.variantes[i];
+              return original.opciones.map((vo) => ({
+                varianteId: nuevaVariante.id,
+                caracteristicaId: vo.caracteristicaId,
+                opcionId: vo.opcionId,
+              }));
+            });
+
+            if (opcionesData.length > 0) {
+              await tx.productoVarianteOpcion.createMany({ data: opcionesData });
             }
           }
-        }
 
-        return tx.producto.findUnique({
-          where: { id_producto: nuevoProducto.id_producto },
-          include: {
-            imagenes: true,
-            variantes: {
-              include: {
-                opciones: {
-                  include: {
-                    caracteristica: true,
-                    opcion: true,
+          return tx.producto.findUnique({
+            where: { id_producto: nuevoProducto.id_producto },
+            include: {
+              imagenes: true,
+              variantes: {
+                include: {
+                  opciones: {
+                    include: {
+                      caracteristica: true,
+                      opcion: true,
+                    },
                   },
                 },
               },
             },
-          },
-        });
-      });
+          });
+        },
+        {
+          timeout: 20000,
+        }
+      );
     } catch (error: unknown) {
       const err = error as { code?: string };
       if (err.code === 'P2002') {

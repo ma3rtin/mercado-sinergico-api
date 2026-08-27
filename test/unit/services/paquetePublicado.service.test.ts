@@ -123,6 +123,37 @@ describe("PaquetePublicadoService", () => {
       );
     });
 
+    it("ordena por id descendente cuando no se pide ningún orden", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll();
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [{ id_paquete_publicado: "desc" }] })
+      );
+    });
+
+    it.each([
+      ["recientes", { createdAt: "desc" }],
+      ["a-z", { nombre: "asc" }],
+      ["z-a", { nombre: "desc" }],
+      ["mas-participantes", { cant_usuarios_registrados: "desc" }],
+    ])("traduce el orden '%s' a la cláusula de prisma correcta", async (orden, esperado) => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, undefined, false, undefined, undefined, undefined, undefined, undefined, orden as string);
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderBy: [esperado, { id_paquete_publicado: "desc" }],
+        })
+      );
+    });
+
+    it("cae al orden por defecto si el valor es desconocido", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, undefined, false, undefined, undefined, undefined, undefined, undefined, "no-existe");
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [{ id_paquete_publicado: "desc" }] })
+      );
+    });
+
     it("debería no filtrar por archivado cuando includeArchived es true", async () => {
       const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
       await service.getAll(undefined, undefined, true);
