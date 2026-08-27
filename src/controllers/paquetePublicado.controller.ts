@@ -39,6 +39,7 @@ export class PaquetePublicadoController {
     const estados = req.query.estados
       ? (req.query.estados as string).split(',')
       : undefined;
+    const orden = req.query.orden ? (req.query.orden as string) : undefined;
 
     const skip = page && limit ? (page - 1) * limit : undefined;
     const take = limit;
@@ -51,7 +52,8 @@ export class PaquetePublicadoController {
       marcas,
       zonas,
       tiposPaquete,
-      estados
+      estados,
+      orden
     );
 
     if (!paquetes) throw new CustomError('Paquetes no encontrados', 404);

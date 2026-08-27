@@ -8,6 +8,24 @@ import { generarVariantesEnTransaccion } from './variante-generacion.helper.js';
 
 type PrismaOrTx = Prisma.TransactionClient | typeof prisma;
 
+const ORDEN_PRODUCTOS: Record<string, Prisma.ProductoOrderByWithRelationInput> = {
+  recientes: { createdAt: 'desc' },
+  'a-z': { nombre: 'asc' },
+  'z-a': { nombre: 'desc' },
+  'precio-asc': { precio: 'asc' },
+  'precio-desc': { precio: 'desc' },
+  'mas-stock': { stock: 'desc' },
+};
+
+// El id como desempate deja la paginacion estable: sin el, dos productos con
+// el mismo precio pueden repetirse o saltearse entre paginas.
+const DESEMPATE: Prisma.ProductoOrderByWithRelationInput = { id_producto: 'asc' };
+
+function construirOrderBy(orden?: string): Prisma.ProductoOrderByWithRelationInput[] {
+  const criterio = orden ? ORDEN_PRODUCTOS[orden] : undefined;
+  return criterio ? [criterio, DESEMPATE] : [DESEMPATE];
+}
+
 export class ProductoService {
   private prisma = prisma;
 
@@ -20,7 +38,8 @@ export class ProductoService {
     marcas?: number[],
     precioMin?: number,
     precioMax?: number,
-    zonas?: number[]
+    zonas?: number[],
+    orden?: string
   ) {
     const where: Prisma.ProductoWhereInput = {};
     if (name) {
@@ -72,7 +91,7 @@ export class ProductoService {
       },
       ...(skip !== undefined && { skip }),
       ...(take !== undefined && { take }),
-      orderBy: { id_producto: 'asc' },
+      orderBy: construirOrderBy(orden),
     });
 
     return productos.map((p) => new ProductoItemListaDTO(p));
