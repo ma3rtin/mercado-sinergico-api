@@ -57,6 +57,33 @@ describe("uploadFiles.middleware - fileFilter", () => {
     expect(cb).toHaveBeenCalledWith(null, true);
   });
 
+  // La UI ofrece webp en el selector de adicionales y HEIC/HEIF es el formato
+  // por defecto del iPhone: rechazarlos daba un 415 en un flujo que la propia
+  // interfaz habilita. Cloudinary los decodifica sin problema.
+  it.each(["image/webp", "image/heic", "image/heif", "image/avif"])(
+    "debería aceptar %s",
+    (mimetype) => {
+      const cb = jest.fn();
+      file.mimetype = mimetype;
+      capturedFileFilter(req, file, cb);
+      expect(cb).toHaveBeenCalledWith(null, true);
+    }
+  );
+
+  it("debería aceptar un .heic cuyo navegador no reporta mimetype de imagen", () => {
+    const cb = jest.fn();
+    const heic = { ...file, originalname: "IMG_0042.HEIC", mimetype: "application/octet-stream" } as Express.Multer.File;
+    capturedFileFilter(req, heic, cb);
+    expect(cb).toHaveBeenCalledWith(null, true);
+  });
+
+  it("no debería aceptar cualquier octet-stream por el fallback de extensión", () => {
+    const cb = jest.fn();
+    const exe = { ...file, originalname: "virus.exe", mimetype: "application/octet-stream" } as Express.Multer.File;
+    capturedFileFilter(req, exe, cb);
+    expect(cb.mock.calls[0][0]).toBeInstanceOf(CustomError);
+  });
+
   it("debería rechazar archivos con mimetype application/pdf y devolver CustomError con status 415", () => {
     const cb = jest.fn();
     file.mimetype = "application/pdf";
