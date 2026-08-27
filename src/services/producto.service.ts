@@ -503,39 +503,13 @@ export class ProductoService {
           }
 
           if (producto.variantes.length > 0) {
-            const candidateSKUs = new Map<number, string>();
-            for (let i = 0; i < producto.variantes.length; i++) {
-              const v = producto.variantes[i];
-              if (v.sku) candidateSKUs.set(i, `${v.sku}-COPIA`);
-            }
-
-            const allCandidates = [...new Set(candidateSKUs.values())];
-            if (allCandidates.length > 0) {
-              const existentes = await tx.productoVariante.findMany({
-                where: { sku: { in: allCandidates } },
-                select: { sku: true },
-              });
-              const existentesSet = new Set(existentes.map((e) => e.sku).filter((s): s is string => s !== null));
-
-              const usedSKUs = new Set<string>(existentesSet);
-              for (let i = 0; i < producto.variantes.length; i++) {
-                const base = candidateSKUs.get(i);
-                if (!base) continue;
-                const originalBase = producto.variantes[i].sku!;
-                let candidate = base;
-                let suffix = 2;
-                while (usedSKUs.has(candidate)) {
-                  candidate = `${originalBase}-COPIA-${suffix}`;
-                  suffix++;
-                }
-                usedSKUs.add(candidate);
-                candidateSKUs.set(i, candidate);
-              }
-            }
-
-            const variantesData = producto.variantes.map((variante, i) => ({
+            // El id del producto nuevo alcanza para hacer único el SKU de la
+            // copia, así que no hace falta consultar colisiones ni escalar sufijos.
+            const variantesData = producto.variantes.map((variante) => ({
               productoId: nuevoProducto.id_producto,
-              sku: candidateSKUs.get(i) ?? null,
+              sku: variante.sku
+                ? `${variante.sku}-COPIA-${nuevoProducto.id_producto}`
+                : null,
               stockFisico: variante.stockFisico,
               precioExtra: variante.precioExtra,
               activo: variante.activo,

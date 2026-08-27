@@ -813,12 +813,10 @@ describe("ProductoService", () => {
         ],
       });
       mockProductoCreate.mockResolvedValue({ id_producto: 2 });
-      mockProductoVarianteFindMany
-        .mockResolvedValueOnce([]) // collision check: no existing -COPIA
-        .mockResolvedValueOnce([   // ID recovery
-          { id: 20, sku: "SKU-A-COPIA" },
-          { id: 21, sku: "SKU-B-COPIA" },
-        ]);
+      mockProductoVarianteFindMany.mockResolvedValueOnce([
+        { id: 20, sku: "SKU-A-COPIA-2" },
+        { id: 21, sku: "SKU-B-COPIA-2" },
+      ]);
       mockProductoVarianteCreateMany.mockResolvedValue({ count: 2 });
       mockProductoVarianteOpcionCreateMany.mockResolvedValue({ count: 3 });
 
@@ -827,12 +825,13 @@ describe("ProductoService", () => {
       expect(mockProductoVarianteCreateMany).toHaveBeenCalledTimes(1);
       expect(mockProductoVarianteCreateMany).toHaveBeenCalledWith({
         data: [
-          { productoId: 2, sku: "SKU-A-COPIA", stockFisico: 5, precioExtra: 10, activo: true },
-          { productoId: 2, sku: "SKU-B-COPIA", stockFisico: null, precioExtra: 0, activo: false },
+          { productoId: 2, sku: "SKU-A-COPIA-2", stockFisico: 5, precioExtra: 10, activo: true },
+          { productoId: 2, sku: "SKU-B-COPIA-2", stockFisico: null, precioExtra: 0, activo: false },
         ],
       });
 
-      expect(mockProductoVarianteFindMany).toHaveBeenCalledTimes(2);
+      // Solo la recuperación de IDs: ya no hay consulta previa de colisiones.
+      expect(mockProductoVarianteFindMany).toHaveBeenCalledTimes(1);
 
       expect(mockProductoVarianteOpcionCreateMany).toHaveBeenCalledTimes(1);
       expect(mockProductoVarianteOpcionCreateMany).toHaveBeenCalledWith({
@@ -844,7 +843,7 @@ describe("ProductoService", () => {
       });
     });
 
-    it("debería resolver colisiones de SKU generando -COPIA-2 cuando -COPIA ya existe", async () => {
+    it("debería derivar el SKU de la copia del id del producto nuevo", async () => {
       const {
         mockProductoFindUnique,
         mockProductoCreate,
@@ -859,19 +858,47 @@ describe("ProductoService", () => {
           { id: 10, sku: "ABC-1-1", stockFisico: null, precioExtra: 0, activo: true, opciones: [] },
         ],
       });
-      mockProductoCreate.mockResolvedValue({ id_producto: 2 });
-      mockProductoVarianteFindMany
-        .mockResolvedValueOnce([{ sku: "ABC-1-1-COPIA" }]) // collision check: -COPIA exists
-        .mockResolvedValueOnce([{ id: 20, sku: "ABC-1-1-COPIA-2" }]); // ID recovery
+      mockProductoCreate.mockResolvedValue({ id_producto: 47 });
+      mockProductoVarianteFindMany.mockResolvedValue([{ id: 20, sku: "ABC-1-1-COPIA-47" }]);
       mockProductoVarianteCreateMany.mockResolvedValue({ count: 1 });
 
       await service.duplicarProducto(1);
 
       expect(mockProductoVarianteCreateMany).toHaveBeenCalledWith({
-        data: [
-          expect.objectContaining({ sku: "ABC-1-1-COPIA-2" }),
+        data: [expect.objectContaining({ sku: "ABC-1-1-COPIA-47" })],
+      });
+    });
+
+    // Es el caso que rompía antes: la resolución de sufijos solo consultaba los
+    // "-COPIA", así que a partir de la tercera duplicación repetía "-COPIA-2".
+    it("debería dar SKUs distintos al duplicar el mismo original varias veces", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoCreate,
+        mockProductoVarianteCreateMany,
+        mockProductoVarianteFindMany,
+      } = require("../../../src/prisma/client").__mocks;
+
+      mockProductoFindUnique.mockResolvedValue({
+        ...baseProducto,
+        imagenes: [],
+        variantes: [
+          { id: 10, sku: "ABC-1-1", stockFisico: null, precioExtra: 0, activo: true, opciones: [] },
         ],
       });
+      mockProductoVarianteFindMany.mockResolvedValue([{ id: 20, sku: null }]);
+      mockProductoVarianteCreateMany.mockResolvedValue({ count: 1 });
+
+      const skus: (string | null)[] = [];
+      for (const idNuevo of [2, 3, 4]) {
+        mockProductoCreate.mockResolvedValue({ id_producto: idNuevo });
+        await service.duplicarProducto(1);
+        const { data } = mockProductoVarianteCreateMany.mock.calls.at(-1)![0];
+        skus.push(data[0].sku);
+      }
+
+      expect(skus).toEqual(["ABC-1-1-COPIA-2", "ABC-1-1-COPIA-3", "ABC-1-1-COPIA-4"]);
+      expect(new Set(skus).size).toBe(3);
     });
 
     it("debería manejar variantes con sku null (sinérgicos) sin intentar dupicar SKU", async () => {
