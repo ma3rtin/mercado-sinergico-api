@@ -547,25 +547,14 @@ describe("PaquetePublicadoService", () => {
 
       await service.getPorCerrarse();
 
+      // La cota inferior no es decorativa: sin el gte, un paquete ACTIVO ya
+      // vencido se colaba al home y la card lo mostraba como "Finaliza en
+      // Finalizado".
       expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({ fecha_fin: { gte: ahora, lte: limiteEsperado } }),
         })
       );
-      jest.useRealTimers();
-    });
-
-    it("no debería incluir los paquetes cuya fecha de cierre ya pasó", async () => {
-      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
-      const ahora = new Date("2026-03-01T12:00:00Z");
-      jest.useFakeTimers().setSystemTime(ahora);
-
-      await service.getPorCerrarse();
-
-      const { where } = mockPaquetePublicadoFindMany.mock.calls[0][0];
-      // Sin cota inferior, un paquete ACTIVO vencido se colaba al home y la
-      // card lo mostraba como "Finaliza en Finalizado".
-      expect(where.fecha_fin.gte).toEqual(ahora);
       jest.useRealTimers();
     });
 
