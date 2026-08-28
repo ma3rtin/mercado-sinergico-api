@@ -164,6 +164,28 @@ describe("PaquetePublicadoService", () => {
       expect(Object.keys(sinZona.fecha_fin)).toEqual(Object.keys(conZona.fecha_fin));
     });
 
+    it("debería devolver los paquetes cerrados cuando se piden con incluirCerrados", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(
+        undefined, undefined, false, undefined, undefined, undefined, undefined, undefined, undefined, true
+      );
+
+      const { where } = mockPaquetePublicadoFindMany.mock.calls[0][0];
+      expect(where.estadoId).toBeUndefined();
+      expect(where.fecha_fin).toBeUndefined();
+      // el admin igual no quiere ver los archivados
+      expect(where.archivado).toBe(false);
+    });
+
+    it("countAll debería contar igual que getAll cuando se piden los cerrados", async () => {
+      const { mockPaquetePublicadoCount } = require("../../../src/prisma/client").__mocks;
+      await service.countAll(false, undefined, undefined, undefined, undefined, undefined, true);
+
+      const { where } = mockPaquetePublicadoCount.mock.calls[0][0];
+      expect(where.estadoId).toBeUndefined();
+      expect(where.fecha_fin).toBeUndefined();
+    });
+
     it("no debería filtrar por estado ni por fecha cuando includeArchived es true", async () => {
       const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
       await service.getAll(undefined, undefined, true);

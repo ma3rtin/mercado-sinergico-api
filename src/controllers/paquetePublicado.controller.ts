@@ -8,6 +8,9 @@ export class PaquetePublicadoController {
 
   getAll = asyncHandler(async (req: Request, res: Response) => {
     const includeArchived = req.query.includeArchived === 'true';
+    // El admin necesita ver tambien los paquetes ya cerrados (Completo,
+    // Confirmado, Entregado, Cancelado), que el listado publico esconde.
+    const incluirCerrados = req.query.incluirCerrados === 'true';
 
     const pageVal = req.query.page;
     const limitVal = req.query.limit;
@@ -53,7 +56,8 @@ export class PaquetePublicadoController {
       zonas,
       tiposPaquete,
       estados,
-      orden
+      orden,
+      incluirCerrados
     );
 
     if (!paquetes) throw new CustomError('Paquetes no encontrados', 404);
@@ -65,7 +69,8 @@ export class PaquetePublicadoController {
         marcas,
         zonas,
         tiposPaquete,
-        estados
+        estados,
+        incluirCerrados
       );
       res.setHeader('X-Total-Count', total);
       res.setHeader('Access-Control-Expose-Headers', 'X-Total-Count');
