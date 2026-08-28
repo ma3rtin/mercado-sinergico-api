@@ -264,41 +264,9 @@ describe("PaquetePublicadoService", () => {
         return mockPaquetePublicadoFindMany.mock.calls[0][0].where;
       };
 
-      it("'por-cerrar' acota a los que cierran dentro de los próximos 5 días", async () => {
-        const where = await whereDe(["por-cerrar"]);
-
-        const enCincoDias = new Date(ahora);
-        enCincoDias.setDate(ahora.getDate() + 5);
-        expect(where.AND).toEqual([{ fecha_fin: { gte: ahora, lte: enCincoDias } }]);
-      });
-
-      it("'recien-abiertos' acota a los abiertos en los últimos 7 días", async () => {
-        const where = await whereDe(["recien-abiertos"]);
-
-        const hace7Dias = new Date(ahora);
-        hace7Dias.setDate(ahora.getDate() - 7);
-        expect(where.AND).toEqual([{ fecha_inicio: { gte: hace7Dias, lte: ahora } }]);
-      });
-
-      it("'populares' pide al menos 10 usuarios registrados", async () => {
-        const where = await whereDe(["populares"]);
-
-        expect(where.AND).toEqual([{ cant_usuarios_registrados: { gte: 10 } }]);
-      });
-
-      it("acumula las condiciones cuando se piden varios estados", async () => {
-        const where = await whereDe(["por-cerrar", "populares"]);
-
-        expect(where.AND).toHaveLength(2);
-        expect(where.AND[1]).toEqual({ cant_usuarios_registrados: { gte: 10 } });
-      });
-
-      it("ignora un estado desconocido en vez de romper", async () => {
-        const where = await whereDe(["cualquier-cosa"]);
-
-        expect(where.AND).toBeUndefined();
-      });
-
+      // El resto de la cobertura de estados especiales (por-cerrar,
+      // recien-abiertos, populares) va con el testeo de la vista Paquetes:
+      // el home no usa ese filtro.
       it("sigue escondiendo los paquetes cerrados al filtrar por estado", async () => {
         const where = await whereDe(["populares"]);
 
