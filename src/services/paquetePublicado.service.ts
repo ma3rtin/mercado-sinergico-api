@@ -123,10 +123,12 @@ export class PaquetePublicadoService {
     const where: Prisma.PaquetePublicadoWhereInput = {};
     if (!includeArchived) {
       where.archivado = false;
-      if (zonas && zonas.length > 0) {
-        where.estadoId = 1; // ESTADO_PAQUETE.ACTIVO
-        where.fecha_fin = { gte: new Date() };
-      }
+      // El publico solo ve paquetes a los que se puede sumar: el resto de los
+      // estados (Completo, Confirmado, Entregado, Cancelado) ya estan cerrados.
+      // Antes esto vivia dentro del if de zonas, asi que sin filtro de zona se
+      // colaban paquetes cancelados y vencidos. countAll ya lo hacia siempre.
+      where.estadoId = ESTADO_PAQUETE.ACTIVO;
+      where.fecha_fin = { gte: new Date() };
     }
 
     const paqueteBaseConditions: Prisma.PaqueteBaseWhereInput = {};
@@ -228,7 +230,7 @@ export class PaquetePublicadoService {
     const where: Prisma.PaquetePublicadoWhereInput = {};
     if (!includeArchived) {
       where.archivado = false;
-      where.estadoId = 1;
+      where.estadoId = ESTADO_PAQUETE.ACTIVO;
       where.fecha_fin = { gte: new Date() };
     }
 

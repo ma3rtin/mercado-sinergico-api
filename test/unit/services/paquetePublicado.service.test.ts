@@ -1,4 +1,5 @@
 import { PaquetePublicadoService } from "../../../src/services/paquetePublicado.service";
+import { ESTADO_PAQUETE } from "../../../src/constants/estado-paquete";
 
 jest.mock("../../../src/prisma/client", () => {
   const mockTransaction = jest.fn();
@@ -121,6 +122,55 @@ describe("PaquetePublicadoService", () => {
           }),
         })
       );
+    });
+
+    it("debería mostrar sólo paquetes Activos aunque no se filtre por zona", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll();
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            estadoId: ESTADO_PAQUETE.ACTIVO,
+          }),
+        })
+      );
+    });
+
+    it("debería excluir los paquetes vencidos aunque no se filtre por zona", async () => {
+      jest.useFakeTimers();
+      const ahora = new Date("2026-08-28T10:00:00.000Z");
+      jest.setSystemTime(ahora);
+
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll();
+
+      const { where } = mockPaquetePublicadoFindMany.mock.calls[0][0];
+      expect(where.fecha_fin).toEqual({ gte: ahora });
+
+      jest.useRealTimers();
+    });
+
+    it("debería aplicar el mismo filtro con y sin zona", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+
+      await service.getAll();
+      const sinZona = mockPaquetePublicadoFindMany.mock.calls[0][0].where;
+
+      mockPaquetePublicadoFindMany.mockClear();
+      await service.getAll(undefined, undefined, false, undefined, undefined, [4]);
+      const conZona = mockPaquetePublicadoFindMany.mock.calls[0][0].where;
+
+      expect(sinZona.estadoId).toBe(conZona.estadoId);
+      expect(Object.keys(sinZona.fecha_fin)).toEqual(Object.keys(conZona.fecha_fin));
+    });
+
+    it("no debería filtrar por estado ni por fecha cuando includeArchived es true", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, undefined, true);
+
+      const { where } = mockPaquetePublicadoFindMany.mock.calls[0][0];
+      expect(where.estadoId).toBeUndefined();
+      expect(where.fecha_fin).toBeUndefined();
     });
 
     it("ordena por id descendente cuando no se pide ningún orden", async () => {
