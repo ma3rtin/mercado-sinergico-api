@@ -66,6 +66,37 @@ describe("ProductoController", () => {
       expect(mockResponse.json).toHaveBeenCalledWith(productos);
     });
 
+    it("pasa el parametro orden al service", async () => {
+      mockRequest.query = { orden: "precio-asc" };
+      mockProductoService.getAll.mockResolvedValue([]);
+
+      await controller.getProductos(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockProductoService.getAll).toHaveBeenCalledWith(
+        undefined, undefined, undefined, false,
+        undefined, undefined, undefined, undefined, undefined,
+        "precio-asc"
+      );
+    });
+
+    it("pasa orden undefined cuando no viene en la query", async () => {
+      mockProductoService.getAll.mockResolvedValue([]);
+
+      await controller.getProductos(mockRequest as Request, mockResponse as Response, next);
+
+      const args = mockProductoService.getAll.mock.calls[0];
+      expect(args[9]).toBeUndefined();
+    });
+
+    it("no rompe con un orden desconocido: responde 200 y delega al service", async () => {
+      mockRequest.query = { orden: "no-existe" };
+      mockProductoService.getAll.mockResolvedValue([]);
+
+      await controller.getProductos(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockResponse.status).toHaveBeenCalledWith(200);
+    });
+
     it("debería manejar errores y devolver estado 500", async () => {
       const error = new Error("Error de BD");
       mockProductoService.getAll.mockRejectedValue(error);

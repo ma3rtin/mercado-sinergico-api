@@ -8,6 +8,24 @@ import { generarVariantesEnTransaccion } from './variante-generacion.helper.js';
 
 type PrismaOrTx = Prisma.TransactionClient | typeof prisma;
 
+const ORDEN_PRODUCTOS: Record<string, Prisma.ProductoOrderByWithRelationInput> = {
+  recientes: { createdAt: 'desc' },
+  'a-z': { nombre: 'asc' },
+  'z-a': { nombre: 'desc' },
+  'precio-asc': { precio: 'asc' },
+  'precio-desc': { precio: 'desc' },
+  'mas-stock': { stock: 'desc' },
+};
+
+// El id como desempate deja la paginacion estable: sin el, dos productos con
+// el mismo precio pueden repetirse o saltearse entre paginas.
+const DESEMPATE: Prisma.ProductoOrderByWithRelationInput = { id_producto: 'asc' };
+
+function construirOrderBy(orden?: string): Prisma.ProductoOrderByWithRelationInput[] {
+  const criterio = orden ? ORDEN_PRODUCTOS[orden] : undefined;
+  return criterio ? [criterio, DESEMPATE] : [DESEMPATE];
+}
+
 export class ProductoService {
   private prisma = prisma;
 
@@ -20,7 +38,8 @@ export class ProductoService {
     marcas?: number[],
     precioMin?: number,
     precioMax?: number,
-    zonas?: number[]
+    zonas?: number[],
+    orden?: string
   ) {
     const where: Prisma.ProductoWhereInput = {};
     if (name) {
@@ -72,7 +91,7 @@ export class ProductoService {
       },
       ...(skip !== undefined && { skip }),
       ...(take !== undefined && { take }),
-      orderBy: { id_producto: 'asc' },
+      orderBy: construirOrderBy(orden),
     });
 
     return productos.map((p) => new ProductoItemListaDTO(p));
@@ -503,39 +522,13 @@ export class ProductoService {
           }
 
           if (producto.variantes.length > 0) {
-            const candidateSKUs = new Map<number, string>();
-            for (let i = 0; i < producto.variantes.length; i++) {
-              const v = producto.variantes[i];
-              if (v.sku) candidateSKUs.set(i, `${v.sku}-COPIA`);
-            }
-
-            const allCandidates = [...new Set(candidateSKUs.values())];
-            if (allCandidates.length > 0) {
-              const existentes = await tx.productoVariante.findMany({
-                where: { sku: { in: allCandidates } },
-                select: { sku: true },
-              });
-              const existentesSet = new Set(existentes.map((e) => e.sku).filter((s): s is string => s !== null));
-
-              const usedSKUs = new Set<string>(existentesSet);
-              for (let i = 0; i < producto.variantes.length; i++) {
-                const base = candidateSKUs.get(i);
-                if (!base) continue;
-                const originalBase = producto.variantes[i].sku!;
-                let candidate = base;
-                let suffix = 2;
-                while (usedSKUs.has(candidate)) {
-                  candidate = `${originalBase}-COPIA-${suffix}`;
-                  suffix++;
-                }
-                usedSKUs.add(candidate);
-                candidateSKUs.set(i, candidate);
-              }
-            }
-
-            const variantesData = producto.variantes.map((variante, i) => ({
+            // El id del producto nuevo alcanza para hacer único el SKU de la
+            // copia, así que no hace falta consultar colisiones ni escalar sufijos.
+            const variantesData = producto.variantes.map((variante) => ({
               productoId: nuevoProducto.id_producto,
-              sku: candidateSKUs.get(i) ?? null,
+              sku: variante.sku
+                ? `${variante.sku}-COPIA-${nuevoProducto.id_producto}`
+                : null,
               stockFisico: variante.stockFisico,
               precioExtra: variante.precioExtra,
               activo: variante.activo,
