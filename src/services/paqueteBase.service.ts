@@ -223,10 +223,10 @@ export class PaqueteBaseService {
           categoria: {
             connect: { id_categoria: data.categoria_id },
           },
-          ...(data.marcaId && {
-            marca: {
-              connect: { id_marca: data.marcaId },
-            },
+          ...(data.marcaId !== undefined && {
+            marca: data.marcaId
+              ? { connect: { id_marca: data.marcaId } }
+              : { disconnect: true },
           }),
         },
       });
