@@ -252,6 +252,74 @@ describe("ProductoService", () => {
         })
       );
     });
+
+    it("debería pedir el conteo de paquetes publicados activos en el include", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, 0, 10);
+      const arg = mockProductoFindMany.mock.calls[0][0];
+      expect(arg.include.paquetes.select.paqueteBase.select._count.select.publicados).toEqual(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            estadoId: 1,
+            archivado: false,
+            fecha_fin: { gte: expect.any(Date) },
+          }),
+        })
+      );
+    });
+
+    it("debería mapear cantPaquetes contando paquetes publicados activos únicos por base", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindMany.mockResolvedValue([
+        {
+          id_producto: 1,
+          nombre: "Sin paquetes",
+          precio: 100,
+          tipo: "SINERGICO",
+          stock: null,
+          imagen_url: null,
+          plantillaId: null,
+          archivado: false,
+          paquetes: [],
+        },
+        {
+          id_producto: 2,
+          nombre: "Con dos bases",
+          precio: 200,
+          tipo: "SINERGICO",
+          stock: null,
+          imagen_url: null,
+          plantillaId: null,
+          archivado: false,
+          paquetes: [
+            {
+              paqueteBase: {
+                id_paquete_base: 10,
+                _count: { publicados: 2 },
+              },
+            },
+            {
+              // Misma base repetida en otro PaqueteBaseProducto: no debe sumar de nuevo
+              paqueteBase: {
+                id_paquete_base: 10,
+                _count: { publicados: 2 },
+              },
+            },
+            {
+              paqueteBase: {
+                id_paquete_base: 11,
+                _count: { publicados: 1 },
+              },
+            },
+          ],
+        },
+      ]);
+
+      const resultado = await service.getAll(undefined, 0, 10);
+      expect(resultado).toHaveLength(2);
+      expect(resultado[0]).toHaveProperty("cantPaquetes", 0);
+      expect(resultado[1]).toHaveProperty("cantPaquetes", 3);
+    });
   });
 
   describe("countAll", () => {

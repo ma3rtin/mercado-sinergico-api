@@ -88,13 +88,47 @@ export class ProductoService {
         imagenes: true,
         plantilla: true,
         variantes: true,
+        // Conteo de paquetes publicados ACTIVOS que contienen este producto.
+        // Mismo criterio que el filtro de zonas: estadoId=1, no archivado, en vigencia.
+        paquetes: {
+          select: {
+            paqueteBase: {
+              select: {
+                id_paquete_base: true,
+                _count: {
+                  select: {
+                    publicados: {
+                      where: {
+                        estadoId: 1,
+                        archivado: false,
+                        fecha_fin: { gte: new Date() },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
       ...(skip !== undefined && { skip }),
       ...(take !== undefined && { take }),
       orderBy: construirOrderBy(orden),
     });
 
-    return productos.map((p) => new ProductoItemListaDTO(p));
+    return productos.map((p) => {
+      // Conteo de paquetes publicados ACTIVOS únicos que contienen este producto.
+      // Se deduplica por paqueteBase por si el producto figura en más de un
+      // PaqueteBaseProducto apuntando a la misma base.
+      const basesVistas = new Set<number>();
+      const paquetesActivos = (p.paquetes ?? []).reduce((acc, paq) => {
+        const base = paq.paqueteBase;
+        if (!base || basesVistas.has(base.id_paquete_base)) return acc;
+        basesVistas.add(base.id_paquete_base);
+        return acc + (base._count.publicados ?? 0);
+      }, 0);
+      return new ProductoItemListaDTO({ ...p, cantPaquetes: paquetesActivos });
+    });
   }
 
   public async countAll(
