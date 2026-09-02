@@ -511,7 +511,7 @@ describe("PaqueteBaseService", () => {
       await expect(service.update(1, dto)).rejects.toThrow("No se puede cambiar el tipo a SINÉRGICO: el paquete contiene productos incompatibles de tipo ENÉRGICO");
     });
 
-    it("debería actualizar correctamente con marcaId null (no conecta marca)", async () => {
+    it("desasigna la marca cuando marcaId viene en null", async () => {
       const { mockPaqueteBaseUpdate } = require("../../../src/prisma/client").__mocks;
 
       const dto: PaqueteBaseDTO = {
@@ -521,12 +521,30 @@ describe("PaqueteBaseService", () => {
         tipo: TipoPaquete.SINERGICO,
         productos: [],
         imagen_url: "",
-        marcaId: null as unknown as number,
+        marcaId: null,
       };
 
-      const result = await service.update(1, dto);
+      await service.update(1, dto);
 
-      expect(result).toHaveProperty("id_paquete_base");
+      const calls = mockPaqueteBaseUpdate.mock.calls;
+      const lastCallData = calls[calls.length - 1][0].data;
+      expect(lastCallData.marca).toEqual({ disconnect: true });
+    });
+
+    it("no toca la marca cuando marcaId viene omitido", async () => {
+      const { mockPaqueteBaseUpdate } = require("../../../src/prisma/client").__mocks;
+
+      const dto: PaqueteBaseDTO = {
+        nombre: "Test Sin Marca",
+        descripcion: "Desc",
+        categoria_id: 1,
+        tipo: TipoPaquete.SINERGICO,
+        productos: [],
+        imagen_url: "",
+      };
+
+      await service.update(1, dto);
+
       const calls = mockPaqueteBaseUpdate.mock.calls;
       const lastCallData = calls[calls.length - 1][0].data;
       expect(lastCallData.marca).toBeUndefined();

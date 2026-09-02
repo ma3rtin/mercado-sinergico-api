@@ -223,10 +223,10 @@ export class PaqueteBaseService {
           categoria: {
             connect: { id_categoria: data.categoria_id },
           },
-          ...(data.marcaId && {
-            marca: {
-              connect: { id_marca: data.marcaId },
-            },
+          ...(data.marcaId !== undefined && {
+            marca: data.marcaId
+              ? { connect: { id_marca: data.marcaId } }
+              : { disconnect: true },
           }),
         },
       });
@@ -263,12 +263,10 @@ export class PaqueteBaseService {
    */
    public async sincronizarProductos(paqueteBaseId: number, productosId: number[]) {
     if (productosId.some((id) => !Number.isInteger(id) || id <= 0)) {
-      console.log('[sincronizarProductos] rechazo por enteros positivos:', { paqueteBaseId, productosId });
       throw new CustomError('Los productosId deben ser enteros positivos', 400);
     }
 
     if (new Set(productosId).size !== productosId.length) {
-      console.log('[sincronizarProductos] rechazo por duplicados:', { paqueteBaseId, productosId });
       throw new CustomError('La lista de productos no puede contener duplicados', 400);
     }
 
@@ -290,7 +288,6 @@ export class PaqueteBaseService {
       });
 
       if (productosExistentes.length !== productosId.length) {
-        console.log('[sincronizarProductos] rechazo por inexistencia:', { paqueteBaseId, productosId, encontrados: productosExistentes.map(p => p.id_producto) });
         throw new CustomError(
           'Uno o más productos seleccionados no existen.',
           400
@@ -300,7 +297,6 @@ export class PaqueteBaseService {
       const productosArchivados = productosExistentes.filter((p) => p.archivado);
       if (productosArchivados.length > 0) {
         const nombres = productosArchivados.map((p) => p.nombre).join(', ');
-        console.log('[sincronizarProductos] rechazo por archivados:', { paqueteBaseId, productosArchivados: nombres });
         throw new CustomError(
           `No se pueden agregar productos archivados a un paquete base: ${nombres}`,
           400
@@ -319,7 +315,6 @@ export class PaqueteBaseService {
 
       if (incompatibles.length > 0) {
         const nombres = incompatibles.map(p => p.nombre).join(', ');
-        console.log('[sincronizarProductos] rechazo por tipo ENERGICO:', { paqueteTipo: paquete.tipo, productosIncompatibles: nombres, productosId });
         throw new CustomError(
           `Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS. Incompatibles: ${nombres}`,
           400
@@ -338,7 +333,6 @@ export class PaqueteBaseService {
 
       if (incompatibles.length > 0) {
         const nombres = incompatibles.map(p => p.nombre).join(', ');
-        console.log('[sincronizarProductos] rechazo por tipo SINERGICO:', { paqueteTipo: paquete.tipo, productosIncompatibles: nombres, productosId });
         throw new CustomError(
           `Un paquete SINÉRGICO solo puede contener productos SINÉRGICOS. Incompatibles: ${nombres}`,
           400

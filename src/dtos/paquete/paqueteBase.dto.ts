@@ -49,7 +49,7 @@ export class PaqueteBaseDTO {
   @IsOptional()
   @IsNumber({}, { message: 'El id de la marca debe ser un número' })
   @Type(() => Number)
-  marcaId?: number;
+  marcaId?: number | null;
 
   @IsOptional()
   @IsArray()
