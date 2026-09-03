@@ -128,7 +128,7 @@ export class PaquetePublicadoService {
     // El publico solo ve paquetes a los que se puede sumar: el resto de los
     // estados (Completo, Confirmado, Entregado, Cancelado) ya estan cerrados.
     // El admin pide incluirCerrados para verlos todos.
-    if (!includeArchived && !incluirCerrados) {
+    if (!incluirCerrados) {
       where.estadoId = ESTADO_PAQUETE.ACTIVO;
       where.fecha_fin = { gte: new Date() };
     }
@@ -234,7 +234,7 @@ export class PaquetePublicadoService {
     if (!includeArchived) {
       where.archivado = false;
     }
-    if (!includeArchived && !incluirCerrados) {
+    if (!incluirCerrados) {
       where.estadoId = ESTADO_PAQUETE.ACTIVO;
       where.fecha_fin = { gte: new Date() };
     }

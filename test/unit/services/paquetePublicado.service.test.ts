@@ -186,13 +186,13 @@ describe("PaquetePublicadoService", () => {
       expect(where.fecha_fin).toBeUndefined();
     });
 
-    it("no debería filtrar por estado ni por fecha cuando includeArchived es true", async () => {
+    it("includeArchived por sí solo no destapa los paquetes cerrados", async () => {
       const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
       await service.getAll(undefined, undefined, true);
 
       const { where } = mockPaquetePublicadoFindMany.mock.calls[0][0];
-      expect(where.estadoId).toBeUndefined();
-      expect(where.fecha_fin).toBeUndefined();
+      expect(where.estadoId).toBe(ESTADO_PAQUETE.ACTIVO);
+      expect(where.fecha_fin).toEqual({ gte: expect.any(Date) });
     });
 
     it("ordena por id descendente cuando no se pide ningún orden", async () => {
