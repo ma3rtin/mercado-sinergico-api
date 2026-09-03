@@ -189,15 +189,13 @@ describe("ProductoService", () => {
       );
     });
 
-    it("debería pasar skip y take a prisma para la paginación", async () => {
+    it("ya no envía skip/take a prisma (la paginación se resuelve en memoria para poder ordenar por cantPaquetes)", async () => {
       const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindMany.mockResolvedValue([]);
       await service.getAll(undefined, 10, 5);
-      expect(mockProductoFindMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          skip: 10,
-          take: 5,
-        })
-      );
+      const arg = mockProductoFindMany.mock.calls[0][0];
+      expect(arg).not.toHaveProperty("skip");
+      expect(arg).not.toHaveProperty("take");
     });
 
     it("ordena por id ascendente cuando no se pide ningún orden", async () => {
@@ -317,8 +315,68 @@ describe("ProductoService", () => {
 
       const resultado = await service.getAll(undefined, 0, 10);
       expect(resultado).toHaveLength(2);
+      // El sort agrupa primero los que tienen paquetes activos
+      expect(resultado[0]).toHaveProperty("cantPaquetes", 3);
+      expect(resultado[1]).toHaveProperty("cantPaquetes", 0);
+    });
+
+    it("ordena en memoria: productos con paquetes activos primero, luego los sin paquetes", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindMany.mockResolvedValue([
+        {
+          id_producto: 1, nombre: "Sin paquetes", precio: 10, tipo: "SINERGICO",
+          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+        },
+        {
+          id_producto: 2, nombre: "Un paquete", precio: 20, tipo: "SINERGICO",
+          stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          paquetes: [{ paqueteBase: { id_paquete_base: 10, _count: { publicados: 1 } } }],
+        },
+        {
+          id_producto: 3, nombre: "Sin paquetes 2", precio: 30, tipo: "SINERGICO",
+          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+        },
+        {
+          id_producto: 4, nombre: "Dos paquetes", precio: 40, tipo: "SINERGICO",
+          stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          paquetes: [{ paqueteBase: { id_paquete_base: 11, _count: { publicados: 2 } } }],
+        },
+      ]);
+
+      const resultado = await service.getAll(undefined, undefined, undefined);
+      // Los que tienen paquetes (2 y 4) primero, y entre los sin paquetes se
+      // conserva el orden original (estable): 1 antes de 3.
+      expect(resultado.map((r) => [r.id as number, r.cantPaquetes])).toEqual([
+        [4, 2],
+        [2, 1],
+        [1, 0],
+        [3, 0],
+      ]);
+    });
+
+    it("aplica la paginación en memoria sobre el set ya ordenado por paquetes", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindMany.mockResolvedValue([
+        {
+          id_producto: 1, nombre: "A-sin", precio: 10, tipo: "SINERGICO",
+          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+        },
+        {
+          id_producto: 2, nombre: "B-con", precio: 20, tipo: "SINERGICO",
+          stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          paquetes: [{ paqueteBase: { id_paquete_base: 10, _count: { publicados: 1 } } }],
+        },
+        {
+          id_producto: 3, nombre: "C-sin", precio: 30, tipo: "SINERGICO",
+          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+        },
+      ]);
+
+      // Página 2 (skip=1, take=1): sobre el set ordenado [con(2), sin(1), sin(3)],
+      // debería devolver solo el del medio (2 ya consumido por la página 1).
+      const resultado = await service.getAll(undefined, 1, 1);
+      expect(resultado.map((r) => r.id as number)).toEqual([1]);
       expect(resultado[0]).toHaveProperty("cantPaquetes", 0);
-      expect(resultado[1]).toHaveProperty("cantPaquetes", 3);
     });
   });
 
