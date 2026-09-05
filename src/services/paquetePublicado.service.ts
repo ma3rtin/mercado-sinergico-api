@@ -118,15 +118,19 @@ export class PaquetePublicadoService {
     zonas?: number[],
     tiposPaquete?: string[],
     estados?: string[],
-    orden?: string
+    orden?: string,
+    incluirCerrados = false
   ) {
     const where: Prisma.PaquetePublicadoWhereInput = {};
     if (!includeArchived) {
       where.archivado = false;
-      if (zonas && zonas.length > 0) {
-        where.estadoId = 1; // ESTADO_PAQUETE.ACTIVO
-        where.fecha_fin = { gte: new Date() };
-      }
+    }
+    // El publico solo ve paquetes a los que se puede sumar: el resto de los
+    // estados (Completo, Confirmado, Entregado, Cancelado) ya estan cerrados.
+    // El admin pide incluirCerrados para verlos todos.
+    if (!incluirCerrados) {
+      where.estadoId = ESTADO_PAQUETE.ACTIVO;
+      where.fecha_fin = { gte: new Date() };
     }
 
     const paqueteBaseConditions: Prisma.PaqueteBaseWhereInput = {};
@@ -223,12 +227,15 @@ export class PaquetePublicadoService {
     marcas?: number[],
     zonas?: number[],
     tiposPaquete?: string[],
-    estados?: string[]
+    estados?: string[],
+    incluirCerrados = false
   ): Promise<number> {
     const where: Prisma.PaquetePublicadoWhereInput = {};
     if (!includeArchived) {
       where.archivado = false;
-      where.estadoId = 1;
+    }
+    if (!incluirCerrados) {
+      where.estadoId = ESTADO_PAQUETE.ACTIVO;
       where.fecha_fin = { gte: new Date() };
     }
 
@@ -425,7 +432,9 @@ export class PaquetePublicadoService {
     const paquetes = await this.prisma.paquetePublicado.findMany({
       where: {
         estadoId: ESTADO_PAQUETE.ACTIVO,
-        fecha_fin: { lte: dentroDe30Dias },
+        // El gte descarta los que ya vencieron: sin el, un paquete ACTIVO con
+        // fecha pasada seguia entrando en "por cerrarse".
+        fecha_fin: { gte: hoy, lte: dentroDe30Dias },
         archivado: false,
       },
       include: {
