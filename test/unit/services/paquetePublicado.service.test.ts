@@ -1,4 +1,5 @@
 import { PaquetePublicadoService } from "../../../src/services/paquetePublicado.service";
+import { ESTADO_PAQUETE } from "../../../src/constants/estado-paquete";
 
 jest.mock("../../../src/prisma/client", () => {
   const mockTransaction = jest.fn();
@@ -123,6 +124,77 @@ describe("PaquetePublicadoService", () => {
       );
     });
 
+    it("debería mostrar sólo paquetes Activos aunque no se filtre por zona", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll();
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            estadoId: ESTADO_PAQUETE.ACTIVO,
+          }),
+        })
+      );
+    });
+
+    it("debería excluir los paquetes vencidos aunque no se filtre por zona", async () => {
+      jest.useFakeTimers();
+      const ahora = new Date("2026-08-28T10:00:00.000Z");
+      jest.setSystemTime(ahora);
+
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll();
+
+      const { where } = mockPaquetePublicadoFindMany.mock.calls[0][0];
+      expect(where.fecha_fin).toEqual({ gte: ahora });
+
+      jest.useRealTimers();
+    });
+
+    it("debería aplicar el mismo filtro con y sin zona", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+
+      await service.getAll();
+      const sinZona = mockPaquetePublicadoFindMany.mock.calls[0][0].where;
+
+      mockPaquetePublicadoFindMany.mockClear();
+      await service.getAll(undefined, undefined, false, undefined, undefined, [4]);
+      const conZona = mockPaquetePublicadoFindMany.mock.calls[0][0].where;
+
+      expect(sinZona.estadoId).toBe(conZona.estadoId);
+      expect(Object.keys(sinZona.fecha_fin)).toEqual(Object.keys(conZona.fecha_fin));
+    });
+
+    it("debería devolver los paquetes cerrados cuando se piden con incluirCerrados", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(
+        undefined, undefined, false, undefined, undefined, undefined, undefined, undefined, undefined, true
+      );
+
+      const { where } = mockPaquetePublicadoFindMany.mock.calls[0][0];
+      expect(where.estadoId).toBeUndefined();
+      expect(where.fecha_fin).toBeUndefined();
+      // el admin igual no quiere ver los archivados
+      expect(where.archivado).toBe(false);
+    });
+
+    it("countAll debería contar igual que getAll cuando se piden los cerrados", async () => {
+      const { mockPaquetePublicadoCount } = require("../../../src/prisma/client").__mocks;
+      await service.countAll(false, undefined, undefined, undefined, undefined, undefined, true);
+
+      const { where } = mockPaquetePublicadoCount.mock.calls[0][0];
+      expect(where.estadoId).toBeUndefined();
+      expect(where.fecha_fin).toBeUndefined();
+    });
+
+    it("includeArchived por sí solo no destapa los paquetes cerrados", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, undefined, true);
+
+      const { where } = mockPaquetePublicadoFindMany.mock.calls[0][0];
+      expect(where.estadoId).toBe(ESTADO_PAQUETE.ACTIVO);
+      expect(where.fecha_fin).toEqual({ gte: expect.any(Date) });
+    });
+
     it("ordena por id descendente cuando no se pide ningún orden", async () => {
       const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
       await service.getAll();
@@ -192,6 +264,37 @@ describe("PaquetePublicadoService", () => {
           }),
         })
       );
+    });
+
+    describe("estados especiales", () => {
+      const ahora = new Date("2026-08-28T10:00:00.000Z");
+
+      beforeEach(() => {
+        jest.useFakeTimers();
+        jest.setSystemTime(ahora);
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      const whereDe = async (estados: string[]) => {
+        const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+        await service.getAll(
+          undefined, undefined, false, undefined, undefined, undefined, undefined, estados
+        );
+        return mockPaquetePublicadoFindMany.mock.calls[0][0].where;
+      };
+
+      // El resto de la cobertura de estados especiales (por-cerrar,
+      // recien-abiertos, populares) va con el testeo de la vista Paquetes:
+      // el home no usa ese filtro.
+      it("sigue escondiendo los paquetes cerrados al filtrar por estado", async () => {
+        const where = await whereDe(["populares"]);
+
+        expect(where.estadoId).toBe(ESTADO_PAQUETE.ACTIVO);
+        expect(where.fecha_fin).toEqual({ gte: ahora });
+      });
     });
   });
 
@@ -403,6 +506,89 @@ describe("PaquetePublicadoService", () => {
       mockPaquetePublicadoFindUnique.mockResolvedValue(null);
 
       await expect(service.archivar(99, true)).rejects.toThrow("Paquete no encontrado");
+    });
+  });
+
+  describe("getPorCerrarse", () => {
+    const paqueteCrudo = {
+      id_paquete_publicado: 1,
+      nombre: "Paquete cerca de cerrar",
+      tipo: "SINERGICO",
+      cant_usuarios_registrados: 0,
+      cant_productos_reservados: 0,
+      monto_total: 0,
+      pedidos: [
+        {
+          estadoId: 2,
+          usuario: { id: 7 },
+          monto_total: 1500,
+          detalles: [{ cantidad: 3 }],
+        },
+      ],
+    };
+
+    it("debería pedir sólo paquetes activos y no archivados", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getPorCerrarse();
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ estadoId: 1, archivado: false }),
+        })
+      );
+    });
+
+    it("debería acotar la búsqueda a los que cierran dentro de los próximos 30 días", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      const ahora = new Date("2026-03-01T12:00:00Z");
+      jest.useFakeTimers().setSystemTime(ahora);
+
+      const limiteEsperado = new Date("2026-03-01T12:00:00Z");
+      limiteEsperado.setDate(limiteEsperado.getDate() + 30);
+
+      await service.getPorCerrarse();
+
+      // La cota inferior no es decorativa: sin el gte, un paquete ACTIVO ya
+      // vencido se colaba al home y la card lo mostraba como "Finaliza en
+      // Finalizado".
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ fecha_fin: { gte: ahora, lte: limiteEsperado } }),
+        })
+      );
+      jest.useRealTimers();
+    });
+
+    it("debería ordenar por fecha de cierre ascendente", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getPorCerrarse();
+      expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { fecha_fin: "asc" } })
+      );
+    });
+
+    it("debería retornar un array vacío cuando no hay paquetes por cerrarse", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockPaquetePublicadoFindMany.mockResolvedValue([]);
+
+      const result = await service.getPorCerrarse();
+
+      expect(result).toEqual([]);
+    });
+
+    it("debería devolver los paquetes con los campos computados aplicados", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockPaquetePublicadoFindMany.mockResolvedValue([paqueteCrudo]);
+
+      const [result] = await service.getPorCerrarse();
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          id_paquete_publicado: 1,
+          cant_usuarios_registrados: 1,
+          cant_productos_reservados: 3,
+          monto_total: 1500,
+        })
+      );
     });
   });
 });
