@@ -16,6 +16,7 @@ interface ProductoItemData {
   } | null;
   variantes?: unknown[] | null;
   archivado?: boolean;
+  cantPaquetes?: number;
 }
 
 export class ProductoItemListaDTO {
@@ -37,6 +38,7 @@ export class ProductoItemListaDTO {
     cantidadVariantes: number;
     plantillaId: number | null;
     archivado: boolean;
+    cantPaquetes: number;
 
     constructor(producto: ProductoItemData) {
       this.id = producto.id_producto;
@@ -57,5 +59,6 @@ export class ProductoItemListaDTO {
       this.cantidadVariantes = producto.variantes?.length || 0;
       this.plantillaId = producto.plantillaId;
       this.archivado = producto.archivado ?? false;
+      this.cantPaquetes = producto.cantPaquetes ?? 0;
     }
   }
