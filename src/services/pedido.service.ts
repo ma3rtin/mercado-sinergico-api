@@ -55,6 +55,17 @@ export class PedidoService {
     };
   }
 
+  private _omitPedidosDelPaquete(pedido: PedidoConPaquete): PedidoConPaquete {
+    if (!pedido || !pedido.paquetePublicado) return pedido;
+
+    const { pedidos: _pedidos, ...paqueteSinPedidos } = pedido.paquetePublicado;
+
+    return {
+      ...pedido,
+      paquetePublicado: paqueteSinPedidos,
+    };
+  }
+
   private calcularPrecioConDescuento(precioBase: number, descuento: number) {
     return precioBase * (1 - descuento / 100);
   }
@@ -513,7 +524,9 @@ export class PedidoService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return pedidos.map((p) => this._mapComputedFields(p as PedidoConPaquete));
+    return pedidos.map((p) =>
+      this._omitPedidosDelPaquete(this._mapComputedFields(p as PedidoConPaquete))
+    );
   }
   public async obtenerPedidoPorId(usuarioId: number, pedidoId: number) {
     const pedido = await this.prisma.pedido.findFirst({
@@ -563,7 +576,7 @@ export class PedidoService {
       throw new CustomError('Pedido no encontrado', 404);
     }
 
-    return this._mapComputedFields(pedido as PedidoConPaquete);
+    return this._omitPedidosDelPaquete(this._mapComputedFields(pedido as PedidoConPaquete));
   }
 
   public async bajarseDePaquete(usuarioId: number, paqueteId: number) {
