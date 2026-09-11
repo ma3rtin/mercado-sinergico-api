@@ -2,7 +2,8 @@ export class CustomError extends Error {
   constructor(
     public message: string,
     public status: number = 500,
-    public cause?: unknown
+    public cause?: unknown,
+    public code?: string
   ) {
     super(message);
     this.name = this.constructor.name;

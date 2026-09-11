@@ -22,6 +22,10 @@ export const envs = {
   MAILER_SERVICE: env.get('MAILER_SERVICE').required().asString(),
   MAILER_EMAIL: env.get('MAILER_EMAIL').required().asString(),
   MAILER_SECRET_KEY: env.get('MAILER_SECRET_KEY').required().asString(),
+  EMAIL_VERIFICATION_TTL_MINUTES: env
+    .get('EMAIL_VERIFICATION_TTL_MINUTES')
+    .default('1440')
+    .asIntPositive(),
 };
 
 if (process.env['NODE_ENV'] === 'production' && !envs.MP_WEBHOOK_SECRET) {

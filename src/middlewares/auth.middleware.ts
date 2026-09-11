@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { DatosEncriptados, decodificarToken } from '../auth/jwt.js';
+import { prisma } from '../prisma/client.js';
 
 declare global {
   namespace Express {
@@ -27,6 +28,19 @@ export async function authMiddleware(
     //console.log('🧩 Token a verificar:', token);
     const user = await decodificarToken(token);
     //console.log('✅ Token decodificado:', user);
+
+    const usuarioActual = await prisma.usuario.findUnique({
+      where: { id: user.id },
+      select: { emailVerificadoEn: true },
+    });
+
+    if (!usuarioActual?.emailVerificadoEn) {
+      res.status(403).json({
+        message: 'Confirmá tu correo electrónico antes de continuar',
+        code: 'EMAIL_NO_VERIFICADO',
+      });
+      return;
+    }
 
     req.user = user;
 

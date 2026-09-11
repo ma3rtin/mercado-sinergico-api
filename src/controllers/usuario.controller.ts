@@ -6,6 +6,8 @@ import { LoginDTO } from '../dtos/usuario/login.dto.js';
 import { DatosEncriptados } from '../auth/jwt.js';
 import { ImagenService } from './../services/imagen.service.js';
 import { FirebaseAuthenticatedRequest, FirebaseUser } from '../middlewares/firebaseAuth.middleware.js';
+import { VerificarEmailDTO } from '../dtos/usuario/verificarEmail.dto.js';
+import { ReenviarVerificacionEmailDTO } from '../dtos/usuario/reenviarVerificacionEmail.dto.js';
 
 export class UsuarioController {
   constructor(private usuarioService: UsuarioService, private imagenService: ImagenService) { }
@@ -14,7 +16,24 @@ export class UsuarioController {
   public registrar = asyncHandler(async (req: Request, res: Response) => {
     const usuario: UsuarioDTO = req.body;
     const resultado = await this.usuarioService.registrar(usuario);
-    res.status(201).json(resultado);
+    res.status(201).json({
+      id: resultado.id,
+      message: 'Registro exitoso. Revisá tu correo para activar la cuenta.',
+    });
+  });
+
+  public verificarEmail = asyncHandler(async (req: Request, res: Response) => {
+    const { token } = req.body as VerificarEmailDTO;
+    await this.usuarioService.verificarEmail(token);
+    res.status(200).json({ message: 'Tu correo fue verificado correctamente.' });
+  });
+
+  public reenviarVerificacionEmail = asyncHandler(async (req: Request, res: Response) => {
+    const { email } = req.body as ReenviarVerificacionEmailDTO;
+    await this.usuarioService.reenviarVerificacionEmail(email);
+    res.status(200).json({
+      message: 'Si existe una cuenta pendiente de activación, enviamos un nuevo correo.',
+    });
   });
 
   // 🏠 Registrar dirección
