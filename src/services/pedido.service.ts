@@ -55,6 +55,17 @@ export class PedidoService {
     };
   }
 
+  private _omitPedidosDelPaquete(pedido: PedidoConPaquete): PedidoConPaquete {
+    if (!pedido || !pedido.paquetePublicado) return pedido;
+
+    const { pedidos: _pedidos, ...paqueteSinPedidos } = pedido.paquetePublicado;
+
+    return {
+      ...pedido,
+      paquetePublicado: paqueteSinPedidos,
+    };
+  }
+
   private calcularPrecioConDescuento(precioBase: number, descuento: number) {
     return precioBase * (1 - descuento / 100);
   }
@@ -115,38 +126,34 @@ export class PedidoService {
     paqueteId: number,
     dto: CrearPedidoDTO
   ): Promise<number> {
-    try {
-      console.log(`[crearPedido] Iniciando con usuarioId=${usuarioId}, paqueteId=${paqueteId}, dto=`, dto);
-
-      const paquete = await this.prisma.paquetePublicado.findUnique({
-        where: { id_paquete_publicado: paqueteId },
-        select: {
-          descuento: true,
-          tipo: true,
-          estado: { select: { nombre: true, id_estado: true } },
-          cant_productos: true, // Cupos totales del paquete
-          cant_productos_reservados: true, // Cupos ya reservados
-          paqueteBase: {
-            select: {
-              productos: {
-                select: {
-                  productoId: true,
-                  producto: {
-                    select: {
-                      id_producto: true,
-                      precio: true,
-                      stock: true,
-                      tipo: true,
-                      plantillaId: true,
-                      // Solo incluimos variantes activas para la validación
-                      variantes: {
-                        where: { activo: true },
-                        select: {
-                          id: true,
-                          stockFisico: true,
-                          precioExtra: true,
-                          activo: true,
-                        },
+    const paquete = await this.prisma.paquetePublicado.findUnique({
+      where: { id_paquete_publicado: paqueteId },
+      select: {
+        descuento: true,
+        tipo: true,
+        estado: { select: { nombre: true, id_estado: true } },
+        cant_productos: true, // Cupos totales del paquete
+        cant_productos_reservados: true, // Cupos ya reservados
+        paqueteBase: {
+          select: {
+            productos: {
+              select: {
+                productoId: true,
+                producto: {
+                  select: {
+                    id_producto: true,
+                    precio: true,
+                    stock: true,
+                    tipo: true,
+                    plantillaId: true,
+                    // Solo incluimos variantes activas para la validación
+                    variantes: {
+                      where: { activo: true },
+                      select: {
+                        id: true,
+                        stockFisico: true,
+                        precioExtra: true,
+                        activo: true,
                       },
                     },
                   },
@@ -155,162 +162,150 @@ export class PedidoService {
             },
           },
         },
-      });
+      },
+    });
 
-      console.log('[crearPedido] paquete obtenido:', paquete ? 'SI' : 'NO');
+    if (!paquete) {
+      throw new CustomError('Paquete no encontrado', 404);
+    }
 
-      if (!paquete) {
-        throw new CustomError('Paquete no encontrado', 404);
+    // A. El paquete sigue abierto
+    if (paquete.estado.id_estado !== ESTADO_PAQUETE.ACTIVO) {
+      throw new CustomError('El paquete no está activo para nuevos pedidos', 400);
+    }
+
+    const productoEnPaquete = paquete.paqueteBase.productos.find(
+      (p) => p.productoId === dto.productoId
+    );
+    if (!productoEnPaquete) {
+      throw new CustomError('El producto no pertenece al paquete', 400);
+    }
+    const producto = productoEnPaquete.producto;
+
+    // D. La cantidad solicitada es válida
+    if (dto.cantidad <= 0) {
+      throw new CustomError('La cantidad solicitada debe ser un número positivo', 400);
+    }
+
+    let varianteSeleccionada = null;
+    let stockFisicoVariante: number | null = null;
+    let precioExtra = 0;
+
+    // E. La variante pertenece al producto correcto y está activa
+    if (dto.varianteId) {
+      const variante = producto.variantes.find(v => v.id === dto.varianteId);
+      if (!variante) {
+        throw new CustomError('La variante no existe para este producto', 400);
       }
-
-      // A. El paquete sigue abierto
-      if (paquete.estado.id_estado !== ESTADO_PAQUETE.ACTIVO) {
-        throw new CustomError('El paquete no está activo para nuevos pedidos', 400);
+      if (!variante.activo) {
+        throw new CustomError('La variante seleccionada no está activa', 400);
       }
-
-      const productoEnPaquete = paquete.paqueteBase.productos.find(
-        (p) => p.productoId === dto.productoId
-      );
-      if (!productoEnPaquete) {
-        throw new CustomError('El producto no pertenece al paquete', 400);
+      varianteSeleccionada = variante;
+      stockFisicoVariante = variante.stockFisico;
+      precioExtra = variante.precioExtra || 0;
+    } else {
+      // Si el producto tiene variantes pero no se seleccionó ninguna
+      if (producto.plantillaId !== null && producto.variantes.length > 0) {
+        throw new CustomError(
+          'Debe seleccionar una variante para este producto',
+          400
+        );
       }
-      const producto = productoEnPaquete.producto;
+      // Si el producto no tiene variantes, usamos el stock directo del producto
+      stockFisicoVariante = producto.stock;
+    }
 
-      // D. La cantidad solicitada es válida
-      if (dto.cantidad <= 0) {
-        throw new CustomError('La cantidad solicitada debe ser un número positivo', 400);
-      }
+    // F. El producto pertenece al tipo correcto de paquete
+    if (paquete.tipo === 'ENERGICO' && producto.tipo !== 'ENERGICO') {
+      throw new CustomError('Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS.', 400);
+    }
 
-      let varianteSeleccionada = null;
-      let stockFisicoVariante: number | null = null;
-      let precioExtra = 0;
+    const cuposRestantesPaquete = this.calcularCuposRestantes(
+      paquete.cant_productos,
+      paquete.cant_productos_reservados || 0
+    );
+    const disponibilidadReal = this.calcularDisponibilidadReal(
+      paquete.tipo,
+      cuposRestantesPaquete,
+      stockFisicoVariante
+    );
+    this.validarDisponibilidad(
+      disponibilidadReal,
+      dto.cantidad,
+      'No hay suficiente disponibilidad para la cantidad solicitada'
+    );
 
-      // E. La variante pertenece al producto correcto y está activa
-      if (dto.varianteId) {
-        const variante = producto.variantes.find(v => v.id === dto.varianteId);
-        if (!variante) {
-          throw new CustomError('La variante no existe para este producto', 400);
-        }
-        if (!variante.activo) {
-          throw new CustomError('La variante seleccionada no está activa', 400);
-        }
-        varianteSeleccionada = variante;
-        stockFisicoVariante = variante.stockFisico;
-        precioExtra = variante.precioExtra || 0;
-      } else {
-        // Si el producto tiene variantes pero no se seleccionó ninguna
-        if (producto.plantillaId !== null && producto.variantes.length > 0) {
-          throw new CustomError(
-            'Debe seleccionar una variante para este producto',
-            400
-          );
-        }
-        // Si el producto no tiene variantes, usamos el stock directo del producto
-        stockFisicoVariante = producto.stock;
-      }
+    const precioBase = producto.precio + precioExtra;
+    const precioUnitario = this.calcularPrecioConDescuento(
+      precioBase,
+      paquete.descuento || 0
+    );
 
-      // F. El producto pertenece al tipo correcto de paquete
-      if (paquete.tipo === 'ENERGICO' && producto.tipo !== 'ENERGICO') {
-        throw new CustomError('Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS.', 400);
-      }
+    const subtotal = precioUnitario * dto.cantidad;
 
-      const cuposRestantesPaquete = this.calcularCuposRestantes(
-        paquete.cant_productos,
-        paquete.cant_productos_reservados || 0
-      );
-      const disponibilidadReal = this.calcularDisponibilidadReal(
-        paquete.tipo,
-        cuposRestantesPaquete,
-        stockFisicoVariante
-      );
-      this.validarDisponibilidad(
-        disponibilidadReal,
-        dto.cantidad,
-        'No hay suficiente disponibilidad para la cantidad solicitada'
-      );
+    // Buscar si ya existe un pedido "carrito" para este usuario y paquete
+    let pedido = await this.getPedidoCarrito(usuarioId, paqueteId);
 
-      const precioBase = producto.precio + precioExtra;
-      const precioUnitario = this.calcularPrecioConDescuento(
-        precioBase,
-        paquete.descuento || 0
-      );
-
-      const subtotal = precioUnitario * dto.cantidad;
-      console.log(`[crearPedido] precioUnitario=${precioUnitario}, subtotal=${subtotal}`);
-
-      // Buscar si ya existe un pedido "carrito" para este usuario y paquete
-      let pedido = await this.getPedidoCarrito(usuarioId, paqueteId);
-      console.log('[crearPedido] pedidoCarrito existente:', pedido ? 'SI' : 'NO');
-
-      if (!pedido) {
-        const nuevo = await this.prisma.pedido.create({
-          data: {
-            usuarioId,
-            paquetePublicadoId: paqueteId,
-            estadoId: ESTADO_PEDIDO.PENDIENTE,
-            monto_total: subtotal,
-            descuento_aplicado: paquete.descuento || 0,
-            detalles: {
-              create: {
-                productoId: producto.id_producto, // E. La variante pertenece al paquete correcto (producto)
-                varianteId: varianteSeleccionada?.id || null,
-                cantidad: dto.cantidad,
-                precio_unitario: precioUnitario,
-                subtotal,
-              },
+    if (!pedido) {
+      const nuevo = await this.prisma.pedido.create({
+        data: {
+          usuarioId,
+          paquetePublicadoId: paqueteId,
+          estadoId: ESTADO_PEDIDO.PENDIENTE,
+          monto_total: subtotal,
+          descuento_aplicado: paquete.descuento || 0,
+          detalles: {
+            create: {
+              productoId: producto.id_producto, // E. La variante pertenece al paquete correcto (producto)
+              varianteId: varianteSeleccionada?.id || null,
+              cantidad: dto.cantidad,
+              precio_unitario: precioUnitario,
+              subtotal,
             },
           },
-          select: { id_pedido: true },
-        });
-        console.log(`[crearPedido] nuevo pedido creado: ${nuevo.id_pedido}`);
-        return nuevo.id_pedido;
-      }
+        },
+        select: { id_pedido: true },
+      });
+      return nuevo.id_pedido;
+    }
 
-      const detalleExistente = await this.prisma.pedidoDetalle.findFirst({
-        where: {
-          pedidoId: pedido.id_pedido,
-          productoId: producto.id_producto,
-          varianteId: varianteSeleccionada?.id ?? null,
+    const detalleExistente = await this.prisma.pedidoDetalle.findFirst({
+      where: {
+        pedidoId: pedido.id_pedido,
+        productoId: producto.id_producto,
+        varianteId: varianteSeleccionada?.id ?? null,
+      },
+    });
+
+    if (detalleExistente) {
+      const nuevaCantidadTotal = detalleExistente.cantidad + dto.cantidad;
+      this.validarDisponibilidad(
+        disponibilidadReal,
+        nuevaCantidadTotal,
+        'No hay suficiente disponibilidad para la cantidad total solicitada'
+      );
+      await this.prisma.pedidoDetalle.update({
+        where: { id: detalleExistente.id },
+        data: {
+          cantidad: nuevaCantidadTotal,
+          subtotal: precioUnitario * nuevaCantidadTotal,
         },
       });
-
-      console.log('[crearPedido] detalleExistente:', detalleExistente ? 'SI' : 'NO');
-
-      if (detalleExistente) {
-        const nuevaCantidadTotal = detalleExistente.cantidad + dto.cantidad;
-        this.validarDisponibilidad(
-          disponibilidadReal,
-          nuevaCantidadTotal,
-          'No hay suficiente disponibilidad para la cantidad total solicitada'
-        );
-        await this.prisma.pedidoDetalle.update({
-          where: { id: detalleExistente.id },
-          data: {
-            cantidad: nuevaCantidadTotal,
-            subtotal: precioUnitario * nuevaCantidadTotal,
-          },
-        });
-      } else {
-        await this.prisma.pedidoDetalle.create({
-          data: {
-            pedidoId: pedido.id_pedido,
-            productoId: producto.id_producto, // E. La variante pertenece al paquete correcto (producto)
-            varianteId: varianteSeleccionada?.id || null,
-            cantidad: dto.cantidad,
-            precio_unitario: precioUnitario,
-            subtotal,
-          },
-        });
-      }
-
-      await this.recalcularMontoTotal(pedido.id_pedido);
-      console.log('[crearPedido] recalcularMontoTotal finalizado exitosamente.');
-      return pedido.id_pedido;
-
-    } catch (error) {
-      console.error('[crearPedido ERROR] Fallo inesperado:', error);
-      throw error;
+    } else {
+      await this.prisma.pedidoDetalle.create({
+        data: {
+          pedidoId: pedido.id_pedido,
+          productoId: producto.id_producto, // E. La variante pertenece al paquete correcto (producto)
+          varianteId: varianteSeleccionada?.id || null,
+          cantidad: dto.cantidad,
+          precio_unitario: precioUnitario,
+          subtotal,
+        },
+      });
     }
+
+    await this.recalcularMontoTotal(pedido.id_pedido);
+    return pedido.id_pedido;
   }
 
   public async eliminarProducto(
@@ -513,7 +508,9 @@ export class PedidoService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return pedidos.map((p) => this._mapComputedFields(p as PedidoConPaquete));
+    return pedidos.map((p) =>
+      this._omitPedidosDelPaquete(this._mapComputedFields(p as PedidoConPaquete))
+    );
   }
   public async obtenerPedidoPorId(usuarioId: number, pedidoId: number) {
     const pedido = await this.prisma.pedido.findFirst({
@@ -563,7 +560,7 @@ export class PedidoService {
       throw new CustomError('Pedido no encontrado', 404);
     }
 
-    return this._mapComputedFields(pedido as PedidoConPaquete);
+    return this._omitPedidosDelPaquete(this._mapComputedFields(pedido as PedidoConPaquete));
   }
 
   public async bajarseDePaquete(usuarioId: number, paqueteId: number) {
