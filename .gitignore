@@ -33,3 +33,18 @@ dist/
 
 # PR Description local
 PR-DESCRIPTION.md
+
+# Claude design-system kit (local, no se sube)
+.claude/
+CLAUDE.md
+tokens/
+taste/
+workflows/
+components/
+content/
+design-systems/
+frameworks/
+accessibility/
+scripts/__pycache__/
+scripts/*.mjs
+scripts/*.py
