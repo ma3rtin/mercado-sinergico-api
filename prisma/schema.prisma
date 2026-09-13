@@ -306,6 +306,7 @@ model PaquetePublicado {
   tipo                      TipoPaquete            @default(SINERGICO)
   descuento                 Float?
   archivado                 Boolean                @default(false)
+  ultimaNotificacion        DateTime?
 
   pedidos              Pedido[]
   variantesDisponibles DisponibilidadVariantePaquete[]
