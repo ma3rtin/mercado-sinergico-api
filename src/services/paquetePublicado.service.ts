@@ -41,6 +41,16 @@ function construirOrderByPaquetes(
   return criterio ? [criterio, DESEMPATE_PAQUETES] : [DESEMPATE_PAQUETES];
 }
 
+const COOLDOWN_NOTIFICACION_MS = 24 * 60 * 60 * 1000;
+
+function formatearTiempoRestante(ms: number): string {
+  const totalMinutos = Math.ceil(ms / 60000);
+  const horas = Math.floor(totalMinutos / 60);
+  const minutos = totalMinutos % 60;
+  if (horas === 0) return `${minutos} min`;
+  return `${horas} h ${minutos} min`;
+}
+
 export class PaquetePublicadoService {
   private prisma = prisma;
   private emailService = new EmailService();
@@ -1059,6 +1069,15 @@ export class PaquetePublicadoService {
     });
     if (!paquete) throw new CustomError('Paquete no encontrado', 404);
 
+    // Anti-spam: cooldown de 24hs desde la última notificación.
+    if (paquete.ultimaNotificacion) {
+      const tiempoTranscurridoMs = Date.now() - new Date(paquete.ultimaNotificacion).getTime();
+      const faltaMs = COOLDOWN_NOTIFICACION_MS - tiempoTranscurridoMs;
+      if (faltaMs > 0) {
+        throw new CustomError(`Podés volver a notificar en ${formatearTiempoRestante(faltaMs)}`, 429);
+      }
+    }
+
     const pedidosActivos = await this.prisma.pedido.findMany({
       where: {
         paquetePublicadoId: id,
@@ -1085,6 +1104,11 @@ export class PaquetePublicadoService {
       asunto: `Aviso sobre tu pedido - ${paquete.paqueteBase?.nombre}`,
       template: 'comprador-aviso-cierre',
       context: { nombrePaquete: paquete.paqueteBase?.nombre },
+    });
+
+    await this.prisma.paquetePublicado.update({
+      where: { id_paquete_publicado: id },
+      data: { ultimaNotificacion: new Date() },
     });
 
     return { mensaje: 'Notificación enviada correctamente.', notificados: correos.length };
