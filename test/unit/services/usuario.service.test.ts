@@ -318,21 +318,18 @@ describe("UsuarioService", () => {
       expect(mocks.mockTransaction).toHaveBeenCalled();
     });
 
-    it("no debería exigir contraseña si la cuenta no tiene una propia (cuentas de Firebase)", async () => {
+    it("debería rechazar el cambio de email en cuentas sin contraseña propia (Firebase)", async () => {
       mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
         id: 4,
         email: "viejo@example.com",
         contraseña: "",
       });
-      mocks.mockUsuarioUpdate.mockResolvedValueOnce({
-        id: 4,
-        email: "nuevo@example.com",
-        nombre: "Usuario Firebase",
-      });
 
       await expect(
         service.actualizarUsuario(4, { email: "nuevo@example.com" })
-      ).resolves.toHaveProperty("email", "nuevo@example.com");
+      ).rejects.toMatchObject({ status: 400 });
+
+      expect(mocks.mockUsuarioUpdate).not.toHaveBeenCalled();
     });
 
     it("no debería tocar emailVerificadoEn si el email no cambia", async () => {

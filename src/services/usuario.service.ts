@@ -108,8 +108,6 @@ export class UsuarioService {
     try {
       await this.crearYEnviarTokenVerificacion(usuarioCreado);
     } catch (error) {
-      // No abortamos el registro si falla el envío: la cuenta ya existe y el
-      // usuario puede pedir un reenvío desde el login.
       console.error('No se pudo enviar el email de activación al registrarse:', error);
     }
 
@@ -253,17 +251,15 @@ export class UsuarioService {
       });
 
       if (usuarioActual && email !== usuarioActual.email) {
-        // Si la cuenta tiene contraseña propia (no es sólo Firebase), confirmamos
-        // identidad antes de mover el email: una sesión robada no alcanza para
-        // redirigir la cuenta a un correo ajeno.
-        if (usuarioActual.contraseña) {
-          if (!contraseñaActual) {
-            throw new CustomError('Ingresá tu contraseña actual para cambiar el email', 400);
-          }
-          const contraseñaCorrecta = await compararContraseñas(contraseñaActual, usuarioActual.contraseña);
-          if (!contraseñaCorrecta) {
-            throw new CustomError('La contraseña actual es incorrecta', 403);
-          }
+        if (!usuarioActual.contraseña) {
+          throw new CustomError('Tu cuenta usa Google para iniciar sesión, no podés cambiar el email manualmente', 400);
+        }
+        if (!contraseñaActual) {
+          throw new CustomError('Ingresá tu contraseña actual para cambiar el email', 400);
+        }
+        const contraseñaCorrecta = await compararContraseñas(contraseñaActual, usuarioActual.contraseña);
+        if (!contraseñaCorrecta) {
+          throw new CustomError('La contraseña actual es incorrecta', 403);
         }
         emailCambiando = true;
       }
