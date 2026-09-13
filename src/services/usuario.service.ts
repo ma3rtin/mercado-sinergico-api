@@ -105,7 +105,13 @@ export class UsuarioService {
       },
     });
 
-    await this.crearYEnviarTokenVerificacion(usuarioCreado);
+    try {
+      await this.crearYEnviarTokenVerificacion(usuarioCreado);
+    } catch (error) {
+      // No abortamos el registro si falla el envío: la cuenta ya existe y el
+      // usuario puede pedir un reenvío desde el login.
+      console.error('No se pudo enviar el email de activación al registrarse:', error);
+    }
 
     return usuarioCreado;
   }
@@ -232,11 +238,35 @@ export class UsuarioService {
     userId: number,
     datos: Partial<UsuarioDTO>
   ): Promise<Usuario> {
-    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url, localidad_id, calle, numero, piso, dpto, cp, observaciones } = datos as UsuarioUpdateDTO;
+    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url, localidad_id, calle, numero, piso, dpto, cp, observaciones, contraseñaActual } = datos as UsuarioUpdateDTO;
 
     let contraseñaHash: string | undefined = undefined;
     if (contraseña) {
       contraseñaHash = await cifrarContraseña(contraseña);
+    }
+
+    let emailCambiando = false;
+    if (email) {
+      const usuarioActual = await this.prismaClient.usuario.findUnique({
+        where: { id: userId },
+        select: { email: true, contraseña: true },
+      });
+
+      if (usuarioActual && email !== usuarioActual.email) {
+        // Si la cuenta tiene contraseña propia (no es sólo Firebase), confirmamos
+        // identidad antes de mover el email: una sesión robada no alcanza para
+        // redirigir la cuenta a un correo ajeno.
+        if (usuarioActual.contraseña) {
+          if (!contraseñaActual) {
+            throw new CustomError('Ingresá tu contraseña actual para cambiar el email', 400);
+          }
+          const contraseñaCorrecta = await compararContraseñas(contraseñaActual, usuarioActual.contraseña);
+          if (!contraseñaCorrecta) {
+            throw new CustomError('La contraseña actual es incorrecta', 403);
+          }
+        }
+        emailCambiando = true;
+      }
     }
 
     const localidadIdNum = localidad_id ? Number(localidad_id) : undefined;
@@ -254,8 +284,17 @@ export class UsuarioService {
         contraseña: contraseñaHash ?? undefined,
         imagen_url: imagen_url ?? undefined,
         localidadId: localidadIdNum ?? undefined,
+        emailVerificadoEn: emailCambiando ? null : undefined,
       },
     });
+
+    if (emailCambiando) {
+      try {
+        await this.crearYEnviarTokenVerificacion(usuario);
+      } catch (error) {
+        console.error('No se pudo enviar el email de activación tras cambiar el email:', error);
+      }
+    }
 
     const hayDatosDeDireccion  = localidadIdNum || calle || numeroNum || pisoNum || dpto || cpNum || observaciones;
     if (hayDatosDeDireccion  && localidadIdNum) {

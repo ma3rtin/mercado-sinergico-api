@@ -11,6 +11,7 @@ jest.mock("canvas", () => ({
   }),
 }));
 import { UsuarioService } from "../../../src/services/usuario.service";
+import { compararContraseñas } from "../../../src/auth/bcrypt";
 
 jest.mock("../../../src/prisma/client", () => {
   const mockUsuarioCreate = jest.fn();
@@ -199,6 +200,21 @@ describe("UsuarioService", () => {
     expect(mocks.mockUsuarioCreate).not.toHaveBeenCalled();
   });
 
+  it("no debería fallar el registro si el envío del email de verificación falla", async () => {
+    (service as any).emailService.enviarEmail.mockResolvedValueOnce(false);
+
+    const resultado = await service.registrar({
+      email: "nuevo@example.com",
+      contraseña: "Password123",
+      nombre: "Nuevo Usuario",
+      telefono: "1234567890",
+      fecha_nac: "2000-01-01",
+    });
+
+    expect(resultado).toHaveProperty("id");
+    expect(mocks.mockUsuarioCreate).toHaveBeenCalled();
+  });
+
   it("debería buscar un usuario por email", async () => {
     mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
       id: 1,
@@ -244,6 +260,102 @@ describe("UsuarioService", () => {
     });
     expect(result).toHaveProperty("id");
     expect(result.email).toBe("test@example.com");
+  });
+
+  describe("actualizarUsuario - cambio de email", () => {
+    it("debería rechazar el cambio de email sin la contraseña actual", async () => {
+      mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
+        id: 1,
+        email: "viejo@example.com",
+        contraseña: "hashedPassword",
+      });
+
+      await expect(
+        service.actualizarUsuario(1, { email: "nuevo@example.com" })
+      ).rejects.toMatchObject({ status: 400 });
+
+      expect(mocks.mockUsuarioUpdate).not.toHaveBeenCalled();
+    });
+
+    it("debería rechazar el cambio de email con la contraseña actual incorrecta", async () => {
+      mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
+        id: 1,
+        email: "viejo@example.com",
+        contraseña: "hashedPassword",
+      });
+      (compararContraseñas as jest.Mock).mockResolvedValueOnce(false);
+
+      await expect(
+        service.actualizarUsuario(1, {
+          email: "nuevo@example.com",
+          contraseñaActual: "incorrecta",
+        } as any)
+      ).rejects.toMatchObject({ status: 403 });
+
+      expect(mocks.mockUsuarioUpdate).not.toHaveBeenCalled();
+    });
+
+    it("debería resetear emailVerificadoEn y reenviar la verificación al cambiar el email con la contraseña correcta", async () => {
+      mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
+        id: 1,
+        email: "viejo@example.com",
+        contraseña: "hashedPassword",
+      });
+      mocks.mockUsuarioUpdate.mockResolvedValueOnce({
+        id: 1,
+        email: "nuevo@example.com",
+        nombre: "Test User",
+      });
+
+      await service.actualizarUsuario(1, {
+        email: "nuevo@example.com",
+        contraseñaActual: "Password123",
+      } as any);
+
+      expect(mocks.mockUsuarioUpdate).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ emailVerificadoEn: null }),
+      }));
+      expect(mocks.mockTransaction).toHaveBeenCalled();
+    });
+
+    it("no debería exigir contraseña si la cuenta no tiene una propia (cuentas de Firebase)", async () => {
+      mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
+        id: 4,
+        email: "viejo@example.com",
+        contraseña: "",
+      });
+      mocks.mockUsuarioUpdate.mockResolvedValueOnce({
+        id: 4,
+        email: "nuevo@example.com",
+        nombre: "Usuario Firebase",
+      });
+
+      await expect(
+        service.actualizarUsuario(4, { email: "nuevo@example.com" })
+      ).resolves.toHaveProperty("email", "nuevo@example.com");
+    });
+
+    it("no debería tocar emailVerificadoEn si el email no cambia", async () => {
+      mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
+        id: 1,
+        email: "test@example.com",
+        contraseña: "hashedPassword",
+      });
+      mocks.mockUsuarioUpdate.mockResolvedValueOnce({
+        id: 1,
+        email: "test@example.com",
+        nombre: "Test User Editado",
+      });
+
+      await service.actualizarUsuario(1, {
+        email: "test@example.com",
+        nombre: "Test User Editado",
+      });
+
+      expect(mocks.mockUsuarioUpdate).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ emailVerificadoEn: undefined }),
+      }));
+    });
   });
 
   describe("reenviarVerificacionEmail", () => {

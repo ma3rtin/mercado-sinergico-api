@@ -40,7 +40,7 @@ export const usuarioRouter = Router();
 usuarioRouter.get('/me', authMiddleware, usuarioController.obtenerUsuario);
 usuarioRouter.patch('/me', authMiddleware, upload.single('imagen'), validarDto(UsuarioUpdateDTO), usuarioController.actualizarUsuario);
 usuarioRouter.post('/registrar', limiteAuth, validarDto(UsuarioDTO), usuarioController.registrar.bind(usuarioController));
-usuarioRouter.post('/verificar-email', validarDto(VerificarEmailDTO), usuarioController.verificarEmail);
+usuarioRouter.post('/verificar-email', limiteAuth, validarDto(VerificarEmailDTO), usuarioController.verificarEmail);
 usuarioRouter.post('/reenviar-verificacion', limiteReenvioVerificacion, validarDto(ReenviarVerificacionEmailDTO), usuarioController.reenviarVerificacionEmail);
 usuarioRouter.post('/login', limiteAuth, validarDto(LoginDTO), usuarioController.iniciarSesion.bind(usuarioController));
 usuarioRouter.post('/login-firebase', limiteAuth, firebaseAuthMiddleware, usuarioController.loginConFirebase.bind(usuarioController));
