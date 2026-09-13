@@ -118,10 +118,25 @@ model Usuario {
   rol         Rol        @relation(fields: [rolId], references: [id])
   localidadId Int?
   localidad   Localidad? @relation(fields: [localidadId], references: [id_localidad])
+  emailVerificadoEn DateTime?
 
-  pedidos   Pedido[]
+  pedidos                    Pedido[]
+  tokensVerificacionEmail    TokenVerificacionEmail[]
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+}
+
+model TokenVerificacionEmail {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiraEn  DateTime
+  usadoEn   DateTime?
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  @@index([usuarioId])
+  @@index([expiraEn])
 }
 
 model Rol {

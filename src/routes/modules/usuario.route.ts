@@ -12,6 +12,8 @@ import { UsuarioUpdateDTO } from '../../dtos/usuario/usuarioUpdate.dto.js';
 import { procesarSubidaImagen } from './../../middlewares/uploadFiles.middleware.js';
 import { ImagenService } from '../../services/imagen.service.js';
 import multer from 'multer';
+import { VerificarEmailDTO } from '../../dtos/usuario/verificarEmail.dto.js';
+import { ReenviarVerificacionEmailDTO } from '../../dtos/usuario/reenviarVerificacionEmail.dto.js';
 
 const limiteAuth = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -19,6 +21,14 @@ const limiteAuth = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiados intentos. Intentá de nuevo en 15 minutos.' },
+});
+
+const limiteReenvioVerificacion = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados reenvíos. Intentá de nuevo en 15 minutos.' },
 });
 
 const upload = multer();
@@ -30,6 +40,8 @@ export const usuarioRouter = Router();
 usuarioRouter.get('/me', authMiddleware, usuarioController.obtenerUsuario);
 usuarioRouter.patch('/me', authMiddleware, upload.single('imagen'), validarDto(UsuarioUpdateDTO), usuarioController.actualizarUsuario);
 usuarioRouter.post('/registrar', limiteAuth, validarDto(UsuarioDTO), usuarioController.registrar.bind(usuarioController));
+usuarioRouter.post('/verificar-email', limiteAuth, validarDto(VerificarEmailDTO), usuarioController.verificarEmail);
+usuarioRouter.post('/reenviar-verificacion', limiteReenvioVerificacion, validarDto(ReenviarVerificacionEmailDTO), usuarioController.reenviarVerificacionEmail);
 usuarioRouter.post('/login', limiteAuth, validarDto(LoginDTO), usuarioController.iniciarSesion.bind(usuarioController));
 usuarioRouter.post('/login-firebase', limiteAuth, firebaseAuthMiddleware, usuarioController.loginConFirebase.bind(usuarioController));
 usuarioRouter.post('/direccion', authMiddleware, procesarSubidaImagen('imagen'), validarDto(DireccionDTO), usuarioController.registrarDireccion.bind(usuarioController));
