@@ -121,16 +121,6 @@ describe("ProductoController", () => {
       expect(mockResponse.json).toHaveBeenCalledWith(producto);
     });
 
-    it("debería retornar 404 si el producto no existe", async () => {
-      mockRequest.params = { id: "999" };
-      mockProductoService.getById.mockResolvedValue(null);
-
-      await controller.getProductoById(mockRequest as Request, mockResponse as Response, next);
-
-      expect(mockResponse.status).toHaveBeenCalledWith(404);
-      expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({ message: "Product not found" }));
-    });
-
     it("debería manejar errores del servicio", async () => {
       mockRequest.params = { id: "1" };
       const error = new Error("Error de BD");

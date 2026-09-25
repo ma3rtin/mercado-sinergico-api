@@ -3,6 +3,7 @@ import { ProductoService } from '../services/producto.service.js';
 import { ProductoDTO } from '../dtos/producto/producto.dto.js';
 import { ImagenService } from '../services/imagen.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { parseEnteroPositivo, parsePrecio } from '../utils/numeros.js';
 import { CustomError } from '../errors/custom.error.js';
 
 export class ProductoController {
@@ -35,29 +36,30 @@ export class ProductoController {
     const pageVal = req.query.page;
     const limitVal = req.query.limit;
 
-    let page = pageVal ? parseInt(pageVal as string, 10) : undefined;
-    let limit = limitVal ? parseInt(limitVal as string, 10) : undefined;
-
-    // Validaciones
-    if (pageVal !== undefined && (isNaN(page!) || page! < 1)) {
+    const pageParseado = pageVal !== undefined ? parseEnteroPositivo(pageVal) : undefined;
+    if (pageVal !== undefined && pageParseado === null) {
       return res.status(400).json({ message: 'El parámetro "page" debe ser un número entero mayor o igual a 1' });
     }
-    if (limitVal !== undefined && (isNaN(limit!) || limit! < 1 || limit! > 100)) {
+    const page = pageParseado ?? undefined;
+
+    const limitParseado = limitVal !== undefined ? parseEnteroPositivo(limitVal) : undefined;
+    if (limitVal !== undefined && (limitParseado === null || (limitParseado ?? 0) > 100)) {
       return res.status(400).json({ message: 'El parámetro "limit" debe ser un número entero entre 1 y 100' });
     }
+    const limit = limitParseado ?? undefined;
 
     // Filtros opcionales
     const categorias = req.query.categorias
-      ? (req.query.categorias as string).split(',').map(Number).filter((n) => !isNaN(n))
+      ? (req.query.categorias as string).split(',').map(parseEnteroPositivo).filter((n): n is number => n !== null)
       : undefined;
     const marcas = req.query.marcas
-      ? (req.query.marcas as string).split(',').map(Number).filter((n) => !isNaN(n))
+      ? (req.query.marcas as string).split(',').map(parseEnteroPositivo).filter((n): n is number => n !== null)
       : undefined;
     const zonas = req.query.zonas
-      ? (req.query.zonas as string).split(',').map(Number).filter((n) => !isNaN(n))
+      ? (req.query.zonas as string).split(',').map(parseEnteroPositivo).filter((n): n is number => n !== null)
       : undefined;
-    const precioMin = req.query.precioMin ? parseFloat(req.query.precioMin as string) : undefined;
-    const precioMax = req.query.precioMax ? parseFloat(req.query.precioMax as string) : undefined;
+    const precioMin = req.query.precioMin !== undefined ? parsePrecio(req.query.precioMin) ?? undefined : undefined;
+    const precioMax = req.query.precioMax !== undefined ? parsePrecio(req.query.precioMax) ?? undefined : undefined;
     // Un orden desconocido cae al default en vez de responder 400: es un
     // parametro cosmetico y una URL vieja no deberia romper el catalogo.
     const orden = req.query.orden ? (req.query.orden as string) : undefined;
@@ -96,13 +98,12 @@ export class ProductoController {
   });
 
   public getProductoById = asyncHandler(async (req: Request, res: Response) => {
-    const id: number = parseInt(req.params.id, 10);
-    const resultado = await this.productoService.getById(id);
-
-    if (!resultado) {
-      return res.status(404).json({ message: 'Product not found' });
+    const id = parseEnteroPositivo(req.params.id);
+    if (id === null) {
+      return res.status(400).json({ message: 'El id debe ser un número entero mayor o igual a 1' });
     }
 
+    const resultado = await this.productoService.getById(id);
     res.status(200).json(resultado);
   });
 
