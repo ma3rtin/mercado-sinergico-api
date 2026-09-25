@@ -339,6 +339,47 @@ describe("PaquetePublicadoService", () => {
     });
   });
 
+  describe("getByProductId", () => {
+    it("el where exige estado ACTIVO, no archivado y fecha_fin vigente", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockPaquetePublicadoFindMany.mockResolvedValue([]);
+
+      await service.getByProductId(7);
+
+      const { where } = mockPaquetePublicadoFindMany.mock.calls[0][0];
+      expect(where).toEqual({
+        paqueteBase: { productos: { some: { productoId: 7 } } },
+        estadoId: ESTADO_PAQUETE.ACTIVO,
+        archivado: false,
+        fecha_fin: { gte: expect.any(Date) },
+      });
+    });
+
+    it("resuelve un paquete POR_DEFINIR con el tipo de su paqueteBase", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockPaquetePublicadoFindMany.mockResolvedValue([
+        { id_paquete_publicado: 1, tipo: "POR_DEFINIR", paqueteBase: { tipo: "ENERGICO" } },
+      ]);
+
+      const resultado = await service.getByProductId(7);
+
+      expect(resultado[0]).toEqual(
+        expect.objectContaining({ id_paquete_publicado: 1, tipo: "ENERGICO" })
+      );
+    });
+
+    it("mantiene el tipo propio cuando no es POR_DEFINIR", async () => {
+      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockPaquetePublicadoFindMany.mockResolvedValue([
+        { id_paquete_publicado: 2, tipo: "SINERGICO", paqueteBase: { tipo: "ENERGICO" } },
+      ]);
+
+      const resultado = await service.getByProductId(7);
+
+      expect(resultado[0].tipo).toBe("SINERGICO");
+    });
+  });
+
   describe("create", () => {
     it("debería lanzar un error si el paquete base está archivado", async () => {
       const { mockPaqueteBaseFindUnique } = require("../../../src/prisma/client").__mocks;

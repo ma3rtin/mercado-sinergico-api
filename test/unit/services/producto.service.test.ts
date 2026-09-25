@@ -1,5 +1,6 @@
 import { ProductoService } from "../../../src/services/producto.service";
 import { ProductoDTO } from "../../../src/dtos/producto/producto.dto";
+import { ESTADO_PAQUETE } from "../../../src/constants/estado-paquete";
 import { TipoPaquete } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 
@@ -398,6 +399,44 @@ describe("ProductoService", () => {
           }),
         })
       );
+    });
+  });
+
+  describe("construirWhereProductos", () => {
+    // El filtrado por archivado/categoría/marca/precio ya está cubierto por
+    // los tests de getAll y countAll (usan esta misma función); acá sólo lo
+    // que esos tests no pueden probar fácil: la regla de zona, y que ambos
+    // métodos efectivamente compartan el resultado.
+    const construir = (...args: any[]) => (service as any).construirWhereProductos(...args);
+
+    it("el filtro de zona exige estado ACTIVO, no archivado y fecha_fin vigente, y se aplica aunque venga includeArchived", () => {
+      const where = construir(undefined, true, undefined, undefined, undefined, undefined, [7]);
+      expect(where.paquetes.some.paqueteBase.publicados.some).toEqual({
+        estadoId: ESTADO_PAQUETE.ACTIVO,
+        archivado: false,
+        fecha_fin: { gte: expect.any(Date) },
+        zonaId: { in: [7] },
+      });
+    });
+
+    it("getAll y countAll arman el mismo where para los mismos parámetros (smoke test)", async () => {
+      // Reloj fijo: construirWhereProductos llama a `new Date()` una vez por
+      // invocación, y dos Date "iguales" a milisegundos de diferencia no
+      // pasan toEqual.
+      jest.useFakeTimers().setSystemTime(new Date("2024-01-01T00:00:00Z"));
+
+      const { mockProductoFindMany, mockProductoCount } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindMany.mockResolvedValue([]);
+      mockProductoCount.mockResolvedValue(0);
+
+      await service.getAll(undefined, 0, 10, false, [1], [2], 100, 500, [7]);
+      await service.countAll(undefined, false, [1], [2], 100, 500, [7]);
+
+      const whereDeGetAll = mockProductoFindMany.mock.calls[0][0].where;
+      const whereDeCountAll = mockProductoCount.mock.calls[0][0].where;
+      expect(whereDeGetAll).toEqual(whereDeCountAll);
+
+      jest.useRealTimers();
     });
   });
 
