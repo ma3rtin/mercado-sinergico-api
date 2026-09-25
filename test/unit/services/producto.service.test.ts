@@ -266,7 +266,7 @@ describe("ProductoService", () => {
       );
     });
 
-    it("debería mapear cantPaquetes contando paquetes publicados activos únicos por base", async () => {
+    it("debería mapear cantPaquetes sumando los paquetes publicados activos de cada base", async () => {
       const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
       mockProductoFindMany.mockResolvedValue([
         {
@@ -278,6 +278,7 @@ describe("ProductoService", () => {
           imagen_url: null,
           plantillaId: null,
           archivado: false,
+          _count: { variantes: 0 },
           paquetes: [],
         },
         {
@@ -289,15 +290,11 @@ describe("ProductoService", () => {
           imagen_url: null,
           plantillaId: null,
           archivado: false,
+          _count: { variantes: 0 },
+          // @@unique([productoId, paqueteBaseId]) del schema impide que un
+          // producto repita la misma base: cada entrada es una base distinta.
           paquetes: [
             {
-              paqueteBase: {
-                id_paquete_base: 10,
-                _count: { publicados: 2 },
-              },
-            },
-            {
-              // Misma base repetida en otro PaqueteBaseProducto: no debe sumar de nuevo
               paqueteBase: {
                 id_paquete_base: 10,
                 _count: { publicados: 2 },
@@ -325,20 +322,24 @@ describe("ProductoService", () => {
       mockProductoFindMany.mockResolvedValue([
         {
           id_producto: 1, nombre: "Sin paquetes", precio: 10, tipo: "SINERGICO",
-          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+          stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          _count: { variantes: 0 }, paquetes: [],
         },
         {
           id_producto: 2, nombre: "Un paquete", precio: 20, tipo: "SINERGICO",
           stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          _count: { variantes: 0 },
           paquetes: [{ paqueteBase: { id_paquete_base: 10, _count: { publicados: 1 } } }],
         },
         {
           id_producto: 3, nombre: "Sin paquetes 2", precio: 30, tipo: "SINERGICO",
-          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+          stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          _count: { variantes: 0 }, paquetes: [],
         },
         {
           id_producto: 4, nombre: "Dos paquetes", precio: 40, tipo: "SINERGICO",
           stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          _count: { variantes: 0 },
           paquetes: [{ paqueteBase: { id_paquete_base: 11, _count: { publicados: 2 } } }],
         },
       ]);
@@ -359,16 +360,19 @@ describe("ProductoService", () => {
       mockProductoFindMany.mockResolvedValue([
         {
           id_producto: 1, nombre: "A-sin", precio: 10, tipo: "SINERGICO",
-          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+          stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          _count: { variantes: 0 }, paquetes: [],
         },
         {
           id_producto: 2, nombre: "B-con", precio: 20, tipo: "SINERGICO",
           stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          _count: { variantes: 0 },
           paquetes: [{ paqueteBase: { id_paquete_base: 10, _count: { publicados: 1 } } }],
         },
         {
           id_producto: 3, nombre: "C-sin", precio: 30, tipo: "SINERGICO",
-          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+          stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          _count: { variantes: 0 }, paquetes: [],
         },
       ]);
 

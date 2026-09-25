@@ -5,6 +5,7 @@ import { CustomError } from '../errors/custom.error.js';
 import { ProductoItemListaDTO } from '../dtos/producto/productoItemLista.dto.js';
 import { ProductoDetalleRespuestaDTO } from '../dtos/producto/productoDetalleRespuesta.dto.js';
 import { generarVariantesEnTransaccion } from './variante-generacion.helper.js';
+import { ESTADO_PAQUETE } from '../constants/estado-paquete.js';
 
 type PrismaOrTx = Prisma.TransactionClient | typeof prisma;
 
@@ -29,18 +30,19 @@ function construirOrderBy(orden?: string): Prisma.ProductoOrderByWithRelationInp
 export class ProductoService {
   private prisma = prisma;
 
-  public async getAll(
+  // Compartido por getAll y countAll: si se desincronizan, el total de la
+  // paginación deja de coincidir con lo que realmente se lista.
+  // includeArchived sólo controla el archivado; el filtro de zona se aplica
+  // siempre que vengan zonas, lo pida o no el admin (nadie combina hoy los dos).
+  private construirWhereProductos(
     name?: string,
-    skip?: number,
-    take?: number,
     includeArchived = false,
     categorias?: number[],
     marcas?: number[],
     precioMin?: number,
     precioMax?: number,
-    zonas?: number[],
-    orden?: string
-  ) {
+    zonas?: number[]
+  ): Prisma.ProductoWhereInput {
     const where: Prisma.ProductoWhereInput = {};
     if (name) {
       where.nombre = { contains: name };
@@ -63,13 +65,13 @@ export class ProductoService {
         where.precio.lte = precioMax;
       }
     }
-    if (!includeArchived && zonas && zonas.length > 0) {
+    if (zonas && zonas.length > 0) {
       where.paquetes = {
         some: {
           paqueteBase: {
             publicados: {
               some: {
-                estadoId: 1, // ESTADO_PAQUETE.ACTIVO
+                estadoId: ESTADO_PAQUETE.ACTIVO,
                 archivado: false,
                 fecha_fin: { gte: new Date() },
                 zonaId: { in: zonas }
@@ -79,17 +81,38 @@ export class ProductoService {
         }
       };
     }
+    return where;
+  }
+
+  public async getAll(
+    name?: string,
+    skip?: number,
+    take?: number,
+    includeArchived = false,
+    categorias?: number[],
+    marcas?: number[],
+    precioMin?: number,
+    precioMax?: number,
+    zonas?: number[],
+    orden?: string
+  ) {
+    const where = this.construirWhereProductos(
+      name, includeArchived, categorias, marcas, precioMin, precioMax, zonas
+    );
 
     const productos = await this.prisma.producto.findMany({
       where,
       include: {
         categoria: true,
         marca: true,
-        imagenes: true,
-        plantilla: true,
-        variantes: true,
+        // ProductoItemListaDTO sólo lee imagen_url y plantillaId (escalares,
+        // ya vienen sin include) y la cantidad de variantes: no hace falta
+        // traer las relaciones completas de imagenes/plantilla/variantes.
+        _count: {
+          select: { variantes: true },
+        },
         // Conteo de paquetes publicados ACTIVOS que contienen este producto.
-        // Mismo criterio que el filtro de zonas: estadoId=1, no archivado, en vigencia.
+        // Mismo criterio que el filtro de zonas: ACTIVO, no archivado, en vigencia.
         paquetes: {
           select: {
             paqueteBase: {
@@ -99,7 +122,7 @@ export class ProductoService {
                   select: {
                     publicados: {
                       where: {
-                        estadoId: 1,
+                        estadoId: ESTADO_PAQUETE.ACTIVO,
                         archivado: false,
                         fecha_fin: { gte: new Date() },
                       },
@@ -124,18 +147,18 @@ export class ProductoService {
     // todo en memoria (p. ej. índice materializado o query agregada con apenas
     // la página de ids a devolver).
     const conPaquetes = productos.map((p) => {
-      // Conteo de paquetes publicados ACTIVOS únicos que contienen este producto.
-      // Se deduplica por paqueteBase por si el producto figura en más de un
-      // PaqueteBaseProducto apuntando a la misma base.
-      const basesVistas = new Set<number>();
-      const paquetesActivos = (p.paquetes ?? []).reduce((acc, paq) => {
-        const base = paq.paqueteBase;
-        if (!base || basesVistas.has(base.id_paquete_base)) return acc;
-        basesVistas.add(base.id_paquete_base);
-        return acc + (base._count.publicados ?? 0);
-      }, 0);
+      // El @@unique([productoId, paqueteBaseId]) del schema garantiza que cada
+      // paqueteBase aparece una sola vez por producto: no hace falta deduplicar.
+      const paquetesActivos = (p.paquetes ?? []).reduce(
+        (acc, paq) => acc + (paq.paqueteBase?._count.publicados ?? 0),
+        0,
+      );
       return {
-        dto: new ProductoItemListaDTO({ ...p, cantPaquetes: paquetesActivos }),
+        dto: new ProductoItemListaDTO({
+          ...p,
+          variantes: Array.from({ length: p._count.variantes }),
+          cantPaquetes: paquetesActivos,
+        }),
         cantPaquetes: paquetesActivos,
       };
     });
@@ -160,45 +183,9 @@ export class ProductoService {
     precioMax?: number,
     zonas?: number[]
   ): Promise<number> {
-    const where: Prisma.ProductoWhereInput = {};
-    if (name) {
-      where.nombre = { contains: name };
-    }
-    if (!includeArchived) {
-      where.archivado = false;
-    }
-    if (categorias && categorias.length > 0) {
-      where.categoria_id = { in: categorias };
-    }
-    if (marcas && marcas.length > 0) {
-      where.marca_id = { in: marcas };
-    }
-    if (precioMin !== undefined || precioMax !== undefined) {
-      where.precio = {};
-      if (precioMin !== undefined) {
-        where.precio.gte = precioMin;
-      }
-      if (precioMax !== undefined) {
-        where.precio.lte = precioMax;
-      }
-    }
-    if (!includeArchived && zonas && zonas.length > 0) {
-      where.paquetes = {
-        some: {
-          paqueteBase: {
-            publicados: {
-              some: {
-                estadoId: 1, // ESTADO_PAQUETE.ACTIVO
-                archivado: false,
-                fecha_fin: { gte: new Date() },
-                zonaId: { in: zonas }
-              }
-            }
-          }
-        }
-      };
-    }
-
+    const where = this.construirWhereProductos(
+      name, includeArchived, categorias, marcas, precioMin, precioMax, zonas
+    );
     return this.prisma.producto.count({ where });
   }
 
