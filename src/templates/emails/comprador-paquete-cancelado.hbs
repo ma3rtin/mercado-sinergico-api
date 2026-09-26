@@ -47,6 +47,15 @@
                                 style="background-color:#fef2f2; border-radius:12px; border: 1px solid #fecaca; margin-bottom: 32px;">
                                 <tr>
                                     <td style="padding:24px;">
+                                        {{#if esEnergico}}
+                                        <h3
+                                            style="margin:0 0 12px 0; color:#b91c1c; font-size:14px; font-weight:700; text-transform:uppercase;">
+                                            ℹ️ Reserva Cancelada sin Costo
+                                        </h3>
+                                        <p style="margin:0; color:#991b1b; font-size:14px; line-height:1.6;">
+                                            <strong>No se realizó ningún cargo.</strong> Al tratarse de un paquete con modalidad de pago contra entrega, la reserva fue cancelada y el stock liberado sin costo alguno para vos.
+                                        </p>
+                                        {{else}}
                                         <h3
                                             style="margin:0 0 12px 0; color:#b91c1c; font-size:14px; font-weight:700; text-transform:uppercase;">
                                             💸 Reembolso Garantizado
@@ -54,6 +63,7 @@
                                         <p style="margin:0; color:#991b1b; font-size:14px; line-height:1.6;">
                                             <strong>No te preocupes por tu dinero.</strong> Acabamos de procesar la devolución total de tu pago a través de MercadoPago. El dinero regresará al mismo medio de pago que utilizaste (puede demorar desde unos minutos hasta algunos días hábiles dependiendo de tu banco o tarjeta).
                                         </p>
+                                        {{/if}}
                                     </td>
                                 </tr>
                             </table>

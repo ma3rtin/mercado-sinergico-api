@@ -42,14 +42,16 @@ INSERT INTO EstadoPaquetePublicado (nombre) VALUES
 ('Cancelado');
 
 -- ============================ ESTADOPEDIDO ============================
--- id: 1=Pendiente, 2=Pagado, 3=Reembolsado, 4=En preparación, 5=En camino, 6=Recibido
+-- id: 1=Pendiente, 2=Pagado, 3=Reembolsado, 4=En preparación, 5=En camino, 6=Recibido, 7=Reservado, 8=Cancelado
 INSERT INTO EstadoPedido (nombre) VALUES
 ('Pendiente'),
 ('Pagado'),
 ('Reembolsado'),
 ('En preparación'),
 ('En camino'),
-('Recibido');
+('Recibido'),
+('Reservado'),
+('Cancelado');
 
 -- ============================ LOCALIDAD ============================
 INSERT INTO Localidad (nombre, codigo_postal) VALUES

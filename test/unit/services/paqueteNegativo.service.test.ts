@@ -145,6 +145,8 @@ describe("Pruebas de regresión para evitar reservas negativas en paquetes", () 
 
       const mockPaqueteUpdate = jest.fn().mockResolvedValue({});
       const mockPedidoUpdate = jest.fn().mockResolvedValue({});
+      const mockPedidoUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+      const mockPedidoFindMany = jest.fn().mockResolvedValue([]);
 
       const tx = {
         paquetePublicado: {
@@ -152,6 +154,8 @@ describe("Pruebas de regresión para evitar reservas negativas en paquetes", () 
         },
         pedido: {
           update: mockPedidoUpdate,
+          updateMany: mockPedidoUpdateMany,
+          findMany: mockPedidoFindMany,
         },
       };
 
