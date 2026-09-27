@@ -2,12 +2,15 @@ import { prisma } from '../prisma/client.js';
 
 export class LocalidadService {
   async getAll() {
-    return prisma.localidad.findMany();
+    return prisma.localidad.findMany({
+      where: { activa: true },
+      orderBy: { nombre: 'asc' },
+    });
   }
   
   async getAllByZona(zonaId: number) {
     return prisma.localidadZona.findMany({
-      where: { zonaId },
+      where: { zonaId, localidad: { activa: true } },
       include: { localidad: true },
     });
   }

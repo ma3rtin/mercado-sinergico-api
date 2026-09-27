@@ -53,9 +53,6 @@ export class ProductoController {
     const marcas = req.query.marcas
       ? (req.query.marcas as string).split(',').map(Number).filter((n) => !isNaN(n))
       : undefined;
-    const zonas = req.query.zonas
-      ? (req.query.zonas as string).split(',').map(Number).filter((n) => !isNaN(n))
-      : undefined;
     const precioMin = req.query.precioMin ? parseFloat(req.query.precioMin as string) : undefined;
     const precioMax = req.query.precioMax ? parseFloat(req.query.precioMax as string) : undefined;
 
@@ -70,8 +67,7 @@ export class ProductoController {
       categorias,
       marcas,
       precioMin,
-      precioMax,
-      zonas
+      precioMax
     );
 
     if (page !== undefined && limit !== undefined) {
@@ -81,8 +77,7 @@ export class ProductoController {
         categorias,
         marcas,
         precioMin,
-        precioMax,
-        zonas
+        precioMax
       );
       res.setHeader('X-Total-Count', total);
       res.setHeader('Access-Control-Expose-Headers', 'X-Total-Count');
