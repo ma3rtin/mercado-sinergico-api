@@ -6,14 +6,14 @@ export class ZonaService {
   private prisma = prisma;
   async getAll() {
     return this.prisma.zona.findMany({
-      include: { localidades: true, paquetes: true },
+      include: { localidades: true },
     });
   }
 
   async getById(id: number) {
     return this.prisma.zona.findUnique({
       where: { id_zona: id },
-      include: { localidades: true, paquetes: true },
+      include: { localidades: true },
     });
   }
 

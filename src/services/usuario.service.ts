@@ -81,9 +81,9 @@ export class UsuarioService {
       const localidad = await tx.localidad.findUnique({
         where: { id_localidad: direccion.localidad_id },
       });
-      if (!localidad) {
+      if (!localidad?.activa) {
         throw new CustomError(
-          'Localidad no encontrada en la base de datos',
+          'Seleccioná una localidad vigente del catálogo',
           404
         );
       }
@@ -172,6 +172,14 @@ export class UsuarioService {
     }
 
     const localidadIdNum = localidad_id ? Number(localidad_id) : undefined;
+    if (localidadIdNum !== undefined) {
+      const localidad = await this.prismaClient.localidad.findUnique({
+        where: { id_localidad: localidadIdNum },
+      });
+      if (!localidad?.activa) {
+        throw new CustomError('Seleccioná una localidad vigente del catálogo', 400);
+      }
+    }
     const numeroNum = numero ? Number(numero) : undefined;
     const pisoNum = piso ? Number(piso) : undefined;
     const cpNum = cp ? Number(cp) : undefined;

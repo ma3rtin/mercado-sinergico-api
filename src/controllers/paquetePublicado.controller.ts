@@ -30,9 +30,6 @@ export class PaquetePublicadoController {
     const marcas = req.query.marcas
       ? (req.query.marcas as string).split(',').map(Number).filter((n) => !isNaN(n))
       : undefined;
-    const zonas = req.query.zonas
-      ? (req.query.zonas as string).split(',').map(Number).filter((n) => !isNaN(n))
-      : undefined;
     const tiposPaquete = req.query.tiposPaquete
       ? (req.query.tiposPaquete as string).split(',')
       : undefined;
@@ -49,7 +46,6 @@ export class PaquetePublicadoController {
       includeArchived,
       categorias,
       marcas,
-      zonas,
       tiposPaquete,
       estados
     );
@@ -61,7 +57,6 @@ export class PaquetePublicadoController {
         includeArchived,
         categorias,
         marcas,
-        zonas,
         tiposPaquete,
         estados
       );
@@ -127,27 +122,6 @@ export class PaquetePublicadoController {
 
     res.status(200).json(paquetes);
   });
-
-  async getByLocation(req: Request, res: Response, next: NextFunction) {
-    try {
-      // 1. Intentar obtener ID de usuario autenticado (si middleware lo inyectó)
-      const userId = req.user?.id;
-
-      // 2. Intentar obtener ID de localidad de los query params
-      const localidadIdQuery = req.query.localidadId;
-      const localidadId = localidadIdQuery ? Number(localidadIdQuery) : undefined;
-
-      if (!userId && !localidadId) {
-        // Opción: Retornar error o lista vacía. Retornamos error para forzar selección.
-        return res.status(400).json({ message: 'Se requiere iniciar sesión o seleccionar una localidad.' });
-      }
-
-      const paquetes = await this.service.getByLocation(userId, localidadId);
-      res.status(200).json(paquetes);
-    } catch (error) {
-      next(error);
-    }
-  }
 
   async getByProductId(req: Request, res: Response, next: NextFunction) {
     try {
