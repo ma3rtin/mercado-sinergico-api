@@ -22,9 +22,11 @@
                                 Mercado Sinérgico
                             </p>
                             <h1 style="margin:0; color:#ef4444; font-size:26px; font-weight:800; line-height:1.2;">
-                                🚫 Paquete Cancelado
+                                🚫 {{#if esEnergico}}Reserva Cancelada{{else}}Paquete Cancelado{{/if}}
                             </h1>
-                            <p style="margin:8px 0 0 0; color:#4b5563; font-size:16px;">La compra grupal no se concretó</p>
+                            <p style="margin:8px 0 0 0; color:#4b5563; font-size:16px;">
+                                {{#if esEnergico}}Tu reserva fue cancelada{{else}}La compra grupal no se concretó{{/if}}
+                            </p>
                         </td>
                     </tr>
 
@@ -37,9 +39,15 @@
                             </p>
 
                             <p style="margin:0 0 24px 0; color:#374151; font-size:15px; line-height:1.7;">
+                                {{#if esEnergico}}
+                                Te escribimos para avisarte que tu pedido en el paquete de
+                                <strong style="color:#2E608C;">{{nombrePaquete}}</strong>
+                                fue <strong style="color:#ef4444;">cancelado</strong>.
+                                {{else}}
                                 Te escribimos para avisarte que el paquete de
                                 <strong style="color:#2E608C;">{{nombrePaquete}}</strong>
                                 en el cual estabas inscripto fue <strong style="color:#ef4444;">cancelado</strong> porque lamentablemente no se alcanzó el grupo mínimo o hubo un inconveniente con el stock del proveedor.
+                                {{/if}}
                             </p>
 
                             <!-- Refund Details -->
@@ -53,7 +61,7 @@
                                             ℹ️ Reserva Cancelada sin Costo
                                         </h3>
                                         <p style="margin:0; color:#991b1b; font-size:14px; line-height:1.6;">
-                                            <strong>No se realizó ningún cargo.</strong> Al tratarse de un paquete con modalidad de pago contra entrega, la reserva fue cancelada y el stock liberado sin costo alguno para vos.
+                                            No se realizó ningún cargo. Al tratarse de un paquete con modalidad de pago contra entrega, la reserva fue cancelada y el stock liberado sin costo alguno para vos.
                                         </p>
                                         {{else}}
                                         <h3
