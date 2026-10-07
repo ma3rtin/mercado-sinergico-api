@@ -1,0 +1,20 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: mercado-sinergico-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: mercado_dev
+      MYSQL_DATABASE: mercado_sinergico
+    ports:
+      - "3307:3306"
+    volumes:
+      - mercado-sinergico-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pmercado_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mercado-sinergico-mysql:
