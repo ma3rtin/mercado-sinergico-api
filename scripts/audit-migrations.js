@@ -1,19 +1,31 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+
+const git = (...args) => execFileSync('git', args, {
+  encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
+});
 
 // Determinar la rama base de comparación
 let baseBranch = 'origin/main';
 if (process.env.GITHUB_BASE_REF) {
   baseBranch = `origin/${process.env.GITHUB_BASE_REF}`;
+} else if (process.env.GITHUB_EVENT_NAME === 'push') {
+  // Comparar todo el push, incluso cuando HEAD ya es dev/main.
+  const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+  if (!event.before || /^0+$/.test(event.before)) {
+    console.error('[Audit Error] No se pudo determinar el commit anterior al push.');
+    process.exit(1);
+  }
+  baseBranch = event.before;
 } else {
   // Localmente, intentar ver si existe 'main' o 'dev' en el repo local
   try {
-    execSync('git show-ref --verify --quiet refs/heads/main', { stdio: 'ignore' });
+    git('show-ref', '--verify', '--quiet', 'refs/heads/main');
     baseBranch = 'main';
   } catch (e) {
     try {
-      execSync('git show-ref --verify --quiet refs/heads/dev', { stdio: 'ignore' });
+      git('show-ref', '--verify', '--quiet', 'refs/heads/dev');
       baseBranch = 'dev';
     } catch (err) {
       baseBranch = 'HEAD~1'; // Último recurso local
@@ -27,31 +39,23 @@ console.log(`\x1b[36m[Audit Info] Rama base de comparación determinada: ${baseB
 const getModifiedFiles = () => {
   const files = new Set();
   
-  // 1. Archivos en commits entre la rama base y HEAD
-  try {
-    const diffCommits = execSync(`git diff --name-only --diff-filter=ACMRT ${baseBranch}...HEAD`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
-    diffCommits.split('\n').forEach(f => { if (f.trim()) files.add(f.trim()); });
-  } catch (e) {
-    console.warn(`\x1b[33m[Audit Warning] No se pudo obtener el diff de commits contra ${baseBranch}. Continuando con cambios locales.\x1b[0m`);
+  const range = process.env.GITHUB_EVENT_NAME === 'push'
+    ? `${baseBranch}..HEAD`
+    : `${baseBranch}...HEAD`;
+  const commands = [
+    ['diff', '--name-only', '--diff-filter=ACMRT', range],
+    ['diff', '--name-only', '--diff-filter=ACMRT'],
+    ['diff', '--cached', '--name-only', '--diff-filter=ACMRT'],
+    ['ls-files', '--others', '--exclude-standard'],
+  ];
+  for (const args of commands) {
+    try {
+      git(...args).split('\n').forEach(file => { if (file.trim()) files.add(file.trim()); });
+    } catch {
+      console.error(`[Audit Error] No se pudo ejecutar git ${args.join(' ')}. Auditoría rechazada: no se pueden determinar las migraciones a revisar.`);
+      process.exit(1);
+    }
   }
-
-  // 2. Archivos modificados en el working tree (no commiteados)
-  try {
-    const diffWorking = execSync(`git diff --name-only --diff-filter=ACMRT`, { encoding: 'utf8' });
-    diffWorking.split('\n').forEach(f => { if (f.trim()) files.add(f.trim()); });
-  } catch (e) {}
-
-  // 3. Archivos staged (para commit)
-  try {
-    const diffStaged = execSync(`git diff --cached --name-only --diff-filter=ACMRT`, { encoding: 'utf8' });
-    diffStaged.split('\n').forEach(f => { if (f.trim()) files.add(f.trim()); });
-  } catch (e) {}
-
-  // 4. Archivos sin trackear (nuevas migraciones locales)
-  try {
-    const untracked = execSync(`git ls-files --others --exclude-standard`, { encoding: 'utf8' });
-    untracked.split('\n').forEach(f => { if (f.trim()) files.add(f.trim()); });
-  } catch (e) {}
 
   return Array.from(files);
 };
@@ -77,8 +81,8 @@ for (const file of sqlFiles) {
 
   const content = fs.readFileSync(filePath, 'utf8');
 
-  // Verificar si existe bypass explícito
-  if (content.includes('-- prisma-audit: allow-drop')) {
+  // La excepción debe ocupar la primera línea, como indica el flujo documentado.
+  if (content.split(/\r?\n/, 1)[0] === '-- prisma-audit: allow-drop') {
     console.log(`\x1b[36m[Audit Bypass] Ignorando validaciones en: ${file} (Bypass explícito detectado)\x1b[0m`);
     continue;
   }

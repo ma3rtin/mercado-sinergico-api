@@ -1,3 +1,6 @@
+-- prisma-audit: allow-drop
+-- Eliminación intencional: se descarta la zona histórica de cada paquete.
+-- El catálogo activo deja de guardar CP; Direccion.codigo_postal se conserva.
 -- Conservar paquetes, pedidos y direcciones; retirar solamente la asignación geográfica del paquete.
 ALTER TABLE `PaquetePublicado` DROP FOREIGN KEY `PaquetePublicado_zonaId_fkey`;
 ALTER TABLE `PaquetePublicado` DROP INDEX `PaquetePublicado_zonaId_idx`, DROP COLUMN `zonaId`;
@@ -6,7 +9,9 @@ ALTER TABLE `PaquetePublicado` DROP INDEX `PaquetePublicado_zonaId_idx`, DROP CO
 ALTER TABLE `Localidad` ADD COLUMN `activa` BOOLEAN NOT NULL DEFAULT true,
   MODIFY COLUMN `codigo_postal` INTEGER NULL;
 UPDATE `Localidad` SET `activa` = false;
-CREATE TEMPORARY TABLE `CatalogoLocalidad` (`nombre` VARCHAR(191) NOT NULL PRIMARY KEY);
+-- Heredar la collation del nombre existente, aunque difiera del default de la base.
+CREATE TEMPORARY TABLE `CatalogoLocalidad` AS SELECT `nombre` FROM `Localidad` WHERE 1 = 0;
+ALTER TABLE `CatalogoLocalidad` ADD PRIMARY KEY (`nombre`);
 INSERT INTO `CatalogoLocalidad` (`nombre`) VALUES
 ('Almirante Brown'),
 ('Avellaneda'),
