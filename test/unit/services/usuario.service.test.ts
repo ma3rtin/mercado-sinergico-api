@@ -18,6 +18,7 @@ jest.mock("../../../src/prisma/client", () => {
   const mockUsuarioUpdate = jest.fn();
   const mockRolFindUnique = jest.fn();
   const mockTransaction = jest.fn();
+  const mockLocalidadFindUnique = jest.fn();
 
   return {
     prisma: {
@@ -30,6 +31,7 @@ jest.mock("../../../src/prisma/client", () => {
         findUnique: mockRolFindUnique,
       },
       $transaction: mockTransaction,
+      localidad: { findUnique: mockLocalidadFindUnique },
     },
     __mocks: {
       mockUsuarioCreate,
@@ -37,6 +39,7 @@ jest.mock("../../../src/prisma/client", () => {
       mockUsuarioUpdate,
       mockRolFindUnique,
       mockTransaction,
+      mockLocalidadFindUnique,
     },
   };
 });
@@ -76,6 +79,41 @@ describe("UsuarioService", () => {
     });
     mocks.mockRolFindUnique.mockResolvedValue({ id: 1, nombre: "Usuario" });
     mocks.mockTransaction.mockImplementation(async (cb: any) => cb({}));
+  });
+
+  it.each([null, { id_localidad: 1, activa: false }])(
+    'rechaza una localidad inexistente o histórica antes de modificar el perfil',
+    async (localidad) => {
+      mocks.mockLocalidadFindUnique.mockResolvedValue(localidad);
+      await expect(service.actualizarUsuario(1, { localidad_id: 1 } as any))
+        .rejects.toMatchObject({ status: 400 });
+      expect(mocks.mockUsuarioUpdate).not.toHaveBeenCalled();
+    }
+  );
+
+  it('rechaza registrar una dirección con localidad histórica', async () => {
+    const create = jest.fn();
+    mocks.mockTransaction.mockImplementation(async (cb: any) => cb({
+      localidad: { findUnique: jest.fn().mockResolvedValue({ activa: false }) },
+      direccion: { create },
+    }));
+    await expect(service.registrarDireccion(1, { localidad_id: 1 } as any))
+      .rejects.toThrow('Seleccioná una localidad vigente');
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it.each([1708, null])('guarda el CP del domicilio sin reemplazarlo por la referencia %s', async (referencia) => {
+    const create = jest.fn().mockResolvedValue({ id: 1, codigo_postal: 1706 });
+    mocks.mockTransaction.mockImplementation(async (cb: any) => cb({
+      localidad: { findUnique: jest.fn().mockResolvedValue({ activa: true, codigo_postal: referencia }) },
+      direccion: { create },
+    }));
+    await service.registrarDireccion(1, {
+      localidad_id: 1, codigo_postal: 1706, calle: 'Prueba', numero: 100,
+    } as any);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ codigo_postal: 1706 }),
+    }));
   });
 
   it("debería iniciar sesión con credenciales correctas", async () => {

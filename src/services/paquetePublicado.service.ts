@@ -76,7 +76,6 @@ export class PaquetePublicadoService {
   private get _includeCompleto() {
     return {
       paqueteBase: { include: { marca: true, categoria: true } },
-      zona: true,
       estado: true,
       pedidos: {
         include: {
@@ -95,17 +94,12 @@ export class PaquetePublicadoService {
     includeArchived = false,
     categorias?: number[],
     marcas?: number[],
-    zonas?: number[],
     tiposPaquete?: string[],
     estados?: string[]
   ) {
     const where: Prisma.PaquetePublicadoWhereInput = {};
     if (!includeArchived) {
       where.archivado = false;
-      if (zonas && zonas.length > 0) {
-        where.estadoId = 1; // ESTADO_PAQUETE.ACTIVO
-        where.fecha_fin = { gte: new Date() };
-      }
     }
 
     const paqueteBaseConditions: Prisma.PaqueteBaseWhereInput = {};
@@ -122,9 +116,6 @@ export class PaquetePublicadoService {
 
     if (hasPaqueteBaseConditions) {
       where.paqueteBase = paqueteBaseConditions;
-    }
-    if (zonas && zonas.length > 0) {
-      where.zonaId = { in: zonas };
     }
     if (tiposPaquete && tiposPaquete.length > 0) {
       where.tipo = { in: tiposPaquete as TipoPaquete[] };
@@ -183,7 +174,6 @@ export class PaquetePublicadoService {
             productos: true,
           }
         },
-        zona: true,
         estado: true,
         pedidos: {
           include: {
@@ -200,15 +190,12 @@ export class PaquetePublicadoService {
     includeArchived = false,
     categorias?: number[],
     marcas?: number[],
-    zonas?: number[],
     tiposPaquete?: string[],
     estados?: string[]
   ): Promise<number> {
     const where: Prisma.PaquetePublicadoWhereInput = {};
     if (!includeArchived) {
       where.archivado = false;
-      where.estadoId = 1;
-      where.fecha_fin = { gte: new Date() };
     }
 
     const paqueteBaseConditions: Prisma.PaqueteBaseWhereInput = {};
@@ -225,9 +212,6 @@ export class PaquetePublicadoService {
 
     if (hasPaqueteBaseConditions) {
       where.paqueteBase = paqueteBaseConditions;
-    }
-    if (zonas && zonas.length > 0) {
-      where.zonaId = { in: zonas };
     }
     if (tiposPaquete && tiposPaquete.length > 0) {
       where.tipo = { in: tiposPaquete as TipoPaquete[] };
@@ -291,7 +275,6 @@ export class PaquetePublicadoService {
             },
           },
         },
-        zona: true,
         estado: true,
         pedidos: {
           include: {
@@ -323,64 +306,6 @@ export class PaquetePublicadoService {
     } as PaqueteComputable);
   }
 
-  async getByLocation(userId?: number, localidadId?: number) {
-    let zonaIds: number[] = [];
-
-    if (localidadId) {
-      const localidad = await this.prisma.localidad.findUnique({
-        where: { id_localidad: localidadId },
-        include: { zonas: true },
-      });
-      if (localidad) {
-        zonaIds = localidad.zonas.map((z: { id: number; localidadId: number; zonaId: number }) => z.zonaId);
-      }
-    } else if (userId) {
-      const usuario = await this.prisma.usuario.findUnique({
-        where: { id: userId },
-        include: {
-          localidad: { include: { zonas: true } },
-          direccion: { include: { localidad: { include: { zonas: true } } } },
-        },
-      });
-      if (usuario?.localidad) {
-        zonaIds = usuario.localidad.zonas.map(
-          (z: { id: number; localidadId: number; zonaId: number }) => z.zonaId
-        );
-      } else if (usuario?.direccion?.localidad) {
-        zonaIds = usuario.direccion.localidad.zonas.map(
-          (z: { id: number; localidadId: number; zonaId: number }) => z.zonaId
-        );
-      }
-    }
-
-    if (zonaIds.length === 0) {
-      console.warn('⚠️ No se encontraron zonas para la ubicación dada.');
-      return [];
-    }
-
-    const ahora = new Date();
-
-    return this.prisma.paquetePublicado.findMany({
-      where: {
-        zonaId: { in: zonaIds },
-        estadoId: ESTADO_PAQUETE.ACTIVO,
-        fecha_fin: { gte: ahora },
-        archivado: false,
-      },
-      include: {
-        paqueteBase: {
-          include: {
-            marca: true,
-            categoria: true,
-            productos: { include: { producto: { include: { imagenes: true } } } },
-          },
-        },
-        zona: true,
-        estado: true,
-      },
-    });
-  }
-
   async getByProductId(productId: number) {
     return this.prisma.paquetePublicado.findMany({
       where: {
@@ -390,7 +315,6 @@ export class PaquetePublicadoService {
       },
       include: {
         paqueteBase: { include: { marca: true, categoria: true } },
-        zona: true,
         estado: true,
       },
     });
@@ -409,7 +333,6 @@ export class PaquetePublicadoService {
       },
       include: {
         paqueteBase: { include: { marca: true, categoria: true } },
-        zona: { select: { nombre: true, id_zona: true } },
         estado: { select: { nombre: true, id_estado: true } },
         pedidos: {
           include: {
@@ -440,7 +363,6 @@ export class PaquetePublicadoService {
       },
       include: {
         paqueteBase: { include: { marca: true, categoria: true } },
-        zona: true,
         estado: true,
         pedidos: {
           include: { usuario: { select: { id: true, nombre: true, email: true } } },
@@ -450,7 +372,6 @@ export class PaquetePublicadoService {
 
     const scored = candidatos.map((p) => {
       let score = 0;
-      if (p.zonaId === actual.zonaId) score += 1000;
       const ocupacion = (p.cant_usuarios_registrados || 0) / (p.cant_productos || 1);
       if (ocupacion >= 0.8) score += 500;
       if (actual.paqueteBase?.categoria_id && p.paqueteBase?.categoria_id === actual.paqueteBase.categoria_id) {
@@ -466,9 +387,6 @@ export class PaquetePublicadoService {
   // ─── Mutaciones ───────────────────────────────────────────────────────────────
 
   async create(dto: Omit<PaquetePublicadoDTO, 'imagen_base64'>, imagenBuffer?: Buffer) {
-    const zona = await this.prisma.zona.findUnique({ where: { id_zona: Number(dto.zonaId) } });
-    if (!zona) throw new CustomError('La zona no existe', 404);
-
     const paqueteBase = await this.prisma.paqueteBase.findUnique({
       where: { id_paquete_base: dto.paqueteBaseId },
       include: {
@@ -527,7 +445,6 @@ export class PaquetePublicadoService {
           // Heredar el tipo del paquete base (ENERGICO / SINERGICO)
           tipo: paqueteBase.tipo,
           ...(imagen_url && { imagen_url }),
-          zona: { connect: { id_zona: Number(dto.zonaId) } },
           paqueteBase: { connect: { id_paquete_base: dto.paqueteBaseId } },
           estado: { connect: { id_estado: ESTADO_PAQUETE.ACTIVO } },
         },
@@ -600,7 +517,6 @@ export class PaquetePublicadoService {
           ...(dto.fecha_fin && { fecha_fin: new Date(dto.fecha_fin) }),
           ...(dto.cant_productos && { cant_productos: Number(dto.cant_productos) }),
           ...(dto.descuento !== undefined && { descuento: dto.descuento }),
-          ...(dto.zonaId && { zona: { connect: { id_zona: Number(dto.zonaId) } } }),
           ...(dto.paqueteBaseId && { paqueteBase: { connect: { id_paquete_base: Number(dto.paqueteBaseId) } } }),
           ...(dto.estadoId && { estado: { connect: { id_estado: Number(dto.estadoId) } } }),
           ...(dto.estadoNombre && { estado: { connect: { nombre: dto.estadoNombre } } }),
@@ -774,7 +690,6 @@ export class PaquetePublicadoService {
         data: {
           nombre: generarNombreCopia(paqueteOriginal.nombre || paqueteOriginal.paqueteBase.nombre),
           paqueteBaseId: baseDuplicado.id_paquete_base,
-          zonaId: paqueteOriginal.zonaId,
           cant_productos: paqueteOriginal.cant_productos,
           estadoId: estadoActivo.id_estado,
           fecha_inicio: new Date(),
@@ -1102,7 +1017,7 @@ export class PaquetePublicadoService {
             },
           },
         },
-        zona: true,
+
         pedidos: {
           include: {
             detalles: {
@@ -1190,7 +1105,6 @@ export class PaquetePublicadoService {
       ['# REPORTES MERCADO SINERGICO #'],
       ['Tipo', 'REPORTE PARA PROVEEDOR'],
       ['Paquete', `${paquete.paqueteBase?.nombre || 'N/A'} (ID: ${paquete.id_paquete_publicado})`],
-      ['Zona', paquete.zona?.nombre || 'N/A'],
       ['Fecha Generacion', now],
       ['Pedidos Aprobados', pedidosAprobados.length],
       [],
@@ -1218,7 +1132,7 @@ export class PaquetePublicadoService {
       where: { id_paquete_publicado: id },
       include: {
         paqueteBase: true,
-        zona: true,
+
         pedidos: {
           include: {
             estado: true,
@@ -1324,7 +1238,6 @@ export class PaquetePublicadoService {
       ['# REPORTES MERCADO SINERGICO #'],
       ['Tipo', 'HOJA DE RUTA / LOGISTICA'],
       ['Paquete', `${paquete.paqueteBase?.nombre || 'N/A'} (ID: ${paquete.id_paquete_publicado})`],
-      ['Zona', paquete.zona?.nombre || 'N/A'],
       ['Fecha Generacion', now],
       ['Pedidos Aprobados', pedidosAprobados.length],
       [],

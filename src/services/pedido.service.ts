@@ -500,7 +500,6 @@ export class PedidoService {
                 categoria: true,
               },
             },
-            zona: true,
             pedidos: {
               include: {
                 usuario: { select: { id: true } },
@@ -527,7 +526,6 @@ export class PedidoService {
         paquetePublicado: {
           include: {
             paqueteBase: true,
-            zona: true,
             pedidos: {
               include: {
                 usuario: { select: { id: true } },

@@ -26,10 +26,6 @@ export class PaquetePublicadoUpdateDTO {
   paqueteBaseId?: number;
 
   @IsOptional()
-  @IsNumber({}, { message: 'El ID de la zona debe ser un numero' })
-  zonaId?: number;
-
-  @IsOptional()
   @IsDateString({}, { message: 'La fecha de inicio debe ser una fecha válida (YYYY-MM-DD)' })
   fecha_inicio?: string;
 

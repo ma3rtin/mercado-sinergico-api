@@ -9,10 +9,6 @@ export class PaquetePublicadoDTO {
   @IsPositive({ message: 'El id del paquete base debe ser un número positivo' })
   paqueteBaseId!: number;
 
-  @IsNumber({}, { message: 'El id de la zona debe ser un número' })
-  @IsPositive({ message: 'El id de la zona debe ser un número positivo' })
-  zonaId!: number;
-
   @IsOptional()
   @IsNumber({}, { message: 'La cantidad de productos debe ser un número' })
   cant_productos?: number;
