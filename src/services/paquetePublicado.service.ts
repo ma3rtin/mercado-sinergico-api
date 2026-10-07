@@ -51,12 +51,13 @@ export class PaquetePublicadoService {
   private _mapComputedFields<T extends PaqueteComputable>(paquete: T) {
     if (!paquete) return paquete;
 
-    // "Involucrados": Pagado (2), En preparación (4), En camino (5), Recibido (6)
+    // "Involucrados": Pagado (2), En preparación (4), En camino (5), Recibido (6), Reservado (7)
     const estadosActivos: number[] = [
       ESTADO_PEDIDO.PAGADO,
       ESTADO_PEDIDO.EN_PREPARACION,
       ESTADO_PEDIDO.EN_CAMINO,
       ESTADO_PEDIDO.RECIBIDO,
+      ESTADO_PEDIDO.RESERVADO,
     ];
     const pedidosActivos = (paquete.pedidos || []).filter(
       (p) => p.estadoId && estadosActivos.includes(p.estadoId as number)
@@ -832,12 +833,15 @@ export class PaquetePublicadoService {
       data: { estadoId: ESTADO_PAQUETE.COMPLETO },
     });
 
-    // Obtener compradores con pedidos Pagados
-    const pedidosPagados = await this.prisma.pedido.findMany({
-      where: { paquetePublicadoId: id, estadoId: ESTADO_PEDIDO.PAGADO },
+    // Obtener compradores con pedidos Pagados o Reservados
+    const pedidosActivos = await this.prisma.pedido.findMany({
+      where: {
+        paquetePublicadoId: id,
+        estadoId: { in: [ESTADO_PEDIDO.PAGADO, ESTADO_PEDIDO.RESERVADO] },
+      },
       include: { usuario: true },
     });
-    const correosCompradores = [...new Set(pedidosPagados.map((p) => p.usuario.email))];
+    const correosCompradores = [...new Set(pedidosActivos.map((p) => p.usuario.email))];
 
     if (correosCompradores.length > 0) {
       this.emailService.enviarEmail({
@@ -847,6 +851,7 @@ export class PaquetePublicadoService {
         context: {
           nombrePaquete: paquete.paqueteBase?.nombre,
           nombreUsuario: 'Comprador',
+          esEnergico: paquete.tipo === 'ENERGICO',
         },
       });
     }
@@ -872,7 +877,7 @@ export class PaquetePublicadoService {
 
   /**
    * Completo → Confirmado.
-   * Transiciona todos los pedidos Pagados a En preparación y notifica compradores.
+   * Transiciona todos los pedidos Pagados y Reservados a En preparación y notifica compradores.
    */
   async confirmarCompraFabricante(id: number) {
     const paquete = await this.prisma.paquetePublicado.findUnique({
@@ -894,11 +899,11 @@ export class PaquetePublicadoService {
         data: { estadoId: ESTADO_PAQUETE.CONFIRMADO },
       });
 
-      // Todos los pedidos Pagados → En preparación
+      // Todos los pedidos Pagados y Reservados → En preparación
       await tx.pedido.updateMany({
         where: {
           paquetePublicadoId: id,
-          estadoId: ESTADO_PEDIDO.PAGADO,
+          estadoId: { in: [ESTADO_PEDIDO.PAGADO, ESTADO_PEDIDO.RESERVADO] },
         },
         data: { estadoId: ESTADO_PEDIDO.EN_PREPARACION },
       });
@@ -916,7 +921,10 @@ export class PaquetePublicadoService {
         para: correosCompradores,
         asunto: `¡Tu pedido está confirmado! - ${paquete.nombre || paquete.paqueteBase.nombre}`,
         template: 'comprador-pedido-confirmado',
-        context: { nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre },
+        context: {
+          nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre,
+          esEnergico: paquete.tipo === 'ENERGICO',
+        },
       });
     }
 
@@ -999,7 +1007,10 @@ export class PaquetePublicadoService {
         para: correosCompradores,
         asunto: `Tu pedido llega hoy - ${paquete.nombre || paquete.paqueteBase.nombre}`,
         template: 'comprador-pedido-en-camino',
-        context: { nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre },
+        context: {
+          nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre,
+          esEnergico: paquete.tipo === 'ENERGICO',
+        },
       });
     }
 
@@ -1012,7 +1023,7 @@ export class PaquetePublicadoService {
   }
 
   /**
-   * Cancela el paquete y reembolsa todos los pedidos Pagados y Pendientes.
+   * Cancela el paquete y reembolsa o cancela todos los pedidos Pagados, Reservados y Pendientes.
    * Puede ser llamado desde el admin o desde el cron automático.
    */
   async cancelarYReembolsar(id: number) {
@@ -1020,7 +1031,15 @@ export class PaquetePublicadoService {
     const pedidosAfectados = await this.prisma.pedido.findMany({
       where: {
         paquetePublicadoId: id,
-        estadoId: { in: [ESTADO_PEDIDO.PENDIENTE, ESTADO_PEDIDO.PAGADO] },
+        estadoId: {
+          in: [
+            ESTADO_PEDIDO.PENDIENTE,
+            ESTADO_PEDIDO.PAGADO,
+            ESTADO_PEDIDO.RESERVADO,
+            ESTADO_PEDIDO.EN_PREPARACION,
+            ESTADO_PEDIDO.EN_CAMINO,
+          ],
+        },
       },
       include: { usuario: true },
     });
@@ -1035,11 +1054,18 @@ export class PaquetePublicadoService {
     });
 
     if (correosCompradores.length > 0 && paquete?.paqueteBase?.nombre) {
+      const asunto = paquete.tipo === 'ENERGICO'
+        ? `Paquete cancelado - ${paquete.nombre || paquete.paqueteBase.nombre}`
+        : `Paquete cancelado y reembolsado - ${paquete.nombre || paquete.paqueteBase.nombre}`;
+
       this.emailService.enviarEmail({
         para: correosCompradores,
-        asunto: `Paquete cancelado y reembolsado - ${paquete.nombre || paquete.paqueteBase.nombre}`,
+        asunto,
         template: 'comprador-paquete-cancelado',
-        context: { nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre },
+        context: {
+          nombrePaquete: paquete.nombre || paquete.paqueteBase.nombre,
+          esEnergico: paquete.tipo === 'ENERGICO',
+        },
       });
     }
 
@@ -1049,7 +1075,7 @@ export class PaquetePublicadoService {
   }
 
   /**
-   * Notifica a compradores activos (Pagados) con un mensaje genérico.
+   * Notifica a compradores activos (Pagados y Reservados) con un mensaje genérico.
    * Útil para comunicaciones manuales del administrador.
    */
   async notificarCompradores(id: number) {
@@ -1066,6 +1092,7 @@ export class PaquetePublicadoService {
           in: [
             ESTADO_PEDIDO.PENDIENTE,
             ESTADO_PEDIDO.PAGADO,
+            ESTADO_PEDIDO.RESERVADO,
             ESTADO_PEDIDO.EN_PREPARACION,
             ESTADO_PEDIDO.EN_CAMINO,
           ],

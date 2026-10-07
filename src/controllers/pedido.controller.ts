@@ -89,6 +89,23 @@ export class PedidoController {
     res.status(200).json({ checkoutUrl });
   });
 
+  public confirmarReserva = asyncHandler(async (req: Request, res: Response) => {
+    const user = req.user;
+    const { pedidoId } = req.params;
+    const pIdNum = Number(pedidoId);
+
+    if (!pedidoId || isNaN(pIdNum)) {
+      throw new CustomError('ID de pedido inválido o no proporcionado', 400);
+    }
+
+    const result = await this.pagoService.confirmarReservaEnergica(
+      pIdNum,
+      user!.id
+    );
+
+    res.status(200).json(result);
+  });
+
   public confirmarPago = asyncHandler(async (req: Request, res: Response) => {
     const { paymentId } = req.body;
 
