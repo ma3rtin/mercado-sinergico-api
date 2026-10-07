@@ -102,6 +102,20 @@ describe("UsuarioService", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it.each([1708, null])('guarda el CP del domicilio sin reemplazarlo por la referencia %s', async (referencia) => {
+    const create = jest.fn().mockResolvedValue({ id: 1, codigo_postal: 1706 });
+    mocks.mockTransaction.mockImplementation(async (cb: any) => cb({
+      localidad: { findUnique: jest.fn().mockResolvedValue({ activa: true, codigo_postal: referencia }) },
+      direccion: { create },
+    }));
+    await service.registrarDireccion(1, {
+      localidad_id: 1, codigo_postal: 1706, calle: 'Prueba', numero: 100,
+    } as any);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ codigo_postal: 1706 }),
+    }));
+  });
+
   it("debería iniciar sesión con credenciales correctas", async () => {
     mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
       id: 1,

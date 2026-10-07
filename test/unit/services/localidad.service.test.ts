@@ -14,6 +14,15 @@ it('ofrece únicamente localidades vigentes ordenadas por nombre', async () => {
   });
 });
 
+it('devuelve los CP de referencia y mantiene nulos los casos ambiguos', async () => {
+  const localidades = [
+    { id_localidad: 1, nombre: 'Morón', codigo_postal: 1708, activa: true },
+    { id_localidad: 2, nombre: 'CABA', codigo_postal: null, activa: true },
+  ];
+  jest.mocked(prisma.localidad.findMany).mockResolvedValueOnce(localidades);
+  expect(await new LocalidadService().getAll()).toEqual(localidades);
+});
+
 it('la migración y el catálogo contienen las mismas 47 entradas sin duplicados', () => {
   const sql = readFileSync('prisma/migrations/20260927000000_localidades_y_paquetes_sin_zona/migration.sql', 'utf8');
   const nombres = [...sql.matchAll(/^\('([^']+)'\)/gm)].map(match => match[1]);
