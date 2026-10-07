@@ -106,9 +106,10 @@ model DisponibilidadVariantePaquete {
 
 model Usuario {
   id          Int        @id @default(autoincrement())
+  firebaseUid String?    @unique
   email       String     @unique
   nombre      String
-  contraseña String
+  contraseña  String?
   telefono    String
   fecha_nac   DateTime?
   imagen_url  String?
@@ -121,6 +122,8 @@ model Usuario {
   pedidos   Pedido[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([firebaseUid])
 }
 
 model Rol {

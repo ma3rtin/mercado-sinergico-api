@@ -14,13 +14,6 @@ export class UsuarioDTO {
   @IsString({ message: 'El nombre debe ser una cadena de texto'})
   nombre!: string;
 
-  @IsNotEmpty({ message: 'La contraseña es obligatoria' })
-  @IsString()
-  @MinLength(6, {
-    message: 'La contraseña debe contener un mínimo de 6 caracteres',
-  })
-  contraseña!: string;
-
   @IsNotEmpty({ message: 'El teléfono es obligatorio' })
   @IsString({ message: 'El teléfono debe ser una cadena de texto' })
   @MinLength(10, {
@@ -33,6 +26,6 @@ export class UsuarioDTO {
   fecha_nac!: string;
 
   @IsOptional()
-  @IsString({ message: 'La URL de la imagen debe ser una cadena' })
+  @IsString({ message: 'La URL de la imagen debe ser una cadena de texto' })
   imagen_url?: string;
 }

@@ -1,7 +1,5 @@
-import { cifrarContraseña, compararContraseñas } from '../auth/bcrypt.js';
 import { crearToken } from '../auth/jwt.js';
 import { DireccionDTO } from '../dtos/direccion/direccion.dto.js';
-import { LoginDTO } from '../dtos/usuario/login.dto.js';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto.js';
 import { UsuarioUpdateDTO } from '../dtos/usuario/usuarioUpdate.dto.js';
 import type { Direccion, Prisma, Usuario, Localidad, Zona } from '@prisma/client';
@@ -20,17 +18,15 @@ import { generarAvatar } from '../utils/avatar.js';
 export class UsuarioService {
   private prismaClient = prisma;
   private imagenService = new ImagenService();
+
   public async registrar(usuario: UsuarioDTO): Promise<Usuario> {
-    const { email, contraseña, nombre, telefono, fecha_nac } = usuario;
+    const { email, nombre, telefono, fecha_nac } = usuario;
 
     const usuarioExistente = await this.buscarPorEmail(email);
     if (usuarioExistente) {
       throw new CustomError('El email ya se encuentra registrado', 400);
     }
 
-    const contraseñaHash = await cifrarContraseña(contraseña);
-
-    // Generar imagen si no se proporciona
     let imagen_url = usuario.imagen_url;
     if (!imagen_url) {
       const apellido = usuario.nombre.split(' ')[1] || '';
@@ -42,34 +38,12 @@ export class UsuarioService {
       data: {
         email,
         nombre,
-        contraseña: contraseñaHash,
+        contraseña: null,
         telefono,
         fecha_nac: fecha_nac ? new Date(fecha_nac) : null,
         imagen_url,
         rol: { connect: { nombre: 'Usuario' } },
       },
-    });
-  }
-
-  public async iniciarSesion(credenciales: LoginDTO): Promise<string | null> {
-    const { email, contraseña } = credenciales;
-
-    const usuario = (await this.buscarPorEmail(email)) as Usuario & {
-      rol: { nombre: string };
-    };
-
-    if (!usuario) return null;
-
-    const contraseñaCorrecta = await compararContraseñas(
-      contraseña,
-      usuario.contraseña
-    );
-    if (!contraseñaCorrecta) return null;
-
-    return await crearToken({
-      email: usuario.email,
-      id: usuario.id,
-      rol: usuario.rol?.nombre,
     });
   }
 
@@ -164,12 +138,7 @@ export class UsuarioService {
     userId: number,
     datos: Partial<UsuarioDTO>
   ): Promise<Usuario> {
-    const { email, nombre, telefono, fecha_nac, contraseña, imagen_url, localidad_id, calle, numero, piso, dpto, cp, observaciones } = datos as UsuarioUpdateDTO;
-
-    let contraseñaHash: string | undefined = undefined;
-    if (contraseña) {
-      contraseñaHash = await cifrarContraseña(contraseña);
-    }
+    const { email, nombre, telefono, fecha_nac, imagen_url, localidad_id, calle, numero, piso, dpto, cp, observaciones } = datos as UsuarioUpdateDTO;
 
     const localidadIdNum = localidad_id ? Number(localidad_id) : undefined;
     if (localidadIdNum !== undefined) {
@@ -191,7 +160,6 @@ export class UsuarioService {
         nombre: nombre ?? undefined,
         telefono: telefono ?? undefined,
         fecha_nac: fecha_nac ? new Date(fecha_nac) : undefined,
-        contraseña: contraseñaHash ?? undefined,
         imagen_url: imagen_url ?? undefined,
         localidadId: localidadIdNum ?? undefined,
       },
@@ -229,7 +197,7 @@ export class UsuarioService {
   public async loginConFirebase(
     firebaseUser: FirebaseUser
   ): Promise<Usuario & { rol: { nombre: string } }> {
-    const { email, name, picture } = firebaseUser;
+    const { uid, email, name, picture } = firebaseUser;
 
     if (!email) {
       throw new CustomError(
@@ -241,10 +209,8 @@ export class UsuarioService {
     let usuario = await this.buscarPorEmail(email);
 
     if (!usuario) {
-      // Subir imagen de Firebase o generar avatar por defecto
       let imagen_url: string;
       if (picture) {
-        // Subir imagen de Google a Cloudinary
         const axios = await import('axios');
         const response = await axios.default.get(picture, {
           responseType: 'arraybuffer',
@@ -252,7 +218,6 @@ export class UsuarioService {
         const buffer = Buffer.from(response.data, 'binary');
         imagen_url = await this.imagenService.uploadToCloudinary(buffer);
       } else {
-        // Generar avatar con iniciales
         const [nombre, apellido = ''] = (name ?? 'Usuario Firebase').split(' ');
         const avatarBuffer = generarAvatar(nombre, apellido);
         imagen_url = await this.imagenService.uploadToCloudinary(avatarBuffer);
@@ -260,14 +225,21 @@ export class UsuarioService {
 
       usuario = await this.prismaClient.usuario.create({
         data: {
+          firebaseUid: uid,
           email,
-          nombre: name || 'Usuario Firebase',
-          contraseña: '', // No se usa para Firebase
+          nombre: name || email.split('@')[0],
+          contraseña: null,
           telefono: '',
           fecha_nac: null,
           imagen_url,
           rol: { connect: { nombre: 'Usuario' } },
         },
+        include: { rol: { select: { nombre: true } } },
+      });
+    } else if (!usuario.firebaseUid) {
+      usuario = await this.prismaClient.usuario.update({
+        where: { id: usuario.id },
+        data: { firebaseUid: uid },
         include: { rol: { select: { nombre: true } } },
       });
     }

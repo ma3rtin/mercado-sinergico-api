@@ -25,9 +25,10 @@ describe("UsuarioController", () => {
     service = {
       registrar: jest.fn(),
       registrarDireccion: jest.fn(),
-      iniciarSesion: jest.fn(),
       obtenerUsuario: jest.fn(),
-      actualizarUsuario: jest.fn()
+      actualizarUsuario: jest.fn(),
+      loginConFirebase: jest.fn(),
+      crearTokenPersonalizado: jest.fn(),
     } as any;
 
     imagenService = {
@@ -39,7 +40,6 @@ describe("UsuarioController", () => {
     req = {
       body: {
         email: "test@example.com",
-        contraseña: "Password123",
         nombre: "Test User",
         telefono: "1234567890",
         fecha_nac: "2000-01-01",
@@ -77,27 +77,26 @@ describe("UsuarioController", () => {
     );
   });
 
-  it("debería iniciar sesión y devolver un token con estado 200", async () => {
-    (service.iniciarSesion as jest.Mock).mockResolvedValue("fakeToken123");
-    req.body = { email: "test@example.com", contraseña: "Password123" };
+  it("debería hacer login con firebase y devolver token + usuario con estado 200", async () => {
+    (service.loginConFirebase as jest.Mock).mockResolvedValue({
+      id: 10,
+      email: "fb@example.com",
+      nombre: "FB User",
+      rol: { nombre: "Usuario" },
+    });
+    (service.crearTokenPersonalizado as jest.Mock).mockResolvedValue("fakeFirebaseToken");
+    req.firebaseUser = { uid: "fb-uid", email: "fb@example.com", name: "FB User" };
 
-    await controller.iniciarSesion(req, res, next);
+    await controller.loginConFirebase(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ token: "fakeToken123" }));
-  });
-
-  it("debería devolver estado 400 si el service lanza un error al iniciar sesión", async () => {
-    (service.iniciarSesion as jest.Mock).mockRejectedValue({
-      message: "Error inesperado",
-      status: 400
-    });
-    req.body = { email: "test@example.com", contraseña: "Password123" };
-
-    await controller.iniciarSesion(req, res, next);
-
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: "Error inesperado" }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      token: "fakeFirebaseToken",
+      usuario: expect.objectContaining({
+        id: 10,
+        email: "fb@example.com",
+      }),
+    }));
   });
 
   it("debería obtener el usuario y devolver estado 200", async () => {
