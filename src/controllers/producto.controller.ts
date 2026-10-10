@@ -85,8 +85,7 @@ export class ProductoController {
         categorias,
         marcas,
         precioMin,
-        precioMax,
-        zonas
+        precioMax
       );
       res.setHeader('X-Total-Count', total);
       res.setHeader('Access-Control-Expose-Headers', 'X-Total-Count');

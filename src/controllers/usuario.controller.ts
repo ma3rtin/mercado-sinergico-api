@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { UsuarioService } from '../services/usuario.service.js';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto.js';
-import { LoginDTO } from '../dtos/usuario/login.dto.js';
 import { DatosEncriptados } from '../auth/jwt.js';
 import { ImagenService } from './../services/imagen.service.js';
 import { FirebaseAuthenticatedRequest, FirebaseUser } from '../middlewares/firebaseAuth.middleware.js';
@@ -12,7 +11,6 @@ import { ReenviarVerificacionEmailDTO } from '../dtos/usuario/reenviarVerificaci
 export class UsuarioController {
   constructor(private usuarioService: UsuarioService, private imagenService: ImagenService) { }
 
-  // 🧾 Registro normal
   public registrar = asyncHandler(async (req: Request, res: Response) => {
     const usuario: UsuarioDTO = req.body;
     const resultado = await this.usuarioService.registrar(usuario);
@@ -36,7 +34,6 @@ export class UsuarioController {
     });
   });
 
-  // 🏠 Registrar dirección
   public registrarDireccion = asyncHandler(async (req: Request, res: Response) => {
     const direccion = req.body;
     const imagen = req.file as Express.Multer.File;
@@ -55,19 +52,6 @@ export class UsuarioController {
     res.status(201).json(resultado);
   });
 
-  // 🔐 Login normal
-  public iniciarSesion = asyncHandler(async (req: Request, res: Response) => {
-    const credenciales: LoginDTO = req.body;
-    const token = await this.usuarioService.iniciarSesion(credenciales);
-
-    if (!token) {
-      return res.status(401).json({ message: 'Credenciales incorrectas' });
-    }
-
-    return res.status(200).json({ token });
-  });
-
-  // 👤 Obtener perfil
   public obtenerUsuario = asyncHandler(async (req: Request, res: Response) => {
     const user = (req as Request & { user?: DatosEncriptados }).user;
     if (!user) {
@@ -78,7 +62,6 @@ export class UsuarioController {
     res.status(200).json(usuario);
   });
 
-  // 🧩 Actualizar perfil (datos o imagen)
   public actualizarUsuario = asyncHandler(async (req: Request, res: Response) => {
     const user = (req as Request & { user?: DatosEncriptados }).user;
     if (!user) {
@@ -88,7 +71,6 @@ export class UsuarioController {
     const usuario: UsuarioDTO = req.body;
     const file = req.file as Express.Multer.File | undefined;
 
-    // 📸 Si hay imagen, subir a Cloudinary
     if (file) {
       const url = await this.imagenService.uploadToCloudinary(
         file.buffer,
@@ -107,7 +89,6 @@ export class UsuarioController {
     });
   });
 
-  // 🔵 Login con Firebase
   public loginConFirebase = asyncHandler(async (req: Request, res: Response) => {
     const firebaseUser: FirebaseUser = (req as FirebaseAuthenticatedRequest).firebaseUser!;
     const usuario = await this.usuarioService.loginConFirebase(firebaseUser);

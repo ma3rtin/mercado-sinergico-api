@@ -15,11 +15,6 @@ export class UsuarioUpdateDTO {
     nombre?: string;
 
     @IsOptional()
-    @IsString()
-    @MinLength(6, { message: 'La contraseña debe contener un mínimo de 6 caracteres' })
-    contraseña?: string;
-
-    @IsOptional()
     @IsString({ message: 'El teléfono debe ser una cadena de texto' })
     @MinLength(10, { message: 'El teléfono debe contener un mínimo de 10 caracteres' })
     telefono?: string;

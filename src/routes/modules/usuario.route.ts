@@ -4,7 +4,6 @@ import { UsuarioService } from '../../services/usuario.service.js';
 import { UsuarioController } from '../../controllers/usuario.controller.js';
 import { validarDto } from '../../middlewares/validateDTO.middleware.js';
 import { UsuarioDTO } from '../../dtos/usuario/usuario.dto.js';
-import { LoginDTO } from '../../dtos/usuario/login.dto.js';
 import { DireccionDTO } from '../../dtos/direccion/direccion.dto.js';
 import { authMiddleware } from '../../middlewares/auth.middleware.js';
 import { firebaseAuthMiddleware } from '../../middlewares/firebaseAuth.middleware.js';
@@ -42,6 +41,5 @@ usuarioRouter.patch('/me', authMiddleware, upload.single('imagen'), validarDto(U
 usuarioRouter.post('/registrar', limiteAuth, validarDto(UsuarioDTO), usuarioController.registrar.bind(usuarioController));
 usuarioRouter.post('/verificar-email', limiteAuth, validarDto(VerificarEmailDTO), usuarioController.verificarEmail);
 usuarioRouter.post('/reenviar-verificacion', limiteReenvioVerificacion, validarDto(ReenviarVerificacionEmailDTO), usuarioController.reenviarVerificacionEmail);
-usuarioRouter.post('/login', limiteAuth, validarDto(LoginDTO), usuarioController.iniciarSesion.bind(usuarioController));
 usuarioRouter.post('/login-firebase', limiteAuth, firebaseAuthMiddleware, usuarioController.loginConFirebase.bind(usuarioController));
 usuarioRouter.post('/direccion', authMiddleware, procesarSubidaImagen('imagen'), validarDto(DireccionDTO), usuarioController.registrarDireccion.bind(usuarioController));

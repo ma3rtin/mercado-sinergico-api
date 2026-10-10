@@ -107,9 +107,10 @@ model DisponibilidadVariantePaquete {
 
 model Usuario {
   id          Int        @id @default(autoincrement())
+  firebaseUid String?    @unique
   email       String     @unique
   nombre      String
-  contraseña String
+  contraseña  String?
   telefono    String
   fecha_nac   DateTime?
   imagen_url  String?
@@ -124,6 +125,8 @@ model Usuario {
   tokensVerificacionEmail    TokenVerificacionEmail[]
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
+
+  @@index([firebaseUid])
 }
 
 model TokenVerificacionEmail {
@@ -166,7 +169,8 @@ model Direccion {
 model Localidad {
   id_localidad  Int             @id @default(autoincrement())
   nombre        String
-  codigo_postal Int
+  codigo_postal Int?
+  activa        Boolean         @default(true)
   direcciones   Direccion[]
   usuarios      Usuario[]
   zonas         LocalidadZona[]
@@ -175,7 +179,6 @@ model Localidad {
 model Zona {
   id_zona     Int                @id @default(autoincrement())
   nombre      String             @unique
-  paquetes    PaquetePublicado[]
   localidades LocalidadZona[]
 
   createdAt DateTime @default(now())
@@ -309,8 +312,6 @@ model PaquetePublicado {
   paqueteBase               PaqueteBase            @relation(fields: [paqueteBaseId], references: [id_paquete_base])
   estadoId                  Int
   estado                    EstadoPaquetePublicado @relation(fields: [estadoId], references: [id_estado])
-  zonaId                    Int
-  zona                      Zona                   @relation(fields: [zonaId], references: [id_zona])
   fecha_inicio              DateTime
   fecha_fin                 DateTime
   cant_productos            Int?
@@ -329,7 +330,6 @@ model PaquetePublicado {
   updatedAt DateTime @updatedAt
 
   @@index([estadoId])
-  @@index([zonaId])
   @@index([tipo])
 }
 

@@ -150,24 +150,10 @@ describe("PaquetePublicadoService", () => {
       jest.useRealTimers();
     });
 
-    it("debería aplicar el mismo filtro con y sin zona", async () => {
-      const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
-
-      await service.getAll();
-      const sinZona = mockPaquetePublicadoFindMany.mock.calls[0][0].where;
-
-      mockPaquetePublicadoFindMany.mockClear();
-      await service.getAll(undefined, undefined, false, undefined, undefined, [4]);
-      const conZona = mockPaquetePublicadoFindMany.mock.calls[0][0].where;
-
-      expect(sinZona.estadoId).toBe(conZona.estadoId);
-      expect(Object.keys(sinZona.fecha_fin)).toEqual(Object.keys(conZona.fecha_fin));
-    });
-
     it("debería devolver los paquetes cerrados cuando se piden con incluirCerrados", async () => {
       const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
       await service.getAll(
-        undefined, undefined, false, undefined, undefined, undefined, undefined, undefined, undefined, true
+        undefined, undefined, false, undefined, undefined, undefined, undefined, undefined, true
       );
 
       const { where } = mockPaquetePublicadoFindMany.mock.calls[0][0];
@@ -179,7 +165,7 @@ describe("PaquetePublicadoService", () => {
 
     it("countAll debería contar igual que getAll cuando se piden los cerrados", async () => {
       const { mockPaquetePublicadoCount } = require("../../../src/prisma/client").__mocks;
-      await service.countAll(false, undefined, undefined, undefined, undefined, undefined, true);
+      await service.countAll(false, undefined, undefined, undefined, undefined, true);
 
       const { where } = mockPaquetePublicadoCount.mock.calls[0][0];
       expect(where.estadoId).toBeUndefined();
@@ -210,7 +196,7 @@ describe("PaquetePublicadoService", () => {
       ["mas-participantes", { cant_usuarios_registrados: "desc" }],
     ])("traduce el orden '%s' a la cláusula de prisma correcta", async (orden, esperado) => {
       const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
-      await service.getAll(undefined, undefined, false, undefined, undefined, undefined, undefined, undefined, orden as string);
+      await service.getAll(undefined, undefined, false, undefined, undefined, undefined, undefined, orden as string);
       expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           orderBy: [esperado, { id_paquete_publicado: "desc" }],
@@ -220,7 +206,7 @@ describe("PaquetePublicadoService", () => {
 
     it("cae al orden por defecto si el valor es desconocido", async () => {
       const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
-      await service.getAll(undefined, undefined, false, undefined, undefined, undefined, undefined, undefined, "no-existe");
+      await service.getAll(undefined, undefined, false, undefined, undefined, undefined, undefined, "no-existe");
       expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
         expect.objectContaining({ orderBy: [{ id_paquete_publicado: "desc" }] })
       );
@@ -249,9 +235,9 @@ describe("PaquetePublicadoService", () => {
       );
     });
 
-    it("debería aplicar filtros de categorías, marcas, zonas, tipos de paquetes y estados en paquetes", async () => {
+    it("debería aplicar filtros de categorías, marcas, tipos de paquetes y estados en paquetes", async () => {
       const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
-      await service.getAll(0, 10, false, [1, 2], [3], [4], ["SINERGICO"], ["por-cerrar"]);
+      await service.getAll(0, 10, false, [1, 2], [3], ["SINERGICO"], ["por-cerrar"]);
       expect(mockPaquetePublicadoFindMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -259,7 +245,7 @@ describe("PaquetePublicadoService", () => {
               categoria_id: { in: [1, 2] },
               marcaId: { in: [3] },
             }),
-            zonaId: { in: [4] },
+
             tipo: { in: ["SINERGICO"] },
           }),
         })
@@ -281,7 +267,7 @@ describe("PaquetePublicadoService", () => {
       const whereDe = async (estados: string[]) => {
         const { mockPaquetePublicadoFindMany } = require("../../../src/prisma/client").__mocks;
         await service.getAll(
-          undefined, undefined, false, undefined, undefined, undefined, undefined, estados
+          undefined, undefined, false, undefined, undefined, undefined, estados
         );
         return mockPaquetePublicadoFindMany.mock.calls[0][0].where;
       };
@@ -301,7 +287,7 @@ describe("PaquetePublicadoService", () => {
   describe("countAll", () => {
     it("debería llamar a prisma.paquetePublicado.count con los filtros de paquetes correspondientes", async () => {
       const { mockPaquetePublicadoCount } = require("../../../src/prisma/client").__mocks;
-      await service.countAll(false, [1, 2], [3], [4], ["SINERGICO"], ["por-cerrar"]);
+      await service.countAll(false, [1, 2], [3], ["SINERGICO"], ["por-cerrar"]);
       expect(mockPaquetePublicadoCount).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -310,7 +296,7 @@ describe("PaquetePublicadoService", () => {
               categoria_id: { in: [1, 2] },
               marcaId: { in: [3] },
             }),
-            zonaId: { in: [4] },
+
             tipo: { in: ["SINERGICO"] },
           }),
         })
@@ -351,7 +337,7 @@ describe("PaquetePublicadoService", () => {
 
       const dto = {
         nombre: "Test Publicado",
-        zonaId: 1,
+
         paqueteBaseId: 1,
         cant_productos: 10,
         fecha_inicio: "2026-06-20",
@@ -364,7 +350,7 @@ describe("PaquetePublicadoService", () => {
 
     const dtoValido = {
       nombre: "Test Publicado",
-      zonaId: 1,
+
       paqueteBaseId: 1,
       cant_productos: 10,
       fecha_inicio: "2026-06-20",
@@ -392,6 +378,8 @@ describe("PaquetePublicadoService", () => {
         expect.objectContaining({ data: expect.objectContaining({ nombre: "Test Publicado" }) })
       );
       expect((resultado as any).id_paquete_publicado).toBe(1);
+      expect(mockPaquetePublicadoCreate.mock.calls[0][0].data).not.toHaveProperty('zona');
+      expect(require("../../../src/prisma/client").__mocks.mockZonaFindUnique).not.toHaveBeenCalled();
     });
 
     it("valida el nombre único con el cliente de la transacción, no con prisma directo", async () => {

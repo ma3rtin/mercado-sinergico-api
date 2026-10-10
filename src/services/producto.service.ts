@@ -63,22 +63,6 @@ export class ProductoService {
         where.precio.lte = precioMax;
       }
     }
-    if (!includeArchived && zonas && zonas.length > 0) {
-      where.paquetes = {
-        some: {
-          paqueteBase: {
-            publicados: {
-              some: {
-                estadoId: 1, // ESTADO_PAQUETE.ACTIVO
-                archivado: false,
-                fecha_fin: { gte: new Date() },
-                zonaId: { in: zonas }
-              }
-            }
-          }
-        }
-      };
-    }
 
     const productos = await this.prisma.producto.findMany({
       where,
@@ -157,8 +141,7 @@ export class ProductoService {
     categorias?: number[],
     marcas?: number[],
     precioMin?: number,
-    precioMax?: number,
-    zonas?: number[]
+    precioMax?: number
   ): Promise<number> {
     const where: Prisma.ProductoWhereInput = {};
     if (name) {
@@ -181,22 +164,6 @@ export class ProductoService {
       if (precioMax !== undefined) {
         where.precio.lte = precioMax;
       }
-    }
-    if (!includeArchived && zonas && zonas.length > 0) {
-      where.paquetes = {
-        some: {
-          paqueteBase: {
-            publicados: {
-              some: {
-                estadoId: 1, // ESTADO_PAQUETE.ACTIVO
-                archivado: false,
-                fecha_fin: { gte: new Date() },
-                zonaId: { in: zonas }
-              }
-            }
-          }
-        }
-      };
     }
 
     return this.prisma.producto.count({ where });

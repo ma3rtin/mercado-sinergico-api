@@ -11,7 +11,6 @@ jest.mock("canvas", () => ({
   }),
 }));
 import { UsuarioService } from "../../../src/services/usuario.service";
-import { compararContraseñas } from "../../../src/auth/bcrypt";
 
 jest.mock("../../../src/prisma/client", () => {
   const mockUsuarioCreate = jest.fn();
@@ -22,6 +21,7 @@ jest.mock("../../../src/prisma/client", () => {
   const mockTokenUpdateMany = jest.fn();
   const mockRolFindUnique = jest.fn();
   const mockTransaction = jest.fn();
+  const mockLocalidadFindUnique = jest.fn();
 
   return {
     prisma: {
@@ -39,6 +39,7 @@ jest.mock("../../../src/prisma/client", () => {
         findUnique: mockRolFindUnique,
       },
       $transaction: mockTransaction,
+      localidad: { findUnique: mockLocalidadFindUnique },
     },
     __mocks: {
       mockUsuarioCreate,
@@ -49,6 +50,7 @@ jest.mock("../../../src/prisma/client", () => {
       mockTokenUpdateMany,
       mockRolFindUnique,
       mockTransaction,
+      mockLocalidadFindUnique,
     },
   };
 });
@@ -58,10 +60,7 @@ jest.mock("../../../src/auth/jwt", () => ({
   decodificarToken: jest.fn(),
 }));
 
-jest.mock("../../../src/auth/bcrypt", () => ({
-  cifrarContraseña: jest.fn().mockResolvedValue("hashedPassword"),
-  compararContraseñas: jest.fn().mockResolvedValue(true),
-}));
+
 
 jest.mock("../../../src/services/imagen.service", () => ({
   ImagenService: jest.fn().mockImplementation(() => ({
@@ -108,47 +107,39 @@ describe("UsuarioService", () => {
     }));
   });
 
-  it("debería iniciar sesión con credenciales correctas", async () => {
-    mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
-      id: 1,
-      email: "test@example.com",
-      contraseña: "hashedPassword",
-      nombre: "Test User",
-      telefono: "1234567890",
-      rol: { nombre: "Usuario" },
-      emailVerificadoEn: new Date(),
-    });
+  it.each([null, { id_localidad: 1, activa: false }])(
+    'rechaza una localidad inexistente o histórica antes de modificar el perfil',
+    async (localidad) => {
+      mocks.mockLocalidadFindUnique.mockResolvedValue(localidad);
+      await expect(service.actualizarUsuario(1, { localidad_id: 1 } as any))
+        .rejects.toMatchObject({ status: 400 });
+      expect(mocks.mockUsuarioUpdate).not.toHaveBeenCalled();
+    }
+  );
 
-    const result = await service.iniciarSesion({
-      email: "test@example.com",
-      contraseña: "Password123",
-    });
-
-    expect(typeof result).toBe("string");
-    expect(result).toBe("fakeToken123");
+  it('rechaza registrar una dirección con localidad histórica', async () => {
+    const create = jest.fn();
+    mocks.mockTransaction.mockImplementation(async (cb: any) => cb({
+      localidad: { findUnique: jest.fn().mockResolvedValue({ activa: false }) },
+      direccion: { create },
+    }));
+    await expect(service.registrarDireccion(1, { localidad_id: 1 } as any))
+      .rejects.toThrow('Seleccioná una localidad vigente');
+    expect(create).not.toHaveBeenCalled();
   });
 
-  it("debería devolver null al iniciar sesión con credenciales incorrectas", async () => {
-    const result = await service.iniciarSesion({
-      email: "fail@example.com",
-      contraseña: "wrongpass",
-    });
-    expect(result).toBeNull();
-  });
-
-  it("debería bloquear el inicio de sesión si el email no está verificado", async () => {
-    mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
-      id: 1,
-      email: "test@example.com",
-      contraseña: "hashedPassword",
-      rol: { nombre: "Usuario" },
-      emailVerificadoEn: null,
-    });
-
-    await expect(service.iniciarSesion({
-      email: "test@example.com",
-      contraseña: "Password123",
-    })).rejects.toMatchObject({ status: 403, code: "EMAIL_NO_VERIFICADO" });
+  it.each([1708, null])('guarda el CP del domicilio sin reemplazarlo por la referencia %s', async (referencia) => {
+    const create = jest.fn().mockResolvedValue({ id: 1, codigo_postal: 1706 });
+    mocks.mockTransaction.mockImplementation(async (cb: any) => cb({
+      localidad: { findUnique: jest.fn().mockResolvedValue({ activa: true, codigo_postal: referencia }) },
+      direccion: { create },
+    }));
+    await service.registrarDireccion(1, {
+      localidad_id: 1, codigo_postal: 1706, calle: 'Prueba', numero: 100,
+    } as any);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ codigo_postal: 1706 }),
+    }));
   });
 
   it("debería verificar un token válido una única vez", async () => {
@@ -190,11 +181,10 @@ describe("UsuarioService", () => {
     await expect(
       service.registrar({
         email: "test@example.com",
-        contraseña: "Password123",
         nombre: "Test User",
         telefono: "1234567890",
         fecha_nac: "2000-01-01",
-      })
+      } as any)
     ).rejects.toThrow("El email ya se encuentra registrado");
 
     expect(mocks.mockUsuarioCreate).not.toHaveBeenCalled();
@@ -205,11 +195,10 @@ describe("UsuarioService", () => {
 
     const resultado = await service.registrar({
       email: "nuevo@example.com",
-      contraseña: "Password123",
       nombre: "Nuevo Usuario",
       telefono: "1234567890",
       fecha_nac: "2000-01-01",
-    });
+    } as any);
 
     expect(resultado).toHaveProperty("id");
     expect(mocks.mockUsuarioCreate).toHaveBeenCalled();
@@ -262,99 +251,102 @@ describe("UsuarioService", () => {
     expect(result.email).toBe("test@example.com");
   });
 
-  describe("actualizarUsuario - cambio de email", () => {
-    it("debería rechazar el cambio de email sin la contraseña actual", async () => {
-      mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
-        id: 1,
-        email: "viejo@example.com",
-        contraseña: "hashedPassword",
+  describe("loginConFirebase", () => {
+    it("debería crear el usuario si no existe en la DB", async () => {
+      mocks.mockUsuarioFindUnique.mockResolvedValueOnce(null);
+      mocks.mockUsuarioCreate.mockResolvedValueOnce({
+        id: 10,
+        firebaseUid: "firebase-uid-123",
+        email: "nuevo@example.com",
+        nombre: "Nuevo User",
+        contraseña: null,
+        rol: { nombre: "Usuario" },
       });
 
-      await expect(
-        service.actualizarUsuario(1, { email: "nuevo@example.com" })
-      ).rejects.toMatchObject({ status: 400 });
-
-      expect(mocks.mockUsuarioUpdate).not.toHaveBeenCalled();
-    });
-
-    it("debería rechazar el cambio de email con la contraseña actual incorrecta", async () => {
-      mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
-        id: 1,
-        email: "viejo@example.com",
-        contraseña: "hashedPassword",
+      const result = await service.loginConFirebase({
+        uid: "firebase-uid-123",
+        email: "nuevo@example.com",
+        name: "Nuevo User",
+        picture: undefined,
       });
-      (compararContraseñas as jest.Mock).mockResolvedValueOnce(false);
 
-      await expect(
-        service.actualizarUsuario(1, {
-          email: "nuevo@example.com",
-          contraseñaActual: "incorrecta",
-        } as any)
-      ).rejects.toMatchObject({ status: 403 });
-
-      expect(mocks.mockUsuarioUpdate).not.toHaveBeenCalled();
+      expect(result.email).toBe("nuevo@example.com");
+      expect(result.firebaseUid).toBe("firebase-uid-123");
+      expect(mocks.mockUsuarioCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            firebaseUid: "firebase-uid-123",
+            email: "nuevo@example.com",
+            contraseña: null,
+            rol: { connect: { nombre: "Usuario" } },
+          }),
+        })
+      );
     });
 
-    it("debería resetear emailVerificadoEn y reenviar la verificación al cambiar el email con la contraseña correcta", async () => {
+    it("debería linkear firebaseUid a un usuario existente que aún no lo tiene (soft-migración)", async () => {
       mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
-        id: 1,
-        email: "viejo@example.com",
-        contraseña: "hashedPassword",
+        id: 5,
+        email: "existente@example.com",
+        firebaseUid: null,
+        contraseña: "hashedLegacy",
+        nombre: "Legacy User",
+        telefono: "1234567890",
+        rol: { nombre: "Usuario" },
       });
       mocks.mockUsuarioUpdate.mockResolvedValueOnce({
-        id: 1,
-        email: "nuevo@example.com",
-        nombre: "Test User",
+        id: 5,
+        email: "existente@example.com",
+        firebaseUid: "firebase-uid-456",
+        nombre: "Legacy User",
+        rol: { nombre: "Usuario" },
       });
 
-      await service.actualizarUsuario(1, {
-        email: "nuevo@example.com",
-        contraseñaActual: "Password123",
-      } as any);
+      const result = await service.loginConFirebase({
+        uid: "firebase-uid-456",
+        email: "existente@example.com",
+        name: "Legacy User",
+      });
 
-      expect(mocks.mockUsuarioUpdate).toHaveBeenCalledWith(expect.objectContaining({
-        data: expect.objectContaining({ emailVerificadoEn: null }),
-      }));
-      expect(mocks.mockTransaction).toHaveBeenCalled();
+      expect(result.firebaseUid).toBe("firebase-uid-456");
+      expect(mocks.mockUsuarioUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 5 },
+          data: { firebaseUid: "firebase-uid-456" },
+        })
+      );
     });
 
-    it("debería rechazar el cambio de email en cuentas sin contraseña propia (Firebase)", async () => {
+    it("debería devolver el usuario existente si ya tiene firebaseUid (sin update)", async () => {
       mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
-        id: 4,
-        email: "viejo@example.com",
-        contraseña: "",
+        id: 7,
+        firebaseUid: "firebase-uid-789",
+        email: "ya@example.com",
+        contraseña: null,
+        nombre: "Ya User",
+        telefono: "1234567890",
+        rol: { nombre: "Usuario" },
       });
 
-      await expect(
-        service.actualizarUsuario(4, { email: "nuevo@example.com" })
-      ).rejects.toMatchObject({ status: 400 });
+      const result = await service.loginConFirebase({
+        uid: "firebase-uid-789",
+        email: "ya@example.com",
+      });
 
+      expect(result.id).toBe(7);
       expect(mocks.mockUsuarioUpdate).not.toHaveBeenCalled();
+      expect(mocks.mockUsuarioCreate).not.toHaveBeenCalled();
     });
 
-    it("no debería tocar emailVerificadoEn si el email no cambia", async () => {
-      mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
-        id: 1,
-        email: "test@example.com",
-        contraseña: "hashedPassword",
-      });
-      mocks.mockUsuarioUpdate.mockResolvedValueOnce({
-        id: 1,
-        email: "test@example.com",
-        nombre: "Test User Editado",
-      });
-
-      await service.actualizarUsuario(1, {
-        email: "test@example.com",
-        nombre: "Test User Editado",
-      });
-
-      expect(mocks.mockUsuarioUpdate).toHaveBeenCalledWith(expect.objectContaining({
-        data: expect.objectContaining({ emailVerificadoEn: undefined }),
-      }));
+    it("debería lanzar error si Firebase no provee email", async () => {
+      await expect(
+        service.loginConFirebase({
+          uid: "firebase-uid-000",
+          email: undefined,
+        })
+      ).rejects.toMatchObject({ status: 400 });
     });
   });
-
   describe("reenviarVerificacionEmail", () => {
     it("no debería hacer nada si el usuario no existe para no filtrar emails", async () => {
       mocks.mockUsuarioFindUnique.mockResolvedValueOnce(null);
@@ -391,77 +383,6 @@ describe("UsuarioService", () => {
       }));
       expect(mocks.mockTokenCreate).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({ usuarioId: 3 }),
-      }));
-    });
-  });
-
-  describe("loginConFirebase", () => {
-    it("debería rechazar el acceso si Firebase indica que el email no está verificado", async () => {
-      await expect(
-        service.loginConFirebase({
-          uid: "firebase-123",
-          email: "google@example.com",
-          name: "Google User",
-          emailVerified: false,
-        })
-      ).rejects.toMatchObject({ status: 403, code: "EMAIL_NO_VERIFICADO" });
-    });
-
-    it("debería crear un usuario nuevo marcado como verificado si el email de Firebase está verificado", async () => {
-      mocks.mockUsuarioFindUnique.mockResolvedValueOnce(null); // buscarPorEmail
-      mocks.mockUsuarioCreate.mockResolvedValueOnce({
-        id: 10,
-        email: "nuevo-google@example.com",
-        nombre: "Google User",
-        emailVerificadoEn: new Date(),
-        rol: { nombre: "Usuario" },
-      });
-
-      const usuario = await service.loginConFirebase({
-        uid: "firebase-456",
-        email: "nuevo-google@example.com",
-        name: "Google User",
-        emailVerified: true,
-      });
-
-      expect(usuario).toHaveProperty("id", 10);
-      expect(mocks.mockUsuarioCreate).toHaveBeenCalledWith(expect.objectContaining({
-        data: expect.objectContaining({
-          email: "nuevo-google@example.com",
-          emailVerificadoEn: expect.any(Date),
-        }),
-      }));
-    });
-
-    it("debería activar una cuenta local existente no verificada cuando ingresa con Google verificado", async () => {
-      mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
-        id: 11,
-        email: "local@example.com",
-        nombre: "Local User",
-        emailVerificadoEn: null,
-        rol: { nombre: "Usuario" },
-      });
-      mocks.mockUsuarioUpdate.mockResolvedValueOnce({
-        id: 11,
-        email: "local@example.com",
-        nombre: "Local User",
-        emailVerificadoEn: new Date(),
-        rol: { nombre: "Usuario" },
-      });
-
-      const usuario = await service.loginConFirebase({
-        uid: "firebase-789",
-        email: "local@example.com",
-        name: "Local User",
-        emailVerified: true,
-      });
-
-      expect(usuario.id).toBe(11);
-      expect(mocks.mockUsuarioUpdate).toHaveBeenCalledWith(expect.objectContaining({
-        where: { id: 11 },
-        data: expect.objectContaining({
-          emailVerificadoEn: expect.any(Date),
-        }),
       }));
     });
   });
