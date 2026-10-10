@@ -26,6 +26,7 @@ const mockProductoService = {
 
 const mockImagenService = {
   uploadToCloudinary: jest.fn(),
+  subirArchivosEnLotes: jest.fn(),
 };
 
 describe("ProductoController", () => {
@@ -63,6 +64,37 @@ describe("ProductoController", () => {
       expect(mockProductoService.getAll).toHaveBeenCalledTimes(1);
       expect(mockResponse.status).toHaveBeenCalledWith(200);
       expect(mockResponse.json).toHaveBeenCalledWith(productos);
+    });
+
+    it("pasa el parametro orden al service", async () => {
+      mockRequest.query = { orden: "precio-asc" };
+      mockProductoService.getAll.mockResolvedValue([]);
+
+      await controller.getProductos(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockProductoService.getAll).toHaveBeenCalledWith(
+        undefined, undefined, undefined, false,
+        undefined, undefined, undefined, undefined, undefined,
+        "precio-asc"
+      );
+    });
+
+    it("pasa orden undefined cuando no viene en la query", async () => {
+      mockProductoService.getAll.mockResolvedValue([]);
+
+      await controller.getProductos(mockRequest as Request, mockResponse as Response, next);
+
+      const args = mockProductoService.getAll.mock.calls[0];
+      expect(args[9]).toBeUndefined();
+    });
+
+    it("no rompe con un orden desconocido: responde 200 y delega al service", async () => {
+      mockRequest.query = { orden: "no-existe" };
+      mockProductoService.getAll.mockResolvedValue([]);
+
+      await controller.getProductos(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockResponse.status).toHaveBeenCalledWith(200);
     });
 
     it("debería manejar errores y devolver estado 500", async () => {
@@ -136,17 +168,24 @@ describe("ProductoController", () => {
         ] as any,
       };
 
-      mockImagenService.uploadToCloudinary
-        .mockResolvedValueOnce("https://cloudinary.com/icono.jpg")
-        .mockResolvedValueOnce("https://cloudinary.com/img1.jpg")
-        .mockResolvedValueOnce("https://cloudinary.com/img2.jpg");
+      mockImagenService.subirArchivosEnLotes.mockResolvedValue([
+        "https://cloudinary.com/icono.jpg",
+        "https://cloudinary.com/img1.jpg",
+        "https://cloudinary.com/img2.jpg",
+      ]);
 
       const productoCreado = { id_producto: 1, nombre: validBody.nombre, precio: 100 };
       mockProductoService.create.mockResolvedValue(productoCreado);
 
       await controller.createProducto(mockRequest as Request, mockResponse as Response, next);
 
-      expect(mockImagenService.uploadToCloudinary).toHaveBeenCalledTimes(3);
+      // Se llamó una sola vez con los 3 archivos en orden (icono → img1 → img2)
+      expect(mockImagenService.subirArchivosEnLotes).toHaveBeenCalledTimes(1);
+      expect(mockImagenService.subirArchivosEnLotes).toHaveBeenCalledWith([
+        expect.objectContaining({ buffer: Buffer.from("icono") }),
+        expect.objectContaining({ buffer: Buffer.from("img1") }),
+        expect.objectContaining({ buffer: Buffer.from("img2") }),
+      ]);
       expect(mockProductoService.create).toHaveBeenCalledWith(expect.objectContaining({
         nombre: "Nuevo Producto",
         precio: 100,
@@ -163,7 +202,7 @@ describe("ProductoController", () => {
 
       await controller.createProducto(mockRequest as Request, mockResponse as Response, next);
 
-      expect(mockImagenService.uploadToCloudinary).not.toHaveBeenCalled();
+      expect(mockImagenService.subirArchivosEnLotes).not.toHaveBeenCalled();
       expect(mockProductoService.create).not.toHaveBeenCalled();
       expect(mockResponse.status).toHaveBeenCalledWith(400);
       expect(mockResponse.json).toHaveBeenCalledWith({ message: "La imagen principal es obligatoria" });
@@ -172,7 +211,7 @@ describe("ProductoController", () => {
     it("debería manejar error en la subida de imagen principal", async () => {
       mockRequest.body = validBody;
       mockRequest.files = { icono: [{ buffer: Buffer.from("icono"), fieldname: "icono", originalname: "icono.jpg" }] } as any;
-      mockImagenService.uploadToCloudinary.mockRejectedValue(new Error("Error subiendo a Cloudinary"));
+      mockImagenService.subirArchivosEnLotes.mockRejectedValue(new Error("Error subiendo a Cloudinary"));
 
       await controller.createProducto(mockRequest as Request, mockResponse as Response, next);
 
@@ -194,6 +233,45 @@ describe("ProductoController", () => {
       expect(mockResponse.json).toHaveBeenCalledWith(
         expect.objectContaining({ message: expect.stringContaining("JSON válido") })
       );
+    });
+
+    it("debería crear un producto con el máximo de archivos (1 icono + 15 imágenes = 16 total)", async () => {
+      mockRequest.body = validBody;
+      mockRequest.files = {
+        icono: [{ buffer: Buffer.from("icono"), fieldname: "icono", originalname: "icono.jpg" }] as any,
+        imagenes: Array.from({ length: 15 }, (_, i) => ({
+          buffer: Buffer.from(`img${i}`),
+          fieldname: "imagenes",
+          originalname: `img${i}.jpg`,
+        })) as any,
+      };
+
+      mockImagenService.subirArchivosEnLotes.mockResolvedValue([
+        "https://cloudinary.com/icono.jpg",
+        ...Array.from({ length: 15 }, (_, i) => `https://cloudinary.com/img${i}.jpg`),
+      ]);
+
+      const productoCreado = { id_producto: 1, nombre: validBody.nombre, precio: 100 };
+      mockProductoService.create.mockResolvedValue(productoCreado);
+
+      await controller.createProducto(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockImagenService.subirArchivosEnLotes).toHaveBeenCalledTimes(1);
+      expect(mockImagenService.subirArchivosEnLotes).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ buffer: Buffer.from("icono") }),
+          ...Array.from({ length: 15 }, (_, i) =>
+            expect.objectContaining({ buffer: Buffer.from(`img${i}`) })
+          ),
+        ])
+      );
+      expect(mockProductoService.create).toHaveBeenCalledWith(expect.objectContaining({
+        imagen_url: "https://cloudinary.com/icono.jpg",
+        imagenes: expect.arrayContaining(
+          Array.from({ length: 15 }, (_, i) => `https://cloudinary.com/img${i}.jpg`)
+        ),
+      }));
+      expect(mockResponse.status).toHaveBeenCalledWith(201);
     });
   });
 

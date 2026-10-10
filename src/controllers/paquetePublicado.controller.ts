@@ -8,6 +8,9 @@ export class PaquetePublicadoController {
 
   getAll = asyncHandler(async (req: Request, res: Response) => {
     const includeArchived = req.query.includeArchived === 'true';
+    // El admin necesita ver tambien los paquetes ya cerrados (Completo,
+    // Confirmado, Entregado, Cancelado), que el listado publico esconde.
+    const incluirCerrados = req.query.incluirCerrados === 'true';
 
     const pageVal = req.query.page;
     const limitVal = req.query.limit;
@@ -36,6 +39,7 @@ export class PaquetePublicadoController {
     const estados = req.query.estados
       ? (req.query.estados as string).split(',')
       : undefined;
+    const orden = req.query.orden ? (req.query.orden as string) : undefined;
 
     const skip = page && limit ? (page - 1) * limit : undefined;
     const take = limit;
@@ -47,7 +51,9 @@ export class PaquetePublicadoController {
       categorias,
       marcas,
       tiposPaquete,
-      estados
+      estados,
+      orden,
+      incluirCerrados
     );
 
     if (!paquetes) throw new CustomError('Paquetes no encontrados', 404);
@@ -58,7 +64,8 @@ export class PaquetePublicadoController {
         categorias,
         marcas,
         tiposPaquete,
-        estados
+        estados,
+        incluirCerrados
       );
       res.setHeader('X-Total-Count', total);
       res.setHeader('Access-Control-Expose-Headers', 'X-Total-Count');
@@ -117,10 +124,7 @@ export class PaquetePublicadoController {
 
   getPorCerrarse = asyncHandler(async (_req: Request, res: Response) => {
     const paquetes = await this.service.getPorCerrarse();
-    if (!paquetes || paquetes.length === 0)
-      throw new CustomError('No hay paquetes por cerrarse', 404);
-
-    res.status(200).json(paquetes);
+    res.status(200).json(paquetes ?? []);
   });
 
   async getByProductId(req: Request, res: Response, next: NextFunction) {

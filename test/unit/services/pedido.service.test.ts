@@ -5,6 +5,7 @@ import { ESTADO_PEDIDO } from "../../../src/constants/estado-pedido";
 jest.mock("../../../src/prisma/client", () => {
   const mockPaquetePublicadoFindUnique = jest.fn();
   const mockPedidoFindFirst = jest.fn();
+  const mockPedidoFindMany = jest.fn();
   const mockPedidoCreate = jest.fn();
   const mockPedidoDetalleFindFirst = jest.fn();
   const mockPedidoDetalleCreate = jest.fn();
@@ -18,6 +19,7 @@ jest.mock("../../../src/prisma/client", () => {
       paquetePublicado: { findUnique: mockPaquetePublicadoFindUnique },
       pedido: {
         findFirst: mockPedidoFindFirst,
+        findMany: mockPedidoFindMany,
         create: mockPedidoCreate,
         update: mockPedidoUpdate,
         delete: mockPedidoDelete,
@@ -32,6 +34,7 @@ jest.mock("../../../src/prisma/client", () => {
     __mocks: {
       mockPaquetePublicadoFindUnique,
       mockPedidoFindFirst,
+      mockPedidoFindMany,
       mockPedidoCreate,
       mockPedidoDetalleFindFirst,
       mockPedidoDetalleCreate,
@@ -185,6 +188,104 @@ describe("PedidoService", () => {
         "No hay un pedido pendiente en este paquete"
       );
       expect(mocks.mockPedidoDelete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("obtenerPedidosUsuario / obtenerPedidoPorId - no exponer pedidos de terceros", () => {
+    // Paquete compartido: el pedido propio (usuario 1) más dos pedidos de terceros
+    // (usuarios 2 y 3). El de estadoId=PENDIENTE (3) no cuenta como "involucrado"
+    // para los agregados, así que sirve también para probar que el filtro de
+    // estadosActivos sigue funcionando igual que antes del cambio.
+    const construirPaqueteConTerceros = () => ({
+      id_paquete_publicado: 20,
+      cant_usuarios_registrados: 10,
+      cant_productos_reservados: 50,
+      monto_total: 999,
+      pedidos: [
+        {
+          id_pedido: 100,
+          usuarioId: 1,
+          usuario: { id: 1 },
+          estadoId: ESTADO_PEDIDO.PAGADO,
+          monto_total: 500,
+          detalles: [{ cantidad: 2 }],
+        },
+        {
+          id_pedido: 101,
+          usuarioId: 2,
+          usuario: { id: 2 },
+          estadoId: ESTADO_PEDIDO.PAGADO,
+          monto_total: 300,
+          detalles: [{ cantidad: 1 }],
+        },
+        {
+          id_pedido: 102,
+          usuarioId: 3,
+          usuario: { id: 3 },
+          estadoId: ESTADO_PEDIDO.PENDIENTE,
+          monto_total: 999,
+          detalles: [{ cantidad: 5 }],
+        },
+      ],
+    });
+
+    it("obtenerPedidosUsuario calcula agregados con los pedidos de terceros pero no los devuelve", async () => {
+      mocks.mockPedidoFindMany.mockResolvedValue([
+        {
+          id_pedido: 100,
+          usuarioId: 1,
+          paquetePublicado: construirPaqueteConTerceros(),
+        },
+      ]);
+
+      const [pedido] = await service.obtenerPedidosUsuario(1);
+
+      expect(mocks.mockPedidoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { usuarioId: 1 } })
+      );
+
+      // Agregados calculados usando los pedidos de terceros (solo los PAGADO: usuarios 1 y 2)
+      expect(pedido.paquetePublicado!.cant_usuarios_registrados).toBe(2);
+      expect(pedido.paquetePublicado!.cant_productos_reservados).toBe(3);
+      expect(pedido.paquetePublicado!.monto_total).toBe(800);
+
+      // El array crudo de pedidos de terceros no debe llegar a la respuesta
+      expect(pedido.paquetePublicado!.pedidos).toBeUndefined();
+      expect(JSON.stringify(pedido)).not.toContain("usuarioId\":2");
+      expect(JSON.stringify(pedido)).not.toContain("usuarioId\":3");
+    });
+
+    it("obtenerPedidoPorId calcula agregados con los pedidos de terceros pero no los devuelve", async () => {
+      mocks.mockPedidoFindFirst.mockResolvedValue({
+        id_pedido: 100,
+        usuarioId: 1,
+        paquetePublicado: construirPaqueteConTerceros(),
+      });
+
+      const pedido = await service.obtenerPedidoPorId(1, 100);
+
+      expect(mocks.mockPedidoFindFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id_pedido: 100, usuarioId: 1 } })
+      );
+
+      expect(pedido.paquetePublicado!.cant_usuarios_registrados).toBe(2);
+      expect(pedido.paquetePublicado!.cant_productos_reservados).toBe(3);
+      expect(pedido.paquetePublicado!.monto_total).toBe(800);
+
+      expect(pedido.paquetePublicado!.pedidos).toBeUndefined();
+      expect(JSON.stringify(pedido)).not.toContain("usuarioId\":2");
+      expect(JSON.stringify(pedido)).not.toContain("usuarioId\":3");
+    });
+
+    it("obtenerPedidoPorId respeta ownership: filtra por id_pedido + usuarioId y lanza 404 si no matchea (pedido ajeno o inexistente)", async () => {
+      mocks.mockPedidoFindFirst.mockResolvedValue(null);
+
+      await expect(service.obtenerPedidoPorId(1, 999)).rejects.toThrow(
+        "Pedido no encontrado"
+      );
+      expect(mocks.mockPedidoFindFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id_pedido: 999, usuarioId: 1 } })
+      );
     });
   });
 });

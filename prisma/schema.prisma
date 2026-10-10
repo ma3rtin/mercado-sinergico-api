@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -118,12 +119,27 @@ model Usuario {
   rol         Rol        @relation(fields: [rolId], references: [id])
   localidadId Int?
   localidad   Localidad? @relation(fields: [localidadId], references: [id_localidad])
+  emailVerificadoEn DateTime?
 
-  pedidos   Pedido[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  pedidos                    Pedido[]
+  tokensVerificacionEmail    TokenVerificacionEmail[]
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
 
   @@index([firebaseUid])
+}
+
+model TokenVerificacionEmail {
+  id        Int      @id @default(autoincrement())
+  usuarioId Int
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiraEn  DateTime
+  usadoEn   DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([usuarioId])
+  @@index([expiraEn])
 }
 
 model Rol {

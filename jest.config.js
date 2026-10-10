@@ -10,6 +10,10 @@ export default {
   ],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    // p-limit@7.x es Pure ESM y no puede ser cargado por Jest en Windows
+    // (transformIgnorePatterns no aplica con separadores de ruta `\`).
+    // Se usa un mock manual CJS con la misma firma pública.
+    '^p-limit$': '<rootDir>/__mocks__/p-limit.js',
   },
   transform: {
     '^.+\\.tsx?$': [
@@ -24,3 +28,4 @@ export default {
     ],
   },
 };
+

@@ -16,6 +16,9 @@ jest.mock("../../../src/prisma/client", () => {
   const mockUsuarioCreate = jest.fn();
   const mockUsuarioFindUnique = jest.fn();
   const mockUsuarioUpdate = jest.fn();
+  const mockTokenCreate = jest.fn();
+  const mockTokenFindUnique = jest.fn();
+  const mockTokenUpdateMany = jest.fn();
   const mockRolFindUnique = jest.fn();
   const mockTransaction = jest.fn();
   const mockLocalidadFindUnique = jest.fn();
@@ -27,6 +30,11 @@ jest.mock("../../../src/prisma/client", () => {
         findUnique: mockUsuarioFindUnique,
         update: mockUsuarioUpdate,
       },
+      tokenVerificacionEmail: {
+        create: mockTokenCreate,
+        findUnique: mockTokenFindUnique,
+        updateMany: mockTokenUpdateMany,
+      },
       rol: {
         findUnique: mockRolFindUnique,
       },
@@ -37,6 +45,9 @@ jest.mock("../../../src/prisma/client", () => {
       mockUsuarioCreate,
       mockUsuarioFindUnique,
       mockUsuarioUpdate,
+      mockTokenCreate,
+      mockTokenFindUnique,
+      mockTokenUpdateMany,
       mockRolFindUnique,
       mockTransaction,
       mockLocalidadFindUnique,
@@ -49,10 +60,18 @@ jest.mock("../../../src/auth/jwt", () => ({
   decodificarToken: jest.fn(),
 }));
 
+
+
 jest.mock("../../../src/services/imagen.service", () => ({
-  ImagenService: class {
-    uploadToCloudinary = jest.fn().mockResolvedValue("http://cloudinary/fake.jpg");
-  },
+  ImagenService: jest.fn().mockImplementation(() => ({
+    uploadToCloudinary: jest.fn().mockResolvedValue("https://cloudinary.com/avatar.jpg"),
+  })),
+}));
+
+jest.mock("../../../src/services/email.service", () => ({
+  EmailService: jest.fn().mockImplementation(() => ({
+    enviarEmail: jest.fn().mockResolvedValue(true),
+  })),
 }));
 
 describe("UsuarioService", () => {
@@ -79,7 +98,13 @@ describe("UsuarioService", () => {
       telefono: "1234567890",
     });
     mocks.mockRolFindUnique.mockResolvedValue({ id: 1, nombre: "Usuario" });
-    mocks.mockTransaction.mockImplementation(async (cb: any) => cb({}));
+    mocks.mockTransaction.mockImplementation(async (cb: any) => cb({
+      tokenVerificacionEmail: {
+        create: mocks.mockTokenCreate,
+        updateMany: mocks.mockTokenUpdateMany,
+      },
+      usuario: { update: mocks.mockUsuarioUpdate },
+    }));
   });
 
   it.each([null, { id_localidad: 1, activa: false }])(
@@ -117,6 +142,36 @@ describe("UsuarioService", () => {
     }));
   });
 
+  it("debería verificar un token válido una única vez", async () => {
+    mocks.mockTokenFindUnique.mockResolvedValueOnce({
+      id: 9,
+      usuarioId: 1,
+      usadoEn: null,
+      expiraEn: new Date(Date.now() + 60_000),
+    });
+    mocks.mockTokenUpdateMany.mockResolvedValue({ count: 1 });
+
+    await service.verificarEmail("token-valido");
+
+    expect(mocks.mockUsuarioUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 1 },
+      data: expect.objectContaining({ emailVerificadoEn: expect.any(Date) }),
+    }));
+    expect(mocks.mockTokenUpdateMany).toHaveBeenCalled();
+  });
+
+  it("debería rechazar un token vencido", async () => {
+    mocks.mockTokenFindUnique.mockResolvedValueOnce({
+      id: 9,
+      usuarioId: 1,
+      usadoEn: null,
+      expiraEn: new Date(Date.now() - 60_000),
+    });
+
+    await expect(service.verificarEmail("token-vencido"))
+      .rejects.toMatchObject({ status: 400, code: "TOKEN_VERIFICACION_INVALIDO" });
+  });
+
   it("debería lanzar un error al registrar un usuario con un email ya existente", async () => {
     mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
       id: 1,
@@ -133,6 +188,20 @@ describe("UsuarioService", () => {
     ).rejects.toThrow("El email ya se encuentra registrado");
 
     expect(mocks.mockUsuarioCreate).not.toHaveBeenCalled();
+  });
+
+  it("no debería fallar el registro si el envío del email de verificación falla", async () => {
+    (service as any).emailService.enviarEmail.mockResolvedValueOnce(false);
+
+    const resultado = await service.registrar({
+      email: "nuevo@example.com",
+      nombre: "Nuevo Usuario",
+      telefono: "1234567890",
+      fecha_nac: "2000-01-01",
+    } as any);
+
+    expect(resultado).toHaveProperty("id");
+    expect(mocks.mockUsuarioCreate).toHaveBeenCalled();
   });
 
   it("debería buscar un usuario por email", async () => {
@@ -276,6 +345,45 @@ describe("UsuarioService", () => {
           email: undefined,
         })
       ).rejects.toMatchObject({ status: 400 });
+    });
+  });
+  describe("reenviarVerificacionEmail", () => {
+    it("no debería hacer nada si el usuario no existe para no filtrar emails", async () => {
+      mocks.mockUsuarioFindUnique.mockResolvedValueOnce(null);
+
+      await expect(service.reenviarVerificacionEmail("noexiste@example.com")).resolves.toBeUndefined();
+      expect(mocks.mockTransaction).not.toHaveBeenCalled();
+    });
+
+    it("no debería reenviar si el usuario ya tiene su email verificado", async () => {
+      mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
+        id: 2,
+        email: "verificado@example.com",
+        nombre: "Usuario Verificado",
+        emailVerificadoEn: new Date(),
+      });
+
+      await expect(service.reenviarVerificacionEmail("verificado@example.com")).resolves.toBeUndefined();
+      expect(mocks.mockTransaction).not.toHaveBeenCalled();
+    });
+
+    it("debería invalidar tokens previos, crear uno nuevo y enviar el correo si está pendiente", async () => {
+      mocks.mockUsuarioFindUnique.mockResolvedValueOnce({
+        id: 3,
+        email: "pendiente@example.com",
+        nombre: "Usuario Pendiente",
+        emailVerificadoEn: null,
+      });
+
+      await service.reenviarVerificacionEmail("pendiente@example.com");
+
+      expect(mocks.mockTransaction).toHaveBeenCalled();
+      expect(mocks.mockTokenUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { usuarioId: 3, usadoEn: null },
+      }));
+      expect(mocks.mockTokenCreate).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ usuarioId: 3 }),
+      }));
     });
   });
 });

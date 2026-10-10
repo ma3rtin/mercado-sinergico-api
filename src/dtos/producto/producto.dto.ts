@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsPositive,
+  Min,
   IsString,
   ValidateIf,
 } from 'class-validator';
@@ -19,7 +20,7 @@ export class ProductoDTO {
   descripcion!: string;
 
   @IsNumber({}, { message: 'El precio debe ser un número' })
-  @IsPositive({ message: 'El precio debe ser un número positivo' })
+  @Min(0, { message: 'El precio no puede ser negativo' })
   @Type(() => Number)
   precio!: number;
 
@@ -68,7 +69,7 @@ export class ProductoDTO {
 
   @ValidateIf((o) => !o.plantillaId)
   @IsNumber({}, { message: 'El stock debe ser un número' })
-  @IsPositive({ message: 'El stock debe ser un número positivo' })
+  @Min(0, { message: 'El stock no puede ser negativo' })
   @IsOptional()
   @Type(() => Number)
   stock?: number;

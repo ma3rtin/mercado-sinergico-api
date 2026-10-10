@@ -5,6 +5,7 @@ import { CustomError } from '../errors/custom.error.js';
 export interface FirebaseUser {
   uid: string;
   email?: string;
+  emailVerified?: boolean;
   name?: string;
   picture?: string;
 }
@@ -34,6 +35,7 @@ export const firebaseAuthMiddleware = async (
     const user: FirebaseUser = {
       uid: decodedToken.uid,
       email: decodedToken.email,
+      emailVerified: decodedToken.email_verified,
       name: decodedToken.name,
       picture: decodedToken.picture,
     };
@@ -46,11 +48,11 @@ export const firebaseAuthMiddleware = async (
     console.error('Error en autenticación Firebase:', error);
     
     if (error instanceof CustomError) {
-      return res.status(error.status).json({ error: error.message });
+      return res.status(error.status).json({ message: error.message });
     }
     
     return res.status(401).json({ 
-      error: 'Token inválido o expirado' 
+      message: 'Token inválido o expirado' 
     });
   }
 };

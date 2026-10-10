@@ -8,6 +8,24 @@ import { generarVariantesEnTransaccion } from './variante-generacion.helper.js';
 
 type PrismaOrTx = Prisma.TransactionClient | typeof prisma;
 
+const ORDEN_PRODUCTOS: Record<string, Prisma.ProductoOrderByWithRelationInput> = {
+  recientes: { createdAt: 'desc' },
+  'a-z': { nombre: 'asc' },
+  'z-a': { nombre: 'desc' },
+  'precio-asc': { precio: 'asc' },
+  'precio-desc': { precio: 'desc' },
+  'mas-stock': { stock: 'desc' },
+};
+
+// El id como desempate deja la paginacion estable: sin el, dos productos con
+// el mismo precio pueden repetirse o saltearse entre paginas.
+const DESEMPATE: Prisma.ProductoOrderByWithRelationInput = { id_producto: 'asc' };
+
+function construirOrderBy(orden?: string): Prisma.ProductoOrderByWithRelationInput[] {
+  const criterio = orden ? ORDEN_PRODUCTOS[orden] : undefined;
+  return criterio ? [criterio, DESEMPATE] : [DESEMPATE];
+}
+
 export class ProductoService {
   private prisma = prisma;
 
@@ -19,7 +37,9 @@ export class ProductoService {
     categorias?: number[],
     marcas?: number[],
     precioMin?: number,
-    precioMax?: number
+    precioMax?: number,
+    zonas?: number[],
+    orden?: string
   ) {
     const where: Prisma.ProductoWhereInput = {};
     if (name) {
@@ -52,13 +72,67 @@ export class ProductoService {
         imagenes: true,
         plantilla: true,
         variantes: true,
+        // Conteo de paquetes publicados ACTIVOS que contienen este producto.
+        // Mismo criterio que el filtro de zonas: estadoId=1, no archivado, en vigencia.
+        paquetes: {
+          select: {
+            paqueteBase: {
+              select: {
+                id_paquete_base: true,
+                _count: {
+                  select: {
+                    publicados: {
+                      where: {
+                        estadoId: 1,
+                        archivado: false,
+                        fecha_fin: { gte: new Date() },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
-      ...(skip !== undefined && { skip }),
-      ...(take !== undefined && { take }),
-      orderBy: { id_producto: 'asc' },
+      // NOTA: skip/take NO se aplican a nivel de query para poder ordenar en
+      // memoria por cantPaquetes (ver abajo). Solo se mantiene el orderBy secundario.
+      orderBy: construirOrderBy(orden),
     });
 
-    return productos.map((p) => new ProductoItemListaDTO(p));
+    // Se trae el set completo (filtrado por where) para poder ordenar en memoria
+    // por cantPaquetes: este conteo sale de una relación filtrada con _count +
+    // where anidado, que Prisma no permite usar en orderBy. Traer todo a memoria
+    // es aceptable dado el tamaño actual del catálogo. PENDIENTE a futuro: si el
+    // catálogo crece, migrar a un approach que ordene por el conteo sin cargar
+    // todo en memoria (p. ej. índice materializado o query agregada con apenas
+    // la página de ids a devolver).
+    const conPaquetes = productos.map((p) => {
+      // Conteo de paquetes publicados ACTIVOS únicos que contienen este producto.
+      // Se deduplica por paqueteBase por si el producto figura en más de un
+      // PaqueteBaseProducto apuntando a la misma base.
+      const basesVistas = new Set<number>();
+      const paquetesActivos = (p.paquetes ?? []).reduce((acc, paq) => {
+        const base = paq.paqueteBase;
+        if (!base || basesVistas.has(base.id_paquete_base)) return acc;
+        basesVistas.add(base.id_paquete_base);
+        return acc + (base._count.publicados ?? 0);
+      }, 0);
+      return {
+        dto: new ProductoItemListaDTO({ ...p, cantPaquetes: paquetesActivos }),
+        cantPaquetes: paquetesActivos,
+      };
+    });
+
+    // ORDEN PRIMARIO en memoria: los que tienen paquetes activos primero.
+    // Array.sort es ESTABLE, así que dentro de cada grupo se conserva el orden
+    // secundario (criterio de la UI + id_producto asc) que ya trae Prisma.
+    conPaquetes.sort((a, b) => b.cantPaquetes - a.cantPaquetes);
+
+    // Paginación sobre el array ya ordenado (equivale al skip/take de Prisma).
+    const desde = skip ?? 0;
+    const hasta = skip !== undefined && take !== undefined ? skip + take : undefined;
+    return conPaquetes.slice(desde, hasta).map((r) => r.dto);
   }
 
   public async countAll(
@@ -176,7 +250,7 @@ export class ProductoService {
       );
     }
 
-    if (!plantillaId && tipo === TipoPaquete.ENERGICO && !rest.stock) {
+    if (!plantillaId && tipo === TipoPaquete.ENERGICO && (rest.stock === undefined || rest.stock === null)) {
       throw new CustomError(
         'Los productos enérgicos sin variantes deben tener stock definido.',
         400
@@ -438,74 +512,101 @@ export class ProductoService {
       throw new CustomError('Producto no encontrado', 404);
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const nuevoProducto = await tx.producto.create({
-        data: {
-          nombre: `${producto.nombre} (Copia)`,
-          descripcion: producto.descripcion,
-          precio: producto.precio,
-          peso: producto.peso,
-          altura: producto.altura,
-          ancho: producto.ancho,
-          profundidad: producto.profundidad,
-          stock: producto.stock,
-          tipo: producto.tipo,
-          imagen_url: producto.imagen_url,
-          plantillaId: producto.plantillaId,
-          categoria_id: producto.categoria_id,
-          marca_id: producto.marca_id,
-        },
-      });
-
-      if (producto.imagenes.length > 0) {
-        await tx.productoImagen.createMany({
-          data: producto.imagenes.map((img) => ({
-            url: img.url,
-            productoId: nuevoProducto.id_producto,
-          })),
-        });
-      }
-
-      if (producto.variantes.length > 0) {
-        for (const variante of producto.variantes) {
-          const nuevaVariante = await tx.productoVariante.create({
+    try {
+      return await this.prisma.$transaction(
+        async (tx) => {
+          const nuevoProducto = await tx.producto.create({
             data: {
-              productoId: nuevoProducto.id_producto,
-              sku: variante.sku ? `${variante.sku}-COPIA` : null,
-              stockFisico: variante.stockFisico,
-              precioExtra: variante.precioExtra,
-              activo: variante.activo,
+              nombre: `${producto.nombre} (Copia)`,
+              descripcion: producto.descripcion,
+              precio: producto.precio,
+              peso: producto.peso,
+              altura: producto.altura,
+              ancho: producto.ancho,
+              profundidad: producto.profundidad,
+              stock: producto.stock,
+              tipo: producto.tipo,
+              imagen_url: producto.imagen_url,
+              plantillaId: producto.plantillaId,
+              categoria_id: producto.categoria_id,
+              marca_id: producto.marca_id,
             },
           });
 
-          if (variante.opciones.length > 0) {
-            await tx.productoVarianteOpcion.createMany({
-              data: variante.opciones.map((vo) => ({
-                varianteId: nuevaVariante.id,
-                caracteristicaId: vo.caracteristicaId,
-                opcionId: vo.opcionId,
+          if (producto.imagenes.length > 0) {
+            await tx.productoImagen.createMany({
+              data: producto.imagenes.map((img) => ({
+                url: img.url,
+                productoId: nuevoProducto.id_producto,
               })),
             });
           }
-        }
-      }
 
-      return tx.producto.findUnique({
-        where: { id_producto: nuevoProducto.id_producto },
-        include: {
-          imagenes: true,
-          variantes: {
+          if (producto.variantes.length > 0) {
+            // El id del producto nuevo alcanza para hacer único el SKU de la
+            // copia, así que no hace falta consultar colisiones ni escalar sufijos.
+            const variantesData = producto.variantes.map((variante) => ({
+              productoId: nuevoProducto.id_producto,
+              sku: variante.sku
+                ? `${variante.sku}-COPIA-${nuevoProducto.id_producto}`
+                : null,
+              stockFisico: variante.stockFisico,
+              precioExtra: variante.precioExtra,
+              activo: variante.activo,
+            }));
+
+            await tx.productoVariante.createMany({ data: variantesData });
+
+            const variantesCreadas = await tx.productoVariante.findMany({
+              where: { productoId: nuevoProducto.id_producto },
+              orderBy: { id: 'asc' },
+            });
+
+            const opcionesData = variantesCreadas.flatMap((nuevaVariante, i) => {
+              const original = producto.variantes[i];
+              return original.opciones.map((vo) => ({
+                varianteId: nuevaVariante.id,
+                caracteristicaId: vo.caracteristicaId,
+                opcionId: vo.opcionId,
+              }));
+            });
+
+            if (opcionesData.length > 0) {
+              await tx.productoVarianteOpcion.createMany({ data: opcionesData });
+            }
+          }
+
+          return tx.producto.findUnique({
+            where: { id_producto: nuevoProducto.id_producto },
             include: {
-              opciones: {
+              imagenes: true,
+              variantes: {
                 include: {
-                  caracteristica: true,
-                  opcion: true,
+                  opciones: {
+                    include: {
+                      caracteristica: true,
+                      opcion: true,
+                    },
+                  },
                 },
               },
             },
-          },
+          });
         },
-      });
-    });
+        {
+          timeout: 20000,
+        }
+      );
+    } catch (error: unknown) {
+      const err = error as { code?: string };
+      if (err.code === 'P2002') {
+        throw new CustomError(
+          'No se puede duplicar: ya existe una variante con ese SKU. Cambiá el SKU de la variante original antes de volver a duplicar.',
+          409
+        );
+      }
+      throw error;
+    }
   }
+
 }

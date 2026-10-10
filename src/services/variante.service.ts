@@ -114,6 +114,8 @@ export class VarianteService {
       );
     }
 
+
+
     const variantesCreadas = await this.prisma.$transaction(
       (tx) => generarVariantesEnTransaccion(tx, producto, opcionesDisponibles),
       { timeout: 20000 }
@@ -327,6 +329,13 @@ export class VarianteService {
     } catch (error: unknown) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
         throw new CustomError('Variante no encontrada', 404);
+      }
+      const err = error as { code?: string };
+      if (err.code === 'P2002') {
+        throw new CustomError(
+          'Ya existe una variante con ese SKU. Elegí un SKU distinto.',
+          409
+        );
       }
       throw error;
     }

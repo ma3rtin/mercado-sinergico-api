@@ -269,6 +269,32 @@ describe("PaqueteBaseService", () => {
       expect(mockCreateMany).not.toHaveBeenCalled();
     });
 
+    it("devuelve el paquete actualizado con sus productos tras reemplazar la lista", async () => {
+      const { mockPaqueteBaseFindUnique } = require("../../../src/prisma/client").__mocks;
+      mockPaqueteBaseFindUnique
+        .mockResolvedValueOnce({ id_paquete_base: 1, nombre: "Test", tipo: "SINERGICO" })
+        .mockResolvedValueOnce({
+          id_paquete_base: 1,
+          nombre: "Test",
+          tipo: "SINERGICO",
+          productos: [{ productoId: 10, paqueteBaseId: 1, producto: { id_producto: 10, nombre: "Prod 10" } }],
+        });
+
+      const result = await service.sincronizarProductos(1, [10]);
+
+      expect(mockDeleteMany).toHaveBeenCalledWith({ where: { paqueteBaseId: 1 } });
+      expect(mockCreateMany).toHaveBeenCalledWith({
+        data: [{ paqueteBaseId: 1, productoId: 10 }],
+      });
+      expect(mockPaqueteBaseFindUnique).toHaveBeenLastCalledWith(
+        expect.objectContaining({ include: { productos: { include: { producto: true } } } })
+      );
+      expect(result).toHaveProperty("id_paquete_base", 1);
+      expect(result.productos).toEqual([
+        { productoId: 10, paqueteBaseId: 1, producto: { id_producto: 10, nombre: "Prod 10" } },
+      ]);
+    });
+
     it("lanza error 404 si el paquete no existe", async () => {
       const { mockPaqueteBaseFindUnique } = require("../../../src/prisma/client").__mocks;
       mockPaqueteBaseFindUnique.mockResolvedValueOnce(null);
@@ -286,6 +312,14 @@ describe("PaqueteBaseService", () => {
 
     it("rechaza productosId no positivos antes de tocar la base", async () => {
       await expect(service.sincronizarProductos(1, [0])).rejects.toThrow(
+        "Los productosId deben ser enteros positivos"
+      );
+
+      expect(mockTransaction).not.toHaveBeenCalled();
+    });
+
+    it("rechaza productosId no enteros (flotantes) antes de tocar la base", async () => {
+      await expect(service.sincronizarProductos(1, [1.5])).rejects.toThrow(
         "Los productosId deben ser enteros positivos"
       );
 
@@ -331,6 +365,18 @@ describe("PaqueteBaseService", () => {
         .mockResolvedValueOnce([{ id_producto: 6, nombre: "Prod Sinergico", tipo: "SINERGICO", archivado: false }]);
 
       await expect(service.sincronizarProductos(1, [6])).rejects.toThrow(
+        "Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS"
+      );
+    });
+
+    it("debería fallar al sincronizar productos con tipo null en un paquete ENERGICO", async () => {
+      const { mockPaqueteBaseFindUnique, mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockPaqueteBaseFindUnique.mockResolvedValueOnce({ id_paquete_base: 1, tipo: "ENERGICO" });
+      mockProductoFindMany
+        .mockResolvedValueOnce([{ id_producto: 7, nombre: "Prod Sin Tipo", tipo: null, archivado: false }])
+        .mockResolvedValueOnce([{ id_producto: 7, nombre: "Prod Sin Tipo", tipo: null, archivado: false }]);
+
+      await expect(service.sincronizarProductos(1, [7])).rejects.toThrow(
         "Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS"
       );
     });
@@ -463,6 +509,45 @@ describe("PaqueteBaseService", () => {
       };
 
       await expect(service.update(1, dto)).rejects.toThrow("No se puede cambiar el tipo a SINÉRGICO: el paquete contiene productos incompatibles de tipo ENÉRGICO");
+    });
+
+    it("desasigna la marca cuando marcaId viene en null", async () => {
+      const { mockPaqueteBaseUpdate } = require("../../../src/prisma/client").__mocks;
+
+      const dto: PaqueteBaseDTO = {
+        nombre: "Test Sin Marca",
+        descripcion: "Desc",
+        categoria_id: 1,
+        tipo: TipoPaquete.SINERGICO,
+        productos: [],
+        imagen_url: "",
+        marcaId: null,
+      };
+
+      await service.update(1, dto);
+
+      const calls = mockPaqueteBaseUpdate.mock.calls;
+      const lastCallData = calls[calls.length - 1][0].data;
+      expect(lastCallData.marca).toEqual({ disconnect: true });
+    });
+
+    it("no toca la marca cuando marcaId viene omitido", async () => {
+      const { mockPaqueteBaseUpdate } = require("../../../src/prisma/client").__mocks;
+
+      const dto: PaqueteBaseDTO = {
+        nombre: "Test Sin Marca",
+        descripcion: "Desc",
+        categoria_id: 1,
+        tipo: TipoPaquete.SINERGICO,
+        productos: [],
+        imagen_url: "",
+      };
+
+      await service.update(1, dto);
+
+      const calls = mockPaqueteBaseUpdate.mock.calls;
+      const lastCallData = calls[calls.length - 1][0].data;
+      expect(lastCallData.marca).toBeUndefined();
     });
   });
 

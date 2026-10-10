@@ -1,5 +1,6 @@
 import { ProductoService } from "../../../src/services/producto.service";
 import { ProductoDTO } from "../../../src/dtos/producto/producto.dto";
+import { TipoPaquete } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 
 jest.mock("../../../src/prisma/client", () => {
@@ -15,11 +16,13 @@ jest.mock("../../../src/prisma/client", () => {
   const mockPlantillaFindUnique = jest.fn();
   const mockPaqueteBaseProductoDeleteMany = jest.fn();
   const mockProductoImagenDeleteMany = jest.fn();
+  const mockProductoImagenCreateMany = jest.fn();
   const mockProductoVarianteDeleteMany = jest.fn();
+  const mockProductoVarianteOpcionCreateMany = jest.fn();
+  const mockProductoVarianteCreate = jest.fn();
+  const mockProductoVarianteCount = jest.fn();
   const mockProductoVarianteCreateMany = jest.fn();
   const mockProductoVarianteFindMany = jest.fn();
-  const mockProductoVarianteOpcionCreateMany = jest.fn();
-  const mockProductoVarianteCount = jest.fn();
   const mockPedidoDetalleCount = jest.fn();
   const mockTxPedidoDetalleCount = jest.fn();
   const mockTxQueryRaw = jest.fn();
@@ -41,12 +44,13 @@ jest.mock("../../../src/prisma/client", () => {
           marca: { findUnique: mockMarcaFindUnique },
           plantilla: { findUnique: mockPlantillaFindUnique },
           paqueteBaseProducto: { deleteMany: mockPaqueteBaseProductoDeleteMany },
-          productoImagen: { deleteMany: mockProductoImagenDeleteMany },
+          productoImagen: { deleteMany: mockProductoImagenDeleteMany, createMany: mockProductoImagenCreateMany },
           productoVariante: {
+            create: mockProductoVarianteCreate,
+            count: mockProductoVarianteCount,
             createMany: mockProductoVarianteCreateMany,
             findMany: mockProductoVarianteFindMany,
             deleteMany: mockProductoVarianteDeleteMany,
-            count: mockProductoVarianteCount,
           },
           productoVarianteOpcion: { createMany: mockProductoVarianteOpcionCreateMany },
           // Mock propio, distinto del de prisma.pedidoDetalle: así los tests
@@ -68,12 +72,13 @@ jest.mock("../../../src/prisma/client", () => {
       marca: { findUnique: mockMarcaFindUnique },
       plantilla: { findUnique: mockPlantillaFindUnique },
       paqueteBaseProducto: { deleteMany: mockPaqueteBaseProductoDeleteMany },
-      productoImagen: { deleteMany: mockProductoImagenDeleteMany },
+      productoImagen: { deleteMany: mockProductoImagenDeleteMany, createMany: mockProductoImagenCreateMany },
       productoVariante: {
+        create: mockProductoVarianteCreate,
+        count: mockProductoVarianteCount,
         createMany: mockProductoVarianteCreateMany,
         findMany: mockProductoVarianteFindMany,
         deleteMany: mockProductoVarianteDeleteMany,
-        count: mockProductoVarianteCount,
       },
       productoVarianteOpcion: { createMany: mockProductoVarianteOpcionCreateMany },
       pedidoDetalle: { count: mockPedidoDetalleCount },
@@ -91,11 +96,13 @@ jest.mock("../../../src/prisma/client", () => {
       mockPlantillaFindUnique,
       mockPaqueteBaseProductoDeleteMany,
       mockProductoImagenDeleteMany,
+      mockProductoImagenCreateMany,
       mockProductoVarianteDeleteMany,
+      mockProductoVarianteCreate,
+      mockProductoVarianteCount,
       mockProductoVarianteCreateMany,
       mockProductoVarianteFindMany,
       mockProductoVarianteOpcionCreateMany,
-      mockProductoVarianteCount,
       mockPedidoDetalleCount,
       mockTxPedidoDetalleCount,
       mockTxQueryRaw,
@@ -122,10 +129,12 @@ describe("ProductoService", () => {
       mockPlantillaFindUnique,
       mockPaqueteBaseProductoDeleteMany,
       mockProductoImagenDeleteMany,
+      mockProductoImagenCreateMany,
+      mockProductoVarianteCreate,
+      mockProductoVarianteCount,
       mockProductoVarianteCreateMany,
       mockProductoVarianteFindMany,
       mockProductoVarianteOpcionCreateMany,
-      mockProductoVarianteCount,
       mockPedidoDetalleCount,
     } = require("../../../src/prisma/client").__mocks;
 
@@ -139,12 +148,14 @@ describe("ProductoService", () => {
     mockProductoDelete.mockResolvedValue({});
     mockProductoCount.mockResolvedValue(0);
     mockPaqueteBaseProductoDeleteMany.mockResolvedValue({ count: 0 });
-    mockProductoImagenDeleteMany.mockResolvedValue({ count: 0 });
+      mockProductoImagenDeleteMany.mockResolvedValue({ count: 0 });
+      mockProductoImagenCreateMany.mockResolvedValue({ count: 0 });
     mockPlantillaFindUnique.mockResolvedValue(null);
+    mockProductoVarianteCreate.mockResolvedValue({});
+    mockProductoVarianteCount.mockResolvedValue(0);
     mockProductoVarianteCreateMany.mockResolvedValue({ count: 0 });
     mockProductoVarianteFindMany.mockResolvedValue([]);
     mockProductoVarianteOpcionCreateMany.mockResolvedValue({ count: 0 });
-    mockProductoVarianteCount.mockResolvedValue(0);
     mockPedidoDetalleCount.mockResolvedValue(0);
   });
 
@@ -178,14 +189,51 @@ describe("ProductoService", () => {
       );
     });
 
-    it("debería pasar skip y take a prisma para la paginación", async () => {
+    it("ya no envía skip/take a prisma (la paginación se resuelve en memoria para poder ordenar por cantPaquetes)", async () => {
       const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindMany.mockResolvedValue([]);
       await service.getAll(undefined, 10, 5);
+      const arg = mockProductoFindMany.mock.calls[0][0];
+      expect(arg).not.toHaveProperty("skip");
+      expect(arg).not.toHaveProperty("take");
+    });
+
+    it("ordena por id ascendente cuando no se pide ningún orden", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll();
       expect(mockProductoFindMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          skip: 10,
-          take: 5,
-        })
+        expect.objectContaining({ orderBy: [{ id_producto: "asc" }] })
+      );
+    });
+
+    it.each([
+      ["recientes", { createdAt: "desc" }],
+      ["a-z", { nombre: "asc" }],
+      ["z-a", { nombre: "desc" }],
+      ["precio-asc", { precio: "asc" }],
+      ["precio-desc", { precio: "desc" }],
+      ["mas-stock", { stock: "desc" }],
+    ])("traduce el orden '%s' a la cláusula de prisma correcta", async (orden, esperado) => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, 0, 10, false, undefined, undefined, undefined, undefined, undefined, orden as string);
+      expect(mockProductoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [esperado, { id_producto: "asc" }] })
+      );
+    });
+
+    it("agrega el id como desempate para que la paginación sea estable", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, 0, 10, false, undefined, undefined, undefined, undefined, undefined, "precio-asc");
+      const orderBy = mockProductoFindMany.mock.calls[0][0].orderBy;
+      expect(orderBy).toHaveLength(2);
+      expect(orderBy[1]).toEqual({ id_producto: "asc" });
+    });
+
+    it("cae al orden por defecto si el valor es desconocido", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, 0, 10, false, undefined, undefined, undefined, undefined, undefined, "no-existe");
+      expect(mockProductoFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: [{ id_producto: "asc" }] })
       );
     });
 
@@ -201,6 +249,134 @@ describe("ProductoService", () => {
           }),
         })
       );
+    });
+
+    it("debería pedir el conteo de paquetes publicados activos en el include", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      await service.getAll(undefined, 0, 10);
+      const arg = mockProductoFindMany.mock.calls[0][0];
+      expect(arg.include.paquetes.select.paqueteBase.select._count.select.publicados).toEqual(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            estadoId: 1,
+            archivado: false,
+            fecha_fin: { gte: expect.any(Date) },
+          }),
+        })
+      );
+    });
+
+    it("debería mapear cantPaquetes contando paquetes publicados activos únicos por base", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindMany.mockResolvedValue([
+        {
+          id_producto: 1,
+          nombre: "Sin paquetes",
+          precio: 100,
+          tipo: "SINERGICO",
+          stock: null,
+          imagen_url: null,
+          plantillaId: null,
+          archivado: false,
+          paquetes: [],
+        },
+        {
+          id_producto: 2,
+          nombre: "Con dos bases",
+          precio: 200,
+          tipo: "SINERGICO",
+          stock: null,
+          imagen_url: null,
+          plantillaId: null,
+          archivado: false,
+          paquetes: [
+            {
+              paqueteBase: {
+                id_paquete_base: 10,
+                _count: { publicados: 2 },
+              },
+            },
+            {
+              // Misma base repetida en otro PaqueteBaseProducto: no debe sumar de nuevo
+              paqueteBase: {
+                id_paquete_base: 10,
+                _count: { publicados: 2 },
+              },
+            },
+            {
+              paqueteBase: {
+                id_paquete_base: 11,
+                _count: { publicados: 1 },
+              },
+            },
+          ],
+        },
+      ]);
+
+      const resultado = await service.getAll(undefined, 0, 10);
+      expect(resultado).toHaveLength(2);
+      // El sort agrupa primero los que tienen paquetes activos
+      expect(resultado[0]).toHaveProperty("cantPaquetes", 3);
+      expect(resultado[1]).toHaveProperty("cantPaquetes", 0);
+    });
+
+    it("ordena en memoria: productos con paquetes activos primero, luego los sin paquetes", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindMany.mockResolvedValue([
+        {
+          id_producto: 1, nombre: "Sin paquetes", precio: 10, tipo: "SINERGICO",
+          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+        },
+        {
+          id_producto: 2, nombre: "Un paquete", precio: 20, tipo: "SINERGICO",
+          stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          paquetes: [{ paqueteBase: { id_paquete_base: 10, _count: { publicados: 1 } } }],
+        },
+        {
+          id_producto: 3, nombre: "Sin paquetes 2", precio: 30, tipo: "SINERGICO",
+          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+        },
+        {
+          id_producto: 4, nombre: "Dos paquetes", precio: 40, tipo: "SINERGICO",
+          stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          paquetes: [{ paqueteBase: { id_paquete_base: 11, _count: { publicados: 2 } } }],
+        },
+      ]);
+
+      const resultado = await service.getAll(undefined, undefined, undefined);
+      // Los que tienen paquetes (2 y 4) primero, y entre los sin paquetes se
+      // conserva el orden original (estable): 1 antes de 3.
+      expect(resultado.map((r) => [r.id as number, r.cantPaquetes])).toEqual([
+        [4, 2],
+        [2, 1],
+        [1, 0],
+        [3, 0],
+      ]);
+    });
+
+    it("aplica la paginación en memoria sobre el set ya ordenado por paquetes", async () => {
+      const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindMany.mockResolvedValue([
+        {
+          id_producto: 1, nombre: "A-sin", precio: 10, tipo: "SINERGICO",
+          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+        },
+        {
+          id_producto: 2, nombre: "B-con", precio: 20, tipo: "SINERGICO",
+          stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          paquetes: [{ paqueteBase: { id_paquete_base: 10, _count: { publicados: 1 } } }],
+        },
+        {
+          id_producto: 3, nombre: "C-sin", precio: 30, tipo: "SINERGICO",
+          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+        },
+      ]);
+
+      // Página 2 (skip=1, take=1): sobre el set ordenado [con(2), sin(1), sin(3)],
+      // debería devolver solo el del medio (2 ya consumido por la página 1).
+      const resultado = await service.getAll(undefined, 1, 1);
+      expect(resultado.map((r) => r.id as number)).toEqual([1]);
+      expect(resultado[0]).toHaveProperty("cantPaquetes", 0);
     });
   });
 
@@ -735,6 +911,232 @@ describe("ProductoService", () => {
       mockProductoFindUnique.mockResolvedValue(null);
 
       await expect(service.archivar(99, true)).rejects.toThrow("Producto no encontrado");
+    });
+  });
+
+
+  describe("duplicarProducto", () => {
+    const baseProducto = {
+      id_producto: 1,
+      nombre: "Producto Original",
+      descripcion: "Desc",
+      precio: 100,
+      peso: 1,
+      altura: 1,
+      ancho: 1,
+      profundidad: 1,
+      stock: null,
+      tipo: "SINERGICO",
+      imagen_url: null,
+      plantillaId: null,
+      categoria_id: 1,
+      marca_id: 1,
+    };
+
+    it("debería duplicar un producto sin variantes correctamente", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoCreate,
+        mockProductoVarianteCreateMany,
+        mockProductoVarianteFindMany,
+      } = require("../../../src/prisma/client").__mocks;
+
+      mockProductoFindUnique.mockResolvedValue({
+        ...baseProducto,
+        imagenes: [],
+        variantes: [],
+      });
+      mockProductoCreate.mockResolvedValue({ id_producto: 2 });
+
+      const result = await service.duplicarProducto(1);
+      expect(result).toBeTruthy();
+      expect(mockProductoVarianteCreateMany).not.toHaveBeenCalled();
+      expect(mockProductoVarianteFindMany).not.toHaveBeenCalled();
+    });
+
+    it("debería usar createMany batch (no N creates) para variantes", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoCreate,
+        mockProductoVarianteCreateMany,
+        mockProductoVarianteFindMany,
+        mockProductoVarianteOpcionCreateMany,
+        mockProductoImagenCreateMany,
+      } = require("../../../src/prisma/client").__mocks;
+
+      mockProductoFindUnique.mockResolvedValue({
+        ...baseProducto,
+        imagenes: [{ id: 1, url: "img.jpg" }],
+        variantes: [
+          { id: 10, sku: "SKU-A", stockFisico: 5, precioExtra: 10, activo: true, opciones: [
+            { caracteristicaId: 1, opcionId: 10 },
+            { caracteristicaId: 2, opcionId: 20 },
+          ]},
+          { id: 11, sku: "SKU-B", stockFisico: null, precioExtra: 0, activo: false, opciones: [
+            { caracteristicaId: 1, opcionId: 11 },
+          ]},
+        ],
+      });
+      mockProductoCreate.mockResolvedValue({ id_producto: 2 });
+      mockProductoVarianteFindMany.mockResolvedValueOnce([
+        { id: 20, sku: "SKU-A-COPIA-2" },
+        { id: 21, sku: "SKU-B-COPIA-2" },
+      ]);
+      mockProductoVarianteCreateMany.mockResolvedValue({ count: 2 });
+      mockProductoVarianteOpcionCreateMany.mockResolvedValue({ count: 3 });
+
+      await service.duplicarProducto(1);
+
+      expect(mockProductoVarianteCreateMany).toHaveBeenCalledTimes(1);
+      expect(mockProductoVarianteCreateMany).toHaveBeenCalledWith({
+        data: [
+          { productoId: 2, sku: "SKU-A-COPIA-2", stockFisico: 5, precioExtra: 10, activo: true },
+          { productoId: 2, sku: "SKU-B-COPIA-2", stockFisico: null, precioExtra: 0, activo: false },
+        ],
+      });
+
+      // Solo la recuperación de IDs: ya no hay consulta previa de colisiones.
+      expect(mockProductoVarianteFindMany).toHaveBeenCalledTimes(1);
+
+      expect(mockProductoVarianteOpcionCreateMany).toHaveBeenCalledTimes(1);
+      expect(mockProductoVarianteOpcionCreateMany).toHaveBeenCalledWith({
+        data: [
+          { varianteId: 20, caracteristicaId: 1, opcionId: 10 },
+          { varianteId: 20, caracteristicaId: 2, opcionId: 20 },
+          { varianteId: 21, caracteristicaId: 1, opcionId: 11 },
+        ],
+      });
+    });
+
+    it("debería derivar el SKU de la copia del id del producto nuevo", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoCreate,
+        mockProductoVarianteCreateMany,
+        mockProductoVarianteFindMany,
+      } = require("../../../src/prisma/client").__mocks;
+
+      mockProductoFindUnique.mockResolvedValue({
+        ...baseProducto,
+        imagenes: [],
+        variantes: [
+          { id: 10, sku: "ABC-1-1", stockFisico: null, precioExtra: 0, activo: true, opciones: [] },
+        ],
+      });
+      mockProductoCreate.mockResolvedValue({ id_producto: 47 });
+      mockProductoVarianteFindMany.mockResolvedValue([{ id: 20, sku: "ABC-1-1-COPIA-47" }]);
+      mockProductoVarianteCreateMany.mockResolvedValue({ count: 1 });
+
+      await service.duplicarProducto(1);
+
+      expect(mockProductoVarianteCreateMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ sku: "ABC-1-1-COPIA-47" })],
+      });
+    });
+
+    // Es el caso que rompía antes: la resolución de sufijos solo consultaba los
+    // "-COPIA", así que a partir de la tercera duplicación repetía "-COPIA-2".
+    it("debería dar SKUs distintos al duplicar el mismo original varias veces", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoCreate,
+        mockProductoVarianteCreateMany,
+        mockProductoVarianteFindMany,
+      } = require("../../../src/prisma/client").__mocks;
+
+      mockProductoFindUnique.mockResolvedValue({
+        ...baseProducto,
+        imagenes: [],
+        variantes: [
+          { id: 10, sku: "ABC-1-1", stockFisico: null, precioExtra: 0, activo: true, opciones: [] },
+        ],
+      });
+      mockProductoVarianteFindMany.mockResolvedValue([{ id: 20, sku: null }]);
+      mockProductoVarianteCreateMany.mockResolvedValue({ count: 1 });
+
+      const skus: (string | null)[] = [];
+      for (const idNuevo of [2, 3, 4]) {
+        mockProductoCreate.mockResolvedValue({ id_producto: idNuevo });
+        await service.duplicarProducto(1);
+        const { data } = mockProductoVarianteCreateMany.mock.calls.at(-1)![0];
+        skus.push(data[0].sku);
+      }
+
+      expect(skus).toEqual(["ABC-1-1-COPIA-2", "ABC-1-1-COPIA-3", "ABC-1-1-COPIA-4"]);
+      expect(new Set(skus).size).toBe(3);
+    });
+
+    it("debería manejar variantes con sku null (sinérgicos) sin intentar dupicar SKU", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoCreate,
+        mockProductoVarianteCreateMany,
+        mockProductoVarianteFindMany,
+        mockProductoVarianteOpcionCreateMany,
+      } = require("../../../src/prisma/client").__mocks;
+
+      mockProductoFindUnique.mockResolvedValue({
+        ...baseProducto,
+        imagenes: [],
+        variantes: [
+          { id: 10, sku: null, stockFisico: null, precioExtra: 0, activo: true, opciones: [
+            { caracteristicaId: 1, opcionId: 10 },
+          ]},
+          { id: 11, sku: null, stockFisico: null, precioExtra: 0, activo: true, opciones: [] },
+        ],
+      });
+      mockProductoCreate.mockResolvedValue({ id_producto: 2 });
+      mockProductoVarianteFindMany
+        .mockResolvedValueOnce([
+          { id: 20, sku: null },
+          { id: 21, sku: null },
+        ]);
+      mockProductoVarianteCreateMany.mockResolvedValue({ count: 2 });
+      mockProductoVarianteOpcionCreateMany.mockResolvedValue({ count: 1 });
+
+      await service.duplicarProducto(1);
+
+      expect(mockProductoVarianteCreateMany).toHaveBeenCalledWith({
+        data: [
+          { productoId: 2, sku: null, stockFisico: null, precioExtra: 0, activo: true },
+          { productoId: 2, sku: null, stockFisico: null, precioExtra: 0, activo: true },
+        ],
+      });
+
+      expect(mockProductoVarianteOpcionCreateMany).toHaveBeenCalledWith({
+        data: [
+          { varianteId: 20, caracteristicaId: 1, opcionId: 10 },
+        ],
+      });
+    });
+
+    it("debería traducir el conflicto de SKU (P2002) a un CustomError 409 como safety net", async () => {
+      const {
+        mockProductoFindUnique,
+        mockProductoCreate,
+        mockProductoVarianteCreateMany,
+      } = require("../../../src/prisma/client").__mocks;
+
+      mockProductoFindUnique.mockResolvedValue({
+        ...baseProducto,
+        imagenes: [],
+        variantes: [
+          { id: 10, sku: "ABC-1-1", stockFisico: null, precioExtra: 0, activo: true, opciones: [] },
+        ],
+      });
+      mockProductoCreate.mockResolvedValue({ id_producto: 2 });
+      mockProductoVarianteCreateMany.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError(
+          "Unique constraint failed on the fields: (`sku`)",
+          { code: "P2002", clientVersion: "7.0.0" }
+        )
+      );
+
+      await expect(service.duplicarProducto(1)).rejects.toMatchObject({
+        status: 409,
+        message:
+          "No se puede duplicar: ya existe una variante con ese SKU. Cambiá el SKU de la variante original antes de volver a duplicar.",
+      });
     });
   });
 });

@@ -285,6 +285,38 @@ describe("VarianteService - generarVariantes", () => {
 
       expect(resultado.variantes[0].sku).toMatch(/^NOTEBOOK-/);
     });
+
+    it("debería generar SKU sin doble guión cuando el nombre corta en un espacio", async () => {
+      const productoId = 71;
+      mocks.mockProductoFindUnique.mockResolvedValue({
+        ...makeProducto(productoId),
+        nombre: "Casco con aire",
+        plantilla: {
+          id: 5,
+          nombre: "Plantilla Casco",
+          caracteristicas: [
+            {
+              id: 50,
+              nombre: "Color",
+              opciones: [
+                { id: 501, nombre: "Negro" },
+                { id: 502, nombre: "Blanco" },
+              ],
+            },
+          ],
+        },
+      });
+
+      const resultado = await service.generarVariantes({
+        productoId,
+        opcionesDisponibles: { "50": [501, 502] },
+      });
+
+      for (const variante of resultado.variantes) {
+        expect(variante.sku).not.toContain("--");
+        expect(variante.sku).toMatch(/^CASCO-CON-\d+-\d+$/);
+      }
+    });
   });
 
   describe("producto sin plantilla", () => {

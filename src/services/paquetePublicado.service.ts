@@ -21,6 +21,26 @@ import {
 
 type PrismaOrTx = Prisma.TransactionClient | typeof prisma;
 
+const ORDEN_PAQUETES: Record<string, Prisma.PaquetePublicadoOrderByWithRelationInput> = {
+  recientes: { createdAt: 'desc' },
+  'a-z': { nombre: 'asc' },
+  'z-a': { nombre: 'desc' },
+  'mas-participantes': { cant_usuarios_registrados: 'desc' },
+};
+
+// Mismo criterio que en productos: el id desempata para que la paginacion
+// no repita ni saltee filas cuando hay empates.
+const DESEMPATE_PAQUETES: Prisma.PaquetePublicadoOrderByWithRelationInput = {
+  id_paquete_publicado: 'desc',
+};
+
+function construirOrderByPaquetes(
+  orden?: string
+): Prisma.PaquetePublicadoOrderByWithRelationInput[] {
+  const criterio = orden ? ORDEN_PAQUETES[orden] : undefined;
+  return criterio ? [criterio, DESEMPATE_PAQUETES] : [DESEMPATE_PAQUETES];
+}
+
 export class PaquetePublicadoService {
   private prisma = prisma;
   private emailService = new EmailService();
@@ -95,11 +115,20 @@ export class PaquetePublicadoService {
     categorias?: number[],
     marcas?: number[],
     tiposPaquete?: string[],
-    estados?: string[]
+    estados?: string[],
+    orden?: string,
+    incluirCerrados = false
   ) {
     const where: Prisma.PaquetePublicadoWhereInput = {};
     if (!includeArchived) {
       where.archivado = false;
+    }
+    // El publico solo ve paquetes a los que se puede sumar: el resto de los
+    // estados (Completo, Confirmado, Entregado, Cancelado) ya estan cerrados.
+    // El admin pide incluirCerrados para verlos todos.
+    if (!incluirCerrados) {
+      where.estadoId = ESTADO_PAQUETE.ACTIVO;
+      where.fecha_fin = { gte: new Date() };
     }
 
     const paqueteBaseConditions: Prisma.PaqueteBaseWhereInput = {};
@@ -162,7 +191,7 @@ export class PaquetePublicadoService {
     }
 
     const paquetes = await this.prisma.paquetePublicado.findMany({
-      orderBy: { id_paquete_publicado: 'desc' },
+      orderBy: construirOrderByPaquetes(orden),
       ...(skip !== undefined && { skip }),
       ...(take !== undefined && { take }),
       where,
@@ -191,11 +220,16 @@ export class PaquetePublicadoService {
     categorias?: number[],
     marcas?: number[],
     tiposPaquete?: string[],
-    estados?: string[]
+    estados?: string[],
+    incluirCerrados = false
   ): Promise<number> {
     const where: Prisma.PaquetePublicadoWhereInput = {};
     if (!includeArchived) {
       where.archivado = false;
+    }
+    if (!incluirCerrados) {
+      where.estadoId = ESTADO_PAQUETE.ACTIVO;
+      where.fecha_fin = { gte: new Date() };
     }
 
     const paqueteBaseConditions: Prisma.PaqueteBaseWhereInput = {};
@@ -328,7 +362,9 @@ export class PaquetePublicadoService {
     const paquetes = await this.prisma.paquetePublicado.findMany({
       where: {
         estadoId: ESTADO_PAQUETE.ACTIVO,
-        fecha_fin: { lte: dentroDe30Dias },
+        // El gte descarta los que ya vencieron: sin el, un paquete ACTIVO con
+        // fecha pasada seguia entrando en "por cerrarse".
+        fecha_fin: { gte: hoy, lte: dentroDe30Dias },
         archivado: false,
       },
       include: {

@@ -12,7 +12,11 @@ if (!prismaInstance) {
     if (process.env.DATABASE_URL) {
       const url = new URL(process.env.DATABASE_URL);
       const database = url.pathname ? url.pathname.replace(/^\//, '') : undefined;
-      const configObj = {
+      // pingTimeout es soportado por mariadb 3.x en runtime pero no está
+      // declarado en PoolConfig, por eso se extiende el tipo acá.
+      const configObj: ConstructorParameters<typeof PrismaMariaDb>[0] & {
+        pingTimeout?: number;
+      } = {
         host: url.hostname,
         port: url.port ? Number(url.port) : 3306,
         user: url.username,

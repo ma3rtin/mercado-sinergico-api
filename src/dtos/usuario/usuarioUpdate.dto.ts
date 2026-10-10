@@ -7,6 +7,10 @@ export class UsuarioUpdateDTO {
     email?: string;
 
     @IsOptional()
+    @IsString({ message: 'La contraseña actual debe ser una cadena de texto' })
+    contraseñaActual?: string;
+
+    @IsOptional()
     @IsString({ message: 'El nombre debe ser una cadena de texto' })
     nombre?: string;
 

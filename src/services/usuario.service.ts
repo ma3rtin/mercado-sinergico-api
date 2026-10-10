@@ -3,6 +3,7 @@ import { DireccionDTO } from '../dtos/direccion/direccion.dto.js';
 import { UsuarioDTO } from '../dtos/usuario/usuario.dto.js';
 import { UsuarioUpdateDTO } from '../dtos/usuario/usuarioUpdate.dto.js';
 import type { Direccion, Prisma, Usuario, Localidad, Zona } from '@prisma/client';
+import { createHash, randomBytes } from 'crypto';
 
 export type UsuarioMapeado = Usuario & {
   rol: { nombre: string } | null;
@@ -14,10 +15,63 @@ import { CustomError } from '../errors/custom.error.js';
 import { FirebaseUser } from '../middlewares/firebaseAuth.middleware.js';
 import { ImagenService } from '../services/imagen.service.js';
 import { generarAvatar } from '../utils/avatar.js';
+import { EmailService } from './email.service.js';
+import { envs } from '../config/envs.js';
 
 export class UsuarioService {
   private prismaClient = prisma;
   private imagenService = new ImagenService();
+  private emailService = new EmailService();
+
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private async crearYEnviarTokenVerificacion(usuario: Pick<Usuario, 'id' | 'email' | 'nombre'>): Promise<void> {
+    const tokenPlano = randomBytes(32).toString('base64url');
+    const ahora = new Date();
+    const expiraEn = new Date(
+      ahora.getTime() + envs.EMAIL_VERIFICATION_TTL_MINUTES * 60 * 1000
+    );
+
+    await this.prismaClient.$transaction(async (tx) => {
+      await tx.tokenVerificacionEmail.updateMany({
+        where: { usuarioId: usuario.id, usadoEn: null },
+        data: { usadoEn: ahora },
+      });
+
+      await tx.tokenVerificacionEmail.create({
+        data: {
+          usuarioId: usuario.id,
+          tokenHash: this.hashToken(tokenPlano),
+          expiraEn,
+        },
+      });
+    });
+
+    const enlaceActivacion = new URL('/verificar-email', envs.FRONTEND_URL);
+    enlaceActivacion.searchParams.set('token', tokenPlano);
+
+    const enviado = await this.emailService.enviarEmail({
+      para: usuario.email,
+      asunto: 'Activá tu cuenta en Mercado Sinérgico',
+      template: 'verificacion-email',
+      context: {
+        nombreUsuario: usuario.nombre,
+        enlaceActivacion: enlaceActivacion.toString(),
+        vencimientoHoras: Math.ceil(envs.EMAIL_VERIFICATION_TTL_MINUTES / 60),
+      },
+    });
+
+    if (!enviado) {
+      throw new CustomError(
+        'No pudimos enviar el email de activación. Intentá reenviarlo nuevamente.',
+        503,
+        undefined,
+        'EMAIL_VERIFICACION_NO_ENVIADO'
+      );
+    }
+  }
 
   public async registrar(usuario: UsuarioDTO): Promise<Usuario> {
     const { email, nombre, telefono, fecha_nac } = usuario;
@@ -34,7 +88,7 @@ export class UsuarioService {
       imagen_url = await this.imagenService.uploadToCloudinary(avatarBuffer);
     }
 
-    return await this.prismaClient.usuario.create({
+    const usuarioCreado = await this.prismaClient.usuario.create({
       data: {
         email,
         nombre,
@@ -45,7 +99,16 @@ export class UsuarioService {
         rol: { connect: { nombre: 'Usuario' } },
       },
     });
+
+    try {
+      await this.crearYEnviarTokenVerificacion(usuarioCreado);
+    } catch (error) {
+      console.error('No se pudo enviar el email de activación al registrarse:', error);
+    }
+
+    return usuarioCreado;
   }
+
 
   public async registrarDireccion(
     userId: number,
@@ -156,7 +219,6 @@ export class UsuarioService {
     const usuario = await this.prismaClient.usuario.update({
       where: { id: userId },
       data: {
-        email: email ?? undefined,
         nombre: nombre ?? undefined,
         telefono: telefono ?? undefined,
         fecha_nac: fecha_nac ? new Date(fecha_nac) : undefined,
@@ -192,6 +254,62 @@ export class UsuarioService {
     }
 
     return (await this.obtenerUsuario(userId)) ?? usuario;
+  }
+
+  public async verificarEmail(tokenPlano: string): Promise<void> {
+    const ahora = new Date();
+    const token = await this.prismaClient.tokenVerificacionEmail.findUnique({
+      where: { tokenHash: this.hashToken(tokenPlano) },
+      select: { id: true, usuarioId: true, usadoEn: true, expiraEn: true },
+    });
+
+    if (!token || token.usadoEn || token.expiraEn <= ahora) {
+      throw new CustomError(
+        'El enlace de activación es inválido o venció',
+        400,
+        undefined,
+        'TOKEN_VERIFICACION_INVALIDO'
+      );
+    }
+
+    await this.prismaClient.$transaction(async (tx) => {
+      const tokenActualizado = await tx.tokenVerificacionEmail.updateMany({
+        where: { id: token.id, usadoEn: null, expiraEn: { gt: ahora } },
+        data: { usadoEn: ahora },
+      });
+
+      if (tokenActualizado.count === 0) {
+        throw new CustomError(
+          'El enlace de activación es inválido o venció',
+          400,
+          undefined,
+          'TOKEN_VERIFICACION_INVALIDO'
+        );
+      }
+
+      await tx.usuario.update({
+        where: { id: token.usuarioId },
+        data: { emailVerificadoEn: ahora },
+      });
+
+      await tx.tokenVerificacionEmail.updateMany({
+        where: { usuarioId: token.usuarioId, usadoEn: null },
+        data: { usadoEn: ahora },
+      });
+    });
+  }
+
+  public async reenviarVerificacionEmail(email: string): Promise<void> {
+    const usuario = await this.prismaClient.usuario.findUnique({
+      where: { email },
+      select: { id: true, email: true, nombre: true, emailVerificadoEn: true },
+    });
+
+    if (!usuario || usuario.emailVerificadoEn) {
+      return;
+    }
+
+    await this.crearYEnviarTokenVerificacion(usuario);
   }
 
   public async loginConFirebase(
@@ -232,6 +350,7 @@ export class UsuarioService {
           telefono: '',
           fecha_nac: null,
           imagen_url,
+          emailVerificadoEn: new Date(),
           rol: { connect: { nombre: 'Usuario' } },
         },
         include: { rol: { select: { nombre: true } } },
