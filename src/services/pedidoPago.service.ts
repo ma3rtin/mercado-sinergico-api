@@ -99,6 +99,13 @@ export class PedidoPagoService {
       throw new CustomError('El pedido no puede pagarse en su estado actual', 400);
     }
 
+    if (pedido.paquetePublicado.tipo === 'ENERGICO') {
+      throw new CustomError(
+        'Los paquetes ENÉRGICOS se confirman como reserva con pago contra entrega, sin Mercado Pago.',
+        400
+      );
+    }
+
     // A. El paquete sigue abierto
     if (pedido.paquetePublicado.estadoId !== ESTADO_PAQUETE.ACTIVO) { // Redundante con la línea de arriba, pero explícito
       throw new CustomError('El paquete ya no está activo para pagos', 400);
@@ -153,27 +160,7 @@ export class PedidoPagoService {
         }
         stockFisicoVariante = detalle.variante.stockFisico;
       } else {
-        // Si el producto tiene variantes pero no se seleccionó ninguna (estado inválido)
-        if (detalle.producto.tipo === 'ENERGICO' && !detalle.producto.stock) {
-          throw new CustomError(`Producto ENÉRGICO (${productoNombre}) sin variante y sin stock físico definido.`, 500);
-        }
         stockFisicoVariante = detalle.producto.stock;
-      }
-
-      // F. El producto pertenece al tipo correcto de paquete
-      if (pedido.paquetePublicado.tipo === 'ENERGICO' && detalle.producto.tipo !== 'ENERGICO') {
-        throw new CustomError('Un paquete ENÉRGICO solo puede contener productos ENÉRGICOS.', 400);
-      }
-
-      // Stock físico por producto/variante (solo aplica a ENERGICO; cupo global ya validado)
-      if (pedido.paquetePublicado.tipo === 'ENERGICO') {
-        const disponibilidadReal = this.calcularDisponibilidadReal(
-          pedido.paquetePublicado.tipo,
-          null,
-          stockFisicoVariante,
-          productoNombre
-        );
-        this.validarDisponibilidad(disponibilidadReal, detalle.cantidad, productoNombre);
       }
     }
 
@@ -384,6 +371,7 @@ export class PedidoPagoService {
         // Se usa SET (no increment) para que sea siempre consistente.
         const estadosActivosParaUsuarios = [
           ESTADO_PEDIDO.PAGADO,
+          ESTADO_PEDIDO.RESERVADO,
           ESTADO_PEDIDO.EN_PREPARACION,
           ESTADO_PEDIDO.EN_CAMINO,
           ESTADO_PEDIDO.RECIBIDO,
@@ -437,9 +425,259 @@ export class PedidoPagoService {
     return { pedidoId, status: pago.status };
   }
 
+  public async confirmarReservaEnergica(pedidoId: number, usuarioId: number) {
+    const pedido = await this.prisma.pedido.findUnique({
+      where: { id_pedido: pedidoId },
+      include: {
+        detalles: {
+          include: {
+            producto: {
+              select: {
+                id_producto: true,
+                nombre: true,
+                tipo: true,
+                stock: true,
+              },
+            },
+            variante: {
+              select: {
+                id: true,
+                stockFisico: true,
+                activo: true,
+              },
+            },
+          },
+        },
+        paquetePublicado: {
+          select: {
+            id_paquete_publicado: true,
+            tipo: true,
+            estadoId: true,
+            cant_productos: true,
+            cant_productos_reservados: true,
+            paqueteBaseId: true,
+          },
+        },
+      },
+    });
+
+    if (!pedido) {
+      throw new CustomError('Pedido no encontrado', 404);
+    }
+
+    if (pedido.usuarioId !== usuarioId) {
+      throw new CustomError('No autorizado', 403);
+    }
+
+    if (pedido.estadoId !== ESTADO_PEDIDO.PENDIENTE) {
+      throw new CustomError('El pedido no puede confirmarse en su estado actual', 400);
+    }
+
+    if (pedido.paquetePublicado.tipo !== 'ENERGICO') {
+      throw new CustomError('Solo los paquetes ENÉRGICOS pueden confirmarse como reserva sin pago anticipado.', 400);
+    }
+
+    if (pedido.paquetePublicado.estadoId !== ESTADO_PAQUETE.ACTIVO) {
+      throw new CustomError('El paquete ya no está activo para reservas', 400);
+    }
+
+    if (!pedido.detalles || pedido.detalles.length === 0) {
+      throw new CustomError('El pedido no contiene productos', 400);
+    }
+
+    // Validar productos sigan en el paquete base
+    const productosBase = await this.prisma.paqueteBaseProducto.findMany({
+      where: { paqueteBaseId: pedido.paquetePublicado.paqueteBaseId },
+      select: { productoId: true },
+    });
+    const productosBaseIds = new Set(productosBase.map((p) => p.productoId));
+
+    for (const detalle of pedido.detalles) {
+      if (!productosBaseIds.has(detalle.productoId)) {
+        throw new CustomError(
+          'El pedido contiene productos que ya no están disponibles en este paquete. Actualizá tu pedido antes de confirmar.',
+          400
+        );
+      }
+    }
+
+    const totalProductosSolicitados = pedido.detalles.reduce(
+      (sum: number, d) => sum + d.cantidad,
+      0
+    );
+
+    let emitirEvento = false;
+
+    await this.prisma.$transaction(async (tx) => {
+      const paqueteActualizado = await tx.paquetePublicado.findUnique({
+        where: { id_paquete_publicado: pedido.paquetePublicadoId },
+        select: {
+          id_paquete_publicado: true,
+          tipo: true,
+          cant_productos: true,
+          cant_productos_reservados: true,
+          estadoId: true,
+          paqueteBaseId: true,
+        },
+      });
+
+      if (!paqueteActualizado) {
+        throw new CustomError('Paquete no encontrado durante la confirmación de la reserva', 404);
+      }
+
+      if (paqueteActualizado.estadoId !== ESTADO_PAQUETE.ACTIVO) {
+        throw new CustomError('El paquete ya no está activo para confirmar reservas', 400);
+      }
+
+      const cuposDisponibles = this.calcularCuposRestantes(
+        paqueteActualizado.cant_productos,
+        paqueteActualizado.cant_productos_reservados || 0
+      );
+      if (cuposDisponibles !== null && totalProductosSolicitados > cuposDisponibles) {
+        throw new CustomError(
+          `No hay suficientes cupos disponibles en el paquete. Solicitados: ${totalProductosSolicitados}, Disponibles: ${cuposDisponibles}.`,
+          409
+        );
+      }
+
+      const pedidoClaim = await tx.pedido.updateMany({
+        where: {
+          id_pedido: pedidoId,
+          estadoId: ESTADO_PEDIDO.PENDIENTE,
+        },
+        data: {
+          estadoId: ESTADO_PEDIDO.RESERVADO,
+        },
+      });
+
+      if (pedidoClaim.count === 0) {
+        throw new CustomError('El pedido ya fue procesado o no se encuentra pendiente.', 409);
+      }
+
+      const wherePaquete =
+        paqueteActualizado.cant_productos === null
+          ? { id_paquete_publicado: pedido.paquetePublicadoId }
+          : {
+              id_paquete_publicado: pedido.paquetePublicadoId,
+              cant_productos_reservados: {
+                lte: paqueteActualizado.cant_productos - totalProductosSolicitados,
+              },
+            };
+
+      const updatedPaqueteCount = await tx.paquetePublicado.updateMany({
+        where: wherePaquete,
+        data: {
+          cant_productos_reservados: { increment: totalProductosSolicitados },
+        },
+      });
+
+      if (updatedPaqueteCount.count === 0) {
+        throw new CustomError('No hay suficientes cupos disponibles en el paquete. Intentá de nuevo.', 409);
+      }
+
+      for (const detalle of pedido.detalles) {
+        const productoNombre = detalle.producto.nombre;
+
+        if (detalle.cantidad <= 0) {
+          throw new CustomError(`Cantidad solicitada inválida para ${productoNombre}.`, 400);
+        }
+
+        if (detalle.varianteId) {
+          const varianteActualizada = await tx.productoVariante.findUnique({
+            where: { id: detalle.varianteId },
+            select: { id: true, stockFisico: true, activo: true },
+          });
+
+          if (!varianteActualizada || !varianteActualizada.activo) {
+            throw new CustomError(`La variante ${productoNombre} no existe o no está activa.`, 400);
+          }
+          if (varianteActualizada.stockFisico === null || varianteActualizada.stockFisico < detalle.cantidad) {
+            throw new CustomError(
+              `Stock insuficiente para la variante ${productoNombre}. Stock actual: ${varianteActualizada.stockFisico || 0}, Solicitado: ${detalle.cantidad}.`,
+              409
+            );
+          }
+
+          const updatedStockCount = await tx.productoVariante.updateMany({
+            where: { id: detalle.varianteId, stockFisico: { gte: detalle.cantidad }, activo: true },
+            data: { stockFisico: { decrement: detalle.cantidad } },
+          });
+
+          if (updatedStockCount.count === 0) {
+            throw new CustomError(`Stock insuficiente para ${productoNombre}. Intentá de nuevo.`, 409);
+          }
+        } else {
+          const productoActualizado = await tx.producto.findUnique({
+            where: { id_producto: detalle.productoId },
+            select: { id_producto: true, stock: true, tipo: true },
+          });
+
+          if (!productoActualizado || productoActualizado.stock === null || productoActualizado.stock < detalle.cantidad) {
+            throw new CustomError(
+              `Stock insuficiente para el producto ${productoNombre}. Stock actual: ${productoActualizado?.stock || 0}, Solicitado: ${detalle.cantidad}.`,
+              409
+            );
+          }
+
+          const updatedStockCount = await tx.producto.updateMany({
+            where: { id_producto: detalle.productoId, stock: { gte: detalle.cantidad } },
+            data: { stock: { decrement: detalle.cantidad } },
+          });
+
+          if (updatedStockCount.count === 0) {
+            throw new CustomError(`Stock insuficiente para ${productoNombre}. Intentá de nuevo.`, 409);
+          }
+        }
+      }
+
+      const estadosActivosParaUsuarios = [
+        ESTADO_PEDIDO.PAGADO,
+        ESTADO_PEDIDO.RESERVADO,
+        ESTADO_PEDIDO.EN_PREPARACION,
+        ESTADO_PEDIDO.EN_CAMINO,
+        ESTADO_PEDIDO.RECIBIDO,
+      ];
+      const usuariosActivos = await tx.pedido.findMany({
+        where: {
+          paquetePublicadoId: pedido.paquetePublicadoId,
+          estadoId: { in: estadosActivosParaUsuarios },
+        },
+        select: { usuarioId: true },
+        distinct: ['usuarioId'],
+      });
+
+      await tx.paquetePublicado.update({
+        where: { id_paquete_publicado: pedido.paquetePublicadoId },
+        data: {
+          cant_usuarios_registrados: usuariosActivos.length,
+        },
+      });
+
+      if (
+        paqueteActualizado.estadoId === ESTADO_PAQUETE.ACTIVO &&
+        paqueteActualizado.cant_productos !== null &&
+        paqueteActualizado.cant_productos_reservados + totalProductosSolicitados >= paqueteActualizado.cant_productos
+      ) {
+        emitirEvento = true;
+      }
+    });
+
+    if (emitirEvento) {
+      despachadorEventosApp.emit(DespachadorEventos.PAQUETE_COMPLETO, pedido.paquetePublicadoId);
+    }
+
+    return {
+      ok: true,
+      pedidoId,
+      estado: 'RESERVADO',
+      mensaje: 'Reserva confirmada. Pagás al recibirla.',
+    };
+  }
+
   /**
-   * Reembolsa todos los pedidos Pagados de un paquete y lo marca como Cancelado.
-   * También cancela los pedidos Pendientes (sin reembolso MP porque aún no pagaron).
+   * Reembolsa todos los pedidos de un paquete y lo marca como Cancelado.
+   * - Para paquetes SINÉRGICOS: reembolsa vía MP a los pedidos Pagados y los pasa a Reembolsado.
+   * - Para paquetes ENÉRGICOS: NO llama a MP; restaura el stock físico una única vez y pasa pedidos a Cancelado.
    */
   public async cancelarPaqueteYReembolsar(paqueteId: number) {
     const paquete = await this.prisma.paquetePublicado.findUnique({
@@ -447,77 +685,109 @@ export class PedidoPagoService {
       include: {
         pedidos: {
           where: {
-            estadoId: { in: [ESTADO_PEDIDO.PAGADO, ESTADO_PEDIDO.PENDIENTE] },
+            estadoId: {
+              in: [
+                ESTADO_PEDIDO.PAGADO,
+                ESTADO_PEDIDO.PENDIENTE,
+                ESTADO_PEDIDO.RESERVADO,
+                ESTADO_PEDIDO.EN_PREPARACION,
+                ESTADO_PEDIDO.EN_CAMINO,
+              ],
+            },
           },
           include: {
-            detalles: true
-          }
-        }
-      }
+            detalles: true,
+          },
+        },
+      },
     });
 
     if (!paquete) throw new CustomError('Paquete no encontrado', 404);
 
-    // Reembolsar vía MP solo los pedidos Pagados con paymentId
-    const pedidosPagados = paquete.pedidos.filter(
-      (p) => p.estadoId === ESTADO_PEDIDO.PAGADO && p.paymentId
-    );
+    if (paquete.tipo === 'SINERGICO') {
+      // Reembolsar vía MP solo los pedidos Pagados con paymentId
+      const pedidosPagados = paquete.pedidos.filter(
+        (p) => p.estadoId === ESTADO_PEDIDO.PAGADO && p.paymentId
+      );
 
-    for (const pedido of pedidosPagados) {
-      if (pedido.paymentId) {
-        try {
-          await this.mercadoPagoService.reembolsarPago(Number(pedido.paymentId));
-        } catch (error) {
-          console.error(`Error reembolsando pago ${pedido.paymentId}:`, error);
-          // Continuamos con los demás aunque uno falle
+      for (const pedido of pedidosPagados) {
+        if (pedido.paymentId) {
+          try {
+            await this.mercadoPagoService.reembolsarPago(Number(pedido.paymentId));
+          } catch (error) {
+            console.error(`Error reembolsando pago ${pedido.paymentId}:`, error);
+          }
         }
       }
-    }
 
-    // Actualizar la base de datos en transacción
-    await this.prisma.$transaction(async (tx) => {
-      // Cancelar el paquete
-      await tx.paquetePublicado.update({
-        where: { id_paquete_publicado: paqueteId },
-        data: { 
-          estadoId: ESTADO_PAQUETE.CANCELADO,
-          cant_productos_reservados: 0
+      await this.prisma.$transaction(async (tx) => {
+        await tx.paquetePublicado.update({
+          where: { id_paquete_publicado: paqueteId },
+          data: {
+            estadoId: ESTADO_PAQUETE.CANCELADO,
+            cant_productos_reservados: 0,
+          },
+        });
+
+        for (const pedido of paquete.pedidos) {
+          await tx.pedido.update({
+            where: { id_pedido: pedido.id_pedido },
+            data: { estadoId: ESTADO_PEDIDO.REEMBOLSADO },
+          });
         }
       });
 
+      return { message: 'Paquete cancelado y dinero reembolsado', paqueteId };
+    }
+
+    // PAQUETE ENÉRGICO: NO llamar a Mercado Pago; restaurar stock y cancelar pedidos
+    await this.prisma.$transaction(async (tx) => {
+      await tx.paquetePublicado.update({
+        where: { id_paquete_publicado: paqueteId },
+        data: {
+          estadoId: ESTADO_PAQUETE.CANCELADO,
+          cant_productos_reservados: 0,
+        },
+      });
+
+      const estadosConStockComprometido: number[] = [
+        ESTADO_PEDIDO.RESERVADO,
+        ESTADO_PEDIDO.EN_PREPARACION,
+        ESTADO_PEDIDO.EN_CAMINO,
+        ESTADO_PEDIDO.PAGADO,
+      ];
+
       for (const pedido of paquete.pedidos) {
-        if (pedido.estadoId === ESTADO_PEDIDO.PAGADO) {
-          if (paquete.tipo === 'ENERGICO') {
-            // Devolver stock físico para paquetes ENÉRGICO
-            for (const detalle of pedido.detalles) {
-              if (detalle.varianteId) {
-                await tx.productoVariante.update({
-                  where: { id: detalle.varianteId },
-                  data: { stockFisico: { increment: detalle.cantidad } }
-                });
-              } else {
-                await tx.producto.update({
-                  where: { id_producto: detalle.productoId },
-                  data: { stock: { increment: detalle.cantidad } }
-                });
-              }
+        if (estadosConStockComprometido.includes(pedido.estadoId)) {
+          for (const detalle of pedido.detalles) {
+            if (detalle.varianteId) {
+              await tx.productoVariante.update({
+                where: { id: detalle.varianteId },
+                data: { stockFisico: { increment: detalle.cantidad } },
+              });
+            } else {
+              await tx.producto.update({
+                where: { id_producto: detalle.productoId },
+                data: { stock: { increment: detalle.cantidad } },
+              });
             }
           }
         }
 
-        // Marcar pedido como Reembolsado (tanto Pagados como Pendientes)
         await tx.pedido.update({
           where: { id_pedido: pedido.id_pedido },
-          data: { estadoId: ESTADO_PEDIDO.REEMBOLSADO }
+          data: { estadoId: ESTADO_PEDIDO.CANCELADO },
         });
       }
     });
 
-    return { message: 'Paquete cancelado y dinero reembolsado', paqueteId };
+    return { message: 'Paquete cancelado y stock de reservas restaurado', paqueteId };
   }
 
   /**
-   * Reembolsa un pedido individual (usuario solicita devolución mientras el paquete está Activo).
+   * Reembolsa o cancela un pedido individual mientras el paquete está Activo.
+   * - Para paquetes SINÉRGICOS: reembolsa vía MP si estaba Pagado y pasa a Reembolsado.
+   * - Para paquetes ENÉRGICOS: si estaba Reservado, cancela la reserva, devuelve stock y cupos sin MP.
    */
   public async reembolsarPedidoIndividual(pedidoId: number, usuarioId: number) {
     const pedido = await this.prisma.pedido.findUnique({
@@ -528,22 +798,90 @@ export class PedidoPagoService {
             estadoId: true,
             tipo: true,
             cant_productos_reservados: true,
-          }
+          },
         },
         detalles: true,
-      }
+      },
     });
 
     if (!pedido) throw new CustomError('Pedido no encontrado', 404);
     if (pedido.usuarioId !== usuarioId) throw new CustomError('No autorizado', 403);
+
+    if (pedido.paquetePublicado.estadoId !== ESTADO_PAQUETE.ACTIVO) {
+      throw new CustomError('No se puede cancelar o solicitar reembolso: el paquete ya no está activo', 400);
+    }
+
+    if (pedido.paquetePublicado.tipo === 'ENERGICO') {
+      if (pedido.estadoId !== ESTADO_PEDIDO.RESERVADO) {
+        throw new CustomError('Solo se pueden cancelar pedidos en estado Reservado', 400);
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        const claim = await tx.pedido.updateMany({
+          where: { id_pedido: pedidoId, estadoId: ESTADO_PEDIDO.RESERVADO },
+          data: { estadoId: ESTADO_PEDIDO.CANCELADO },
+        });
+
+        if (claim.count === 0) {
+          throw new CustomError('El pedido ya no se encuentra en estado Reservado', 409);
+        }
+
+        let totalProductosPedido = 0;
+        for (const detalle of pedido.detalles) {
+          totalProductosPedido += detalle.cantidad;
+          if (detalle.varianteId) {
+            await tx.productoVariante.update({
+              where: { id: detalle.varianteId },
+              data: { stockFisico: { increment: detalle.cantidad } },
+            });
+          } else {
+            await tx.producto.update({
+              where: { id_producto: detalle.productoId },
+              data: { stock: { increment: detalle.cantidad } },
+            });
+          }
+        }
+
+        const nuevasReservas = Math.max(
+          0,
+          (pedido.paquetePublicado.cant_productos_reservados || 0) - totalProductosPedido
+        );
+        await tx.paquetePublicado.update({
+          where: { id_paquete_publicado: pedido.paquetePublicadoId },
+          data: { cant_productos_reservados: nuevasReservas },
+        });
+
+        const estadosActivosParaUsuarios = [
+          ESTADO_PEDIDO.PAGADO,
+          ESTADO_PEDIDO.RESERVADO,
+          ESTADO_PEDIDO.EN_PREPARACION,
+          ESTADO_PEDIDO.EN_CAMINO,
+          ESTADO_PEDIDO.RECIBIDO,
+        ];
+        const usuariosActivos = await tx.pedido.findMany({
+          where: {
+            paquetePublicadoId: pedido.paquetePublicadoId,
+            estadoId: { in: estadosActivosParaUsuarios },
+          },
+          select: { usuarioId: true },
+          distinct: ['usuarioId'],
+        });
+        await tx.paquetePublicado.update({
+          where: { id_paquete_publicado: pedido.paquetePublicadoId },
+          data: {
+            cant_usuarios_registrados: usuariosActivos.length,
+          },
+        });
+      });
+
+      return { message: 'Reserva cancelada correctamente y stock liberado', pedidoId };
+    }
+
+    // FLUJO SINÉRGICO
     if (pedido.estadoId !== ESTADO_PEDIDO.PAGADO) {
       throw new CustomError('Solo se pueden reembolsar pedidos en estado Pagado', 400);
     }
-    if (pedido.paquetePublicado.estadoId !== ESTADO_PAQUETE.ACTIVO) {
-      throw new CustomError('No se puede solicitar reembolso: el paquete ya no está activo', 400);
-    }
 
-    // Reembolsar vía MP
     if (pedido.paymentId) {
       try {
         await this.mercadoPagoService.reembolsarPago(Number(pedido.paymentId));
@@ -553,42 +891,49 @@ export class PedidoPagoService {
       }
     }
 
-    // Actualizar en transacción
     await this.prisma.$transaction(async (tx) => {
-      let totalProductosPedido = 0;
-
-      if (pedido.paquetePublicado.tipo === 'ENERGICO') {
-        for (const detalle of pedido.detalles) {
-          totalProductosPedido += detalle.cantidad;
-          if (detalle.varianteId) {
-            await tx.productoVariante.update({
-              where: { id: detalle.varianteId },
-              data: { stockFisico: { increment: detalle.cantidad } }
-            });
-          } else {
-            await tx.producto.update({
-              where: { id_producto: detalle.productoId },
-              data: { stock: { increment: detalle.cantidad } }
-            });
-          }
-        }
-      } else {
-        totalProductosPedido = pedido.detalles.reduce(
-          (sum: number, d: { cantidad: number }) => sum + d.cantidad, 0
-        );
+      const claim = await tx.pedido.updateMany({
+        where: { id_pedido: pedidoId, estadoId: ESTADO_PEDIDO.PAGADO },
+        data: { estadoId: ESTADO_PEDIDO.REEMBOLSADO },
+      });
+      if (claim.count === 0) {
+        throw new CustomError('El pedido ya no está en estado Pagado', 409);
       }
 
-      // Descontar del contador reservado de forma segura
-      const nuevasReservas = Math.max(0, (pedido.paquetePublicado.cant_productos_reservados || 0) - totalProductosPedido);
+      const totalProductosPedido = pedido.detalles.reduce(
+        (sum: number, d: { cantidad: number }) => sum + d.cantidad,
+        0
+      );
+
+      const nuevasReservas = Math.max(
+        0,
+        (pedido.paquetePublicado.cant_productos_reservados || 0) - totalProductosPedido
+      );
       await tx.paquetePublicado.update({
         where: { id_paquete_publicado: pedido.paquetePublicadoId },
-        data: { cant_productos_reservados: nuevasReservas }
+        data: { cant_productos_reservados: nuevasReservas },
       });
 
-      // Marcar pedido como Reembolsado
-      await tx.pedido.update({
-        where: { id_pedido: pedidoId },
-        data: { estadoId: ESTADO_PEDIDO.REEMBOLSADO }
+      const estadosActivosParaUsuarios = [
+        ESTADO_PEDIDO.PAGADO,
+        ESTADO_PEDIDO.RESERVADO,
+        ESTADO_PEDIDO.EN_PREPARACION,
+        ESTADO_PEDIDO.EN_CAMINO,
+        ESTADO_PEDIDO.RECIBIDO,
+      ];
+      const usuariosActivos = await tx.pedido.findMany({
+        where: {
+          paquetePublicadoId: pedido.paquetePublicadoId,
+          estadoId: { in: estadosActivosParaUsuarios },
+        },
+        select: { usuarioId: true },
+        distinct: ['usuarioId'],
+      });
+      await tx.paquetePublicado.update({
+        where: { id_paquete_publicado: pedido.paquetePublicadoId },
+        data: {
+          cant_usuarios_registrados: usuariosActivos.length,
+        },
       });
     });
 

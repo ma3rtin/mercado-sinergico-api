@@ -22,8 +22,14 @@ export class PedidoService {
     if (!pedido || !pedido.paquetePublicado) return pedido;
 
     const paquete = pedido.paquetePublicado;
-    // "Involucrados": Pagado (2), En preparación (4), En camino (5), Recibido (6)
-    const estadosActivos: number[] = [ESTADO_PEDIDO.PAGADO, ESTADO_PEDIDO.EN_PREPARACION, ESTADO_PEDIDO.EN_CAMINO, ESTADO_PEDIDO.RECIBIDO];
+    // "Involucrados": Pagado (2), En preparación (4), En camino (5), Recibido (6), Reservado (7)
+    const estadosActivos: number[] = [
+      ESTADO_PEDIDO.PAGADO,
+      ESTADO_PEDIDO.EN_PREPARACION,
+      ESTADO_PEDIDO.EN_CAMINO,
+      ESTADO_PEDIDO.RECIBIDO,
+      ESTADO_PEDIDO.RESERVADO,
+    ];
     const pedidosActivos = (paquete.pedidos || []).filter((p) => p.estadoId && estadosActivos.includes(p.estadoId as number));
 
     const usuariosIds = new Set(pedidosActivos.map((p) => p.usuario?.id || p.usuarioId));

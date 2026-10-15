@@ -5,6 +5,8 @@ export const ESTADO_PEDIDO = {
   EN_PREPARACION: 4,
   EN_CAMINO: 5,
   RECIBIDO: 6,
+  RESERVADO: 7,
+  CANCELADO: 8,
 } as const;
 
 export type EstadoPedido = typeof ESTADO_PEDIDO[keyof typeof ESTADO_PEDIDO];

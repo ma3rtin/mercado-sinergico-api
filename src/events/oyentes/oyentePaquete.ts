@@ -29,19 +29,25 @@ despachadorEventosApp.on(DespachadorEventos.PAQUETE_COMPLETO, async (paqueteId: 
             data: { estadoId: ESTADO_PAQUETE.COMPLETO },
         });
 
-        // Compradores con pedido Pagado
-        const pedidosPagados = await prisma.pedido.findMany({
-            where: { paquetePublicadoId: paqueteId, estadoId: ESTADO_PEDIDO.PAGADO },
+        // Compradores con pedido Pagado o Reservado
+        const pedidosActivos = await prisma.pedido.findMany({
+            where: {
+                paquetePublicadoId: paqueteId,
+                estadoId: { in: [ESTADO_PEDIDO.PAGADO, ESTADO_PEDIDO.RESERVADO] },
+            },
             include: { usuario: true },
         });
-        const correosCompradores = [...new Set(pedidosPagados.map(p => p.usuario.email))];
+        const correosCompradores = [...new Set(pedidosActivos.map(p => p.usuario.email))];
 
         if (correosCompradores.length > 0) {
             await emailService.enviarEmail({
                 para: correosCompradores,
                 asunto: `¡Grupo completo! - ${paquete.paqueteBase.nombre}`,
                 template: 'comprador-paquete-completo',
-                context: { nombrePaquete: paquete.paqueteBase.nombre },
+                context: {
+                    nombrePaquete: paquete.paqueteBase.nombre,
+                    esEnergico: paquete.tipo === 'ENERGICO',
+                },
             });
             console.log(`[Evento] Mail "paquete completo" enviado a ${correosCompradores.length} comprador/es.`);
         }

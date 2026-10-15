@@ -50,6 +50,12 @@ router.post(
 );
 
 router.post(
+  '/:pedidoId/confirmar-reserva',
+  authMiddleware,
+  controller.confirmarReserva
+);
+
+router.post(
   '/:pedidoId/solicitar-reembolso',
   authMiddleware,
   controller.solicitarReembolso

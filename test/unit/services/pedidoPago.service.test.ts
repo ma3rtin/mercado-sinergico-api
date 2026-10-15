@@ -45,7 +45,7 @@ describe("PedidoPagoService", () => {
     service = new PedidoPagoService(mercadoPagoService as never);
   });
 
-  it("permite iniciar pago para paquetes sin cupo limite si hay stock", async () => {
+  it("permite iniciar pago para paquetes SINERGICOS", async () => {
     mocks.mockPedidoFindUnique.mockResolvedValue({
       id_pedido: 1,
       usuarioId: 10,
@@ -56,16 +56,16 @@ describe("PedidoPagoService", () => {
           cantidad: 3,
           productoId: 2,
           producto: {
-            nombre: "Producto energetico",
-            tipo: "ENERGICO",
-            stock: 3,
+            nombre: "Producto sinergico",
+            tipo: "SINERGICO",
+            stock: null,
           },
           varianteId: null,
           variante: null,
         },
       ],
       paquetePublicado: {
-        tipo: "ENERGICO",
+        tipo: "SINERGICO",
         estadoId: ESTADO_PAQUETE.ACTIVO,
         cant_productos: null,
         cant_productos_reservados: 0,
@@ -76,6 +76,24 @@ describe("PedidoPagoService", () => {
     mercadoPagoService.crearPreferencia.mockResolvedValue({ id: "pref-1" });
 
     await expect(service.iniciarPago(1, 10)).resolves.toEqual({ id: "pref-1" });
+  });
+
+  it("iniciarPago rechaza paquetes ENERGICOS (usan reserva sin Mercado Pago)", async () => {
+    mocks.mockPedidoFindUnique.mockResolvedValue({
+      id_pedido: 1,
+      usuarioId: 10,
+      estadoId: ESTADO_PEDIDO.PENDIENTE,
+      monto_total: 300,
+      detalles: [],
+      paquetePublicado: {
+        tipo: "ENERGICO",
+        estadoId: ESTADO_PAQUETE.ACTIVO,
+      },
+    });
+
+    await expect(service.iniciarPago(1, 10)).rejects.toThrow(
+      "Los paquetes ENÉRGICOS se confirman como reserva con pago contra entrega, sin Mercado Pago."
+    );
   });
 
   it("iniciarPago rechaza un pedido cuyo estado no es Pendiente", async () => {
@@ -277,7 +295,7 @@ describe("PedidoPagoService", () => {
         },
       ],
       paquetePublicado: {
-        tipo: "ENERGICO",
+        tipo: "SINERGICO",
         estadoId: ESTADO_PAQUETE.ACTIVO,
         cant_productos: null,
         cant_productos_reservados: 0,
@@ -424,5 +442,267 @@ describe("PedidoPagoService", () => {
     await expect(service.confirmarPago(99)).rejects.toThrow(
       "El pedido contiene productos que ya no están disponibles en este paquete. Actualizá tu pedido antes de pagar."
     );
+  });
+
+  describe("confirmarReservaEnergica", () => {
+    it("confirma reserva exitosamente, descuenta stock físico atómicamente y actualiza pedido a RESERVADO", async () => {
+      mocks.mockPedidoFindUnique.mockResolvedValue({
+        id_pedido: 10,
+        usuarioId: 5,
+        estadoId: ESTADO_PEDIDO.PENDIENTE,
+        paquetePublicadoId: 50,
+        detalles: [
+          {
+            cantidad: 2,
+            productoId: 100,
+            varianteId: null,
+            producto: { id_producto: 100, nombre: "Item con stock", tipo: "ENERGICO", stock: 5 },
+          },
+        ],
+        paquetePublicado: {
+          id_paquete_publicado: 50,
+          tipo: "ENERGICO",
+          estadoId: ESTADO_PAQUETE.ACTIVO,
+          cant_productos: 10,
+          cant_productos_reservados: 2,
+          paqueteBaseId: 200,
+        },
+      });
+      mocks.mockPaqueteBaseProductoFindMany.mockResolvedValue([{ productoId: 100 }]);
+
+      const mockPaqueteUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+      const mockPedidoUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+      const mockProductoUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+      const tx = {
+        paquetePublicado: {
+          findUnique: jest.fn().mockResolvedValue({
+            id_paquete_publicado: 50,
+            tipo: "ENERGICO",
+            cant_productos: 10,
+            cant_productos_reservados: 2,
+            estadoId: ESTADO_PAQUETE.ACTIVO,
+            paqueteBaseId: 200,
+          }),
+          updateMany: mockPaqueteUpdateMany,
+          update: jest.fn().mockResolvedValue({}),
+        },
+        pedido: {
+          updateMany: mockPedidoUpdateMany,
+          findMany: jest.fn().mockResolvedValue([{ usuarioId: 5 }]),
+        },
+        producto: {
+          findUnique: jest.fn().mockResolvedValue({
+            id_producto: 100,
+            nombre: "Item con stock",
+            tipo: "ENERGICO",
+            stock: 5,
+          }),
+          updateMany: mockProductoUpdateMany,
+        },
+      };
+      mocks.mockTransaction.mockImplementation(async (callback) => callback(tx));
+
+      const res = await service.confirmarReservaEnergica(10, 5);
+
+      expect(res).toEqual({
+        ok: true,
+        pedidoId: 10,
+        estado: "RESERVADO",
+        mensaje: "Reserva confirmada. Pagás al recibirla.",
+      });
+      expect(mockPedidoUpdateMany).toHaveBeenCalledWith({
+        where: { id_pedido: 10, estadoId: ESTADO_PEDIDO.PENDIENTE },
+        data: { estadoId: ESTADO_PEDIDO.RESERVADO },
+      });
+      expect(mockProductoUpdateMany).toHaveBeenCalledWith({
+        where: { id_producto: 100, stock: { gte: 2 } },
+        data: { stock: { decrement: 2 } },
+      });
+      expect(mockPaqueteUpdateMany).toHaveBeenCalledWith({
+        where: {
+          id_paquete_publicado: 50,
+          cant_productos_reservados: { lte: 8 },
+        },
+        data: { cant_productos_reservados: { increment: 2 } },
+      });
+      expect(mercadoPagoService.crearPreferencia).not.toHaveBeenCalled();
+    });
+
+    it("rechaza si el paquete no es de tipo ENERGICO", async () => {
+      mocks.mockPedidoFindUnique.mockResolvedValue({
+        id_pedido: 10,
+        usuarioId: 5,
+        estadoId: ESTADO_PEDIDO.PENDIENTE,
+        paquetePublicado: {
+          tipo: "SINERGICO",
+          estadoId: ESTADO_PAQUETE.ACTIVO,
+        },
+        detalles: [{ cantidad: 1, productoId: 100 }],
+      });
+
+      await expect(service.confirmarReservaEnergica(10, 5)).rejects.toThrow(
+        "Solo los paquetes ENÉRGICOS pueden confirmarse como reserva sin pago anticipado."
+      );
+    });
+
+    it("rechaza si el stock físico es insuficiente", async () => {
+      mocks.mockPedidoFindUnique.mockResolvedValue({
+        id_pedido: 10,
+        usuarioId: 5,
+        estadoId: ESTADO_PEDIDO.PENDIENTE,
+        paquetePublicadoId: 50,
+        detalles: [
+          {
+            cantidad: 10,
+            productoId: 100,
+            varianteId: null,
+            producto: { id_producto: 100, nombre: "Item con stock", tipo: "ENERGICO", stock: 2 },
+          },
+        ],
+        paquetePublicado: {
+          id_paquete_publicado: 50,
+          tipo: "ENERGICO",
+          estadoId: ESTADO_PAQUETE.ACTIVO,
+          cant_productos: 20,
+          cant_productos_reservados: 0,
+          paqueteBaseId: 200,
+        },
+      });
+      mocks.mockPaqueteBaseProductoFindMany.mockResolvedValue([{ productoId: 100 }]);
+
+      const tx = {
+        paquetePublicado: {
+          findUnique: jest.fn().mockResolvedValue({
+            id_paquete_publicado: 50,
+            tipo: "ENERGICO",
+            cant_productos: 20,
+            cant_productos_reservados: 0,
+            estadoId: ESTADO_PAQUETE.ACTIVO,
+          }),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        pedido: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        producto: {
+          findUnique: jest.fn().mockResolvedValue({
+            id_producto: 100,
+            nombre: "Item con stock",
+            tipo: "ENERGICO",
+            stock: 2,
+          }),
+        },
+      };
+      mocks.mockTransaction.mockImplementation(async (callback) => callback(tx));
+
+      await expect(service.confirmarReservaEnergica(10, 5)).rejects.toThrow(
+        "Stock insuficiente para el producto Item con stock."
+      );
+    });
+  });
+
+  describe("cancelarPaqueteYReembolsar", () => {
+    it("para paquete ENERGICO: restaura stock y pasa a CANCELADO sin llamar a Mercado Pago", async () => {
+      const mockPaqueteFindUnique = jest.fn().mockResolvedValue({
+        id_paquete_publicado: 100,
+        tipo: "ENERGICO",
+        pedidos: [
+          {
+            id_pedido: 1,
+            estadoId: ESTADO_PEDIDO.RESERVADO,
+            paymentId: null,
+            detalles: [{ productoId: 50, varianteId: null, cantidad: 3 }],
+          },
+          {
+            id_pedido: 2,
+            estadoId: ESTADO_PEDIDO.PENDIENTE,
+            paymentId: null,
+            detalles: [{ productoId: 50, varianteId: null, cantidad: 1 }],
+          },
+        ],
+      });
+
+      // Modificamos temporalmente prisma para soportar paquetePublicado.findUnique
+      (service as any).prisma.paquetePublicado = {
+        findUnique: mockPaqueteFindUnique,
+      };
+
+      const mockProductoUpdate = jest.fn().mockResolvedValue({});
+      const mockPedidoUpdate = jest.fn().mockResolvedValue({});
+      const mockPaqueteUpdate = jest.fn().mockResolvedValue({});
+
+      const tx = {
+        paquetePublicado: { update: mockPaqueteUpdate },
+        producto: { update: mockProductoUpdate },
+        pedido: { update: mockPedidoUpdate },
+      };
+      mocks.mockTransaction.mockImplementation(async (callback) => callback(tx));
+
+      const result = await service.cancelarPaqueteYReembolsar(100);
+
+      expect(result.message).toContain("stock de reservas restaurado");
+      // Restauró stock solo para pedido 1 (RESERVADO), no para pedido 2 (PENDIENTE)
+      expect(mockProductoUpdate).toHaveBeenCalledTimes(1);
+      expect(mockProductoUpdate).toHaveBeenCalledWith({
+        where: { id_producto: 50 },
+        data: { stock: { increment: 3 } },
+      });
+      // Marcó ambos pedidos como CANCELADO
+      expect(mockPedidoUpdate).toHaveBeenCalledWith({
+        where: { id_pedido: 1 },
+        data: { estadoId: ESTADO_PEDIDO.CANCELADO },
+      });
+      expect(mockPedidoUpdate).toHaveBeenCalledWith({
+        where: { id_pedido: 2 },
+        data: { estadoId: ESTADO_PEDIDO.CANCELADO },
+      });
+      expect(mercadoPagoService.obtenerPago).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("reembolsarPedidoIndividual", () => {
+    it("para pedido ENERGICO en RESERVADO: cancela reserva y restaura stock sin llamar a MP", async () => {
+      mocks.mockPedidoFindUnique.mockResolvedValue({
+        id_pedido: 77,
+        usuarioId: 10,
+        estadoId: ESTADO_PEDIDO.RESERVADO,
+        paquetePublicadoId: 200,
+        detalles: [{ productoId: 88, varianteId: null, cantidad: 2 }],
+        paquetePublicado: {
+          estadoId: ESTADO_PAQUETE.ACTIVO,
+          tipo: "ENERGICO",
+          cant_productos_reservados: 5,
+        },
+      });
+
+      const mockPedidoUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+      const mockProductoUpdate = jest.fn().mockResolvedValue({});
+      const mockPaqueteUpdate = jest.fn().mockResolvedValue({});
+      const tx = {
+        pedido: {
+          updateMany: mockPedidoUpdateMany,
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+        producto: { update: mockProductoUpdate },
+        paquetePublicado: { update: mockPaqueteUpdate },
+      };
+      mocks.mockTransaction.mockImplementation(async (callback) => callback(tx));
+
+      const res = await service.reembolsarPedidoIndividual(77, 10);
+
+      expect(res.message).toContain("Reserva cancelada correctamente y stock liberado");
+      expect(mockPedidoUpdateMany).toHaveBeenCalledWith({
+        where: { id_pedido: 77, estadoId: ESTADO_PEDIDO.RESERVADO },
+        data: { estadoId: ESTADO_PEDIDO.CANCELADO },
+      });
+      expect(mockProductoUpdate).toHaveBeenCalledWith({
+        where: { id_producto: 88 },
+        data: { stock: { increment: 2 } },
+      });
+      expect(mockPaqueteUpdate).toHaveBeenCalledWith({
+        where: { id_paquete_publicado: 200 },
+        data: { cant_productos_reservados: 3 }, // 5 - 2
+      });
+    });
   });
 });
