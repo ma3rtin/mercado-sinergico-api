@@ -238,7 +238,7 @@ describe("ProductoService", () => {
       );
     });
 
-    it("debería aplicar filtros de categorías, marcas, precios y tipo de producto", async () => {
+    it("debería aplicar filtros de categorías, marcas y precios", async () => {
       const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
       await service.getAll(undefined, 0, 10, false, [1, 2], [3], 100, 500);
       expect(mockProductoFindMany).toHaveBeenCalledWith(
