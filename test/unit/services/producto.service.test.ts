@@ -1,5 +1,6 @@
 import { ProductoService } from "../../../src/services/producto.service";
 import { ProductoDTO } from "../../../src/dtos/producto/producto.dto";
+import { ESTADO_PAQUETE } from "../../../src/constants/estado-paquete";
 import { TipoPaquete } from "@prisma/client";
 import { Prisma } from "@prisma/client";
 
@@ -237,7 +238,7 @@ describe("ProductoService", () => {
       );
     });
 
-    it("debería aplicar filtros de categorías, marcas, precios y tipo de producto", async () => {
+    it("debería aplicar filtros de categorías, marcas y precios", async () => {
       const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
       await service.getAll(undefined, 0, 10, false, [1, 2], [3], 100, 500);
       expect(mockProductoFindMany).toHaveBeenCalledWith(
@@ -266,7 +267,7 @@ describe("ProductoService", () => {
       );
     });
 
-    it("debería mapear cantPaquetes contando paquetes publicados activos únicos por base", async () => {
+    it("debería mapear cantPaquetes sumando los paquetes publicados activos de cada base", async () => {
       const { mockProductoFindMany } = require("../../../src/prisma/client").__mocks;
       mockProductoFindMany.mockResolvedValue([
         {
@@ -278,6 +279,7 @@ describe("ProductoService", () => {
           imagen_url: null,
           plantillaId: null,
           archivado: false,
+          _count: { variantes: 0 },
           paquetes: [],
         },
         {
@@ -289,15 +291,11 @@ describe("ProductoService", () => {
           imagen_url: null,
           plantillaId: null,
           archivado: false,
+          _count: { variantes: 0 },
+          // @@unique([productoId, paqueteBaseId]) del schema impide que un
+          // producto repita la misma base: cada entrada es una base distinta.
           paquetes: [
             {
-              paqueteBase: {
-                id_paquete_base: 10,
-                _count: { publicados: 2 },
-              },
-            },
-            {
-              // Misma base repetida en otro PaqueteBaseProducto: no debe sumar de nuevo
               paqueteBase: {
                 id_paquete_base: 10,
                 _count: { publicados: 2 },
@@ -325,20 +323,24 @@ describe("ProductoService", () => {
       mockProductoFindMany.mockResolvedValue([
         {
           id_producto: 1, nombre: "Sin paquetes", precio: 10, tipo: "SINERGICO",
-          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+          stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          _count: { variantes: 0 }, paquetes: [],
         },
         {
           id_producto: 2, nombre: "Un paquete", precio: 20, tipo: "SINERGICO",
           stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          _count: { variantes: 0 },
           paquetes: [{ paqueteBase: { id_paquete_base: 10, _count: { publicados: 1 } } }],
         },
         {
           id_producto: 3, nombre: "Sin paquetes 2", precio: 30, tipo: "SINERGICO",
-          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+          stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          _count: { variantes: 0 }, paquetes: [],
         },
         {
           id_producto: 4, nombre: "Dos paquetes", precio: 40, tipo: "SINERGICO",
           stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          _count: { variantes: 0 },
           paquetes: [{ paqueteBase: { id_paquete_base: 11, _count: { publicados: 2 } } }],
         },
       ]);
@@ -359,16 +361,19 @@ describe("ProductoService", () => {
       mockProductoFindMany.mockResolvedValue([
         {
           id_producto: 1, nombre: "A-sin", precio: 10, tipo: "SINERGICO",
-          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+          stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          _count: { variantes: 0 }, paquetes: [],
         },
         {
           id_producto: 2, nombre: "B-con", precio: 20, tipo: "SINERGICO",
           stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          _count: { variantes: 0 },
           paquetes: [{ paqueteBase: { id_paquete_base: 10, _count: { publicados: 1 } } }],
         },
         {
           id_producto: 3, nombre: "C-sin", precio: 30, tipo: "SINERGICO",
-          stock: null, imagen_url: null, plantillaId: null, archivado: false, paquetes: [],
+          stock: null, imagen_url: null, plantillaId: null, archivado: false,
+          _count: { variantes: 0 }, paquetes: [],
         },
       ]);
 
@@ -394,6 +399,44 @@ describe("ProductoService", () => {
           }),
         })
       );
+    });
+  });
+
+  describe("construirWhereProductos", () => {
+    // El filtrado por archivado/categoría/marca/precio ya está cubierto por
+    // los tests de getAll y countAll (usan esta misma función); acá sólo lo
+    // que esos tests no pueden probar fácil: la regla de zona, y que ambos
+    // métodos efectivamente compartan el resultado.
+    const construir = (...args: any[]) => (service as any).construirWhereProductos(...args);
+
+    it("el filtro de zona exige estado ACTIVO, no archivado y fecha_fin vigente, y se aplica aunque venga includeArchived", () => {
+      const where = construir(undefined, true, undefined, undefined, undefined, undefined, [7]);
+      expect(where.paquetes.some.paqueteBase.publicados.some).toEqual({
+        estadoId: ESTADO_PAQUETE.ACTIVO,
+        archivado: false,
+        fecha_fin: { gte: expect.any(Date) },
+        zonaId: { in: [7] },
+      });
+    });
+
+    it("getAll y countAll arman el mismo where para los mismos parámetros (smoke test)", async () => {
+      // Reloj fijo: construirWhereProductos llama a `new Date()` una vez por
+      // invocación, y dos Date "iguales" a milisegundos de diferencia no
+      // pasan toEqual.
+      jest.useFakeTimers().setSystemTime(new Date("2024-01-01T00:00:00Z"));
+
+      const { mockProductoFindMany, mockProductoCount } = require("../../../src/prisma/client").__mocks;
+      mockProductoFindMany.mockResolvedValue([]);
+      mockProductoCount.mockResolvedValue(0);
+
+      await service.getAll(undefined, 0, 10, false, [1], [2], 100, 500, [7]);
+      await service.countAll(undefined, false, [1], [2], 100, 500, [7]);
+
+      const whereDeGetAll = mockProductoFindMany.mock.calls[0][0].where;
+      const whereDeCountAll = mockProductoCount.mock.calls[0][0].where;
+      expect(whereDeGetAll).toEqual(whereDeCountAll);
+
+      jest.useRealTimers();
     });
   });
 

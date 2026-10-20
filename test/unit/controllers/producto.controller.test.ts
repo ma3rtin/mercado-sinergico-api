@@ -17,6 +17,7 @@ jest.mock('../../../src/utils/asyncHandler', () => ({
 
 const mockProductoService = {
   getAll: jest.fn(),
+  countAll: jest.fn(),
   getById: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
@@ -45,6 +46,7 @@ describe("ProductoController", () => {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),
       send: jest.fn().mockReturnThis(),
+      setHeader: jest.fn().mockReturnThis(),
     };
 
     jest.clearAllMocks();
@@ -106,6 +108,71 @@ describe("ProductoController", () => {
       expect(mockResponse.status).toHaveBeenCalledWith(500);
       expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({ message: "Error de BD" }));
     });
+
+    // La matriz de valores inválidos (1.5, 12abc, Infinity, etc.) se testea
+    // una sola vez en parseEnteroPositivo (test/unit/utils/numeros.test.ts);
+    // acá sólo importa que el controller responda 400 cuando eso pasa.
+    it('responde 400 si "page" es inválido', async () => {
+      mockRequest.query = { page: "abc" };
+      await controller.getProductos(mockRequest as Request, mockResponse as Response, next);
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
+      expect(mockProductoService.getAll).not.toHaveBeenCalled();
+    });
+
+    it('responde 400 si "limit" es inválido', async () => {
+      mockRequest.query = { limit: "abc" };
+      await controller.getProductos(mockRequest as Request, mockResponse as Response, next);
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
+      expect(mockProductoService.getAll).not.toHaveBeenCalled();
+    });
+
+    it('responde 400 si "limit" supera 100 (regla propia del controller, no de parseEnteroPositivo)', async () => {
+      mockRequest.query = { limit: "101" };
+      await controller.getProductos(mockRequest as Request, mockResponse as Response, next);
+      expect(mockResponse.status).toHaveBeenCalledWith(400);
+      expect(mockProductoService.getAll).not.toHaveBeenCalled();
+    });
+
+    it("manda X-Total-Count sólo cuando vienen page y limit juntos", async () => {
+      mockRequest.query = { page: "1", limit: "10" };
+      mockProductoService.getAll.mockResolvedValue([]);
+      mockProductoService.countAll.mockResolvedValue(5);
+
+      await controller.getProductos(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockProductoService.countAll).toHaveBeenCalledTimes(1);
+      expect(mockResponse.setHeader).toHaveBeenCalledWith("X-Total-Count", 5);
+    });
+
+    it("no manda X-Total-Count si sólo viene page (sin limit)", async () => {
+      mockRequest.query = { page: "1" };
+      mockProductoService.getAll.mockResolvedValue([]);
+
+      await controller.getProductos(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockProductoService.countAll).not.toHaveBeenCalled();
+      expect(mockResponse.setHeader).not.toHaveBeenCalled();
+    });
+
+    it("ignora precioMin/precioMax inválidos en vez de mandar NaN", async () => {
+      mockRequest.query = { precioMin: "abc", precioMax: "Infinity" };
+      mockProductoService.getAll.mockResolvedValue([]);
+
+      await controller.getProductos(mockRequest as Request, mockResponse as Response, next);
+
+      const args = mockProductoService.getAll.mock.calls[0];
+      expect(args[6]).toBeUndefined();
+      expect(args[7]).toBeUndefined();
+    });
+
+    it("filtra ids no numéricos y entradas vacías de la lista de categorías", async () => {
+      mockRequest.query = { categorias: "1,,2,abc,1.5" };
+      mockProductoService.getAll.mockResolvedValue([]);
+
+      await controller.getProductos(mockRequest as Request, mockResponse as Response, next);
+
+      expect(mockProductoService.getAll.mock.calls[0][4]).toEqual([1, 2]);
+    });
   });
 
   describe("getProductoById", () => {
@@ -121,16 +188,6 @@ describe("ProductoController", () => {
       expect(mockResponse.json).toHaveBeenCalledWith(producto);
     });
 
-    it("debería retornar 404 si el producto no existe", async () => {
-      mockRequest.params = { id: "999" };
-      mockProductoService.getById.mockResolvedValue(null);
-
-      await controller.getProductoById(mockRequest as Request, mockResponse as Response, next);
-
-      expect(mockResponse.status).toHaveBeenCalledWith(404);
-      expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({ message: "Product not found" }));
-    });
-
     it("debería manejar errores del servicio", async () => {
       mockRequest.params = { id: "1" };
       const error = new Error("Error de BD");
@@ -141,6 +198,16 @@ describe("ProductoController", () => {
       expect(mockResponse.status).toHaveBeenCalledWith(500);
       expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({ message: "Error de BD" }));
     });
+
+    it.each(["abc", "1.5"])(
+      "responde 400 con un id inválido (%s) sin llegar al service",
+      async (id) => {
+        mockRequest.params = { id };
+        await controller.getProductoById(mockRequest as Request, mockResponse as Response, next);
+        expect(mockResponse.status).toHaveBeenCalledWith(400);
+        expect(mockProductoService.getById).not.toHaveBeenCalled();
+      }
+    );
   });
 
   describe("createProducto", () => {

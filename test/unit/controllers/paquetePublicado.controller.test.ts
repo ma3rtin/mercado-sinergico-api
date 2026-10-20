@@ -64,4 +64,30 @@ describe("PaquetePublicadoController", () => {
       expect(res.json).not.toHaveBeenCalled();
     });
   });
+
+  describe("getByProductId", () => {
+    it.each(["abc", "1.5"])(
+      "responde 400 con un id inválido (%s) sin llegar al service",
+      async (id) => {
+        req.params = { id };
+        (service as any).getByProductId = jest.fn();
+
+        await controller.getByProductId(req, res, next);
+
+        expect(res.status).toHaveBeenCalledWith(400);
+        expect((service as any).getByProductId).not.toHaveBeenCalled();
+      }
+    );
+
+    it("responde 200 con los paquetes del producto para un id válido", async () => {
+      req.params = { id: "5" };
+      (service as any).getByProductId = jest.fn().mockResolvedValue([{ id_paquete_publicado: 1 }]);
+
+      await controller.getByProductId(req, res, next);
+
+      expect((service as any).getByProductId).toHaveBeenCalledWith(5);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith([{ id_paquete_publicado: 1 }]);
+    });
+  });
 });

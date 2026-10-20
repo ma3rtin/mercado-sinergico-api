@@ -411,11 +411,12 @@ export class PaquetePublicadoService {
   }
 
   async getByProductId(productId: number) {
-    return this.prisma.paquetePublicado.findMany({
+    const paquetes = await this.prisma.paquetePublicado.findMany({
       where: {
         paqueteBase: { productos: { some: { productoId: productId } } },
         estadoId: ESTADO_PAQUETE.ACTIVO,
         archivado: false,
+        fecha_fin: { gte: new Date() },
       },
       include: {
         paqueteBase: { include: { marca: true, categoria: true } },
@@ -423,6 +424,8 @@ export class PaquetePublicadoService {
         estado: true,
       },
     });
+
+    return paquetes.map((p) => this._mapComputedFields(p as PaqueteComputable));
   }
 
   async getPorCerrarse() {

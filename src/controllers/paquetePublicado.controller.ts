@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { PaquetePublicadoService } from '../services/paquetePublicado.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { parseEnteroPositivo } from '../utils/numeros.js';
 import { CustomError } from '../errors/custom.error.js';
 
 export class PaquetePublicadoController {
@@ -155,9 +156,8 @@ export class PaquetePublicadoController {
 
   async getByProductId(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
-      const idNum = Number(id);
-      if (!id || isNaN(idNum)) {
+      const idNum = parseEnteroPositivo(req.params.id);
+      if (idNum === null) {
         return res.status(400).json({ message: 'ID de producto no proporcionado o inválido' });
       }
 
